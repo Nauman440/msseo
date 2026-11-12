@@ -16,7 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
       <footer className="border-t border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-page flex-col gap-3 px-4 py-6 text-[13px] text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <Logo tone="dark" />
+          <Logo tone="dark" height={36} />
           <p>Internal tool · Morosoft Technologies team only</p>
         </div>
       </footer>

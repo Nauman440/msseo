@@ -767,6 +767,7 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 | Hosting | Hostinger KVM 2 + Coolify, no local setup (§13) |
 | Scope | All 13 modules; 1–2 first (§16) |
 | Visual direction (2026-11-12) | Search Atlas-inspired (§9.6). `Main.dc.html` was never added to `design-reference/`, so §9.1 status colours stay; primary moves from blue to violet `#6D40BC`; headings use Inter Tight |
+| Brand (2026-11-12) | Official logo at `apps/web/public/brand/morosoft-logo.webp` (white text, for dark surfaces). `pnpm --filter @seo/web icons` derives the dark-text logo, the ring + rocket symbol, PWA icons and favicon from it. Accent colour = logo green `brand #30BC94` (replaces mint) |
 | Charts (2026-11-12) | Hand-built server-rendered SVG/CSS instead of Recharts: identical output on screen and in the Playwright PDF, no client JS, no zero-width ResponsiveContainer in print |
 | Print route (2026-11-12) | `app/(print)/audits/[auditId]/print` (own route group, no app chrome) rather than under `(app)` |
 | Design QA (2026-11-12) | Playwright e2e (`apps/web/e2e`) runs every page at desktop 1280 px and mobile 375 px: no horizontal overflow, no console errors, full-page screenshots attached to the report; runs in CI |

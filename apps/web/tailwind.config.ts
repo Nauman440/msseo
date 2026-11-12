@@ -28,7 +28,7 @@ const config: Config = {
           heading: '#2E1660',
           tint: '#B89BEE',
         },
-        mint: '#00E5BF',
+        brand: { DEFAULT: '#30BC94', deep: '#1F9E7A' },
         pass: { bg: '#DCFCE7', text: '#15803D' },
         fail: { bg: '#FEE2E2', text: '#B91C1C' },
         warn: { bg: '#FEF9C3', text: '#854D0E' },

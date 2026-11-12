@@ -16,8 +16,8 @@ export function ReportPreview({ report }: { report: ReportModel }) {
               {report.pagesCrawled} pages crawled · mobile field data
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/10 px-2.5 py-1 text-[11px] font-semibold text-mint">
-            <span className="size-1.5 rounded-full bg-mint" /> Completed
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-semibold text-brand">
+            <span className="size-1.5 rounded-full bg-brand" /> Completed
           </span>
         </div>
 

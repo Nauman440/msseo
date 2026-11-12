@@ -128,9 +128,9 @@ export function PdfNextSteps({ report }: { report: ReportModel }) {
       <div className="pdf-avoid mt-8 rounded-card bg-night p-7 text-white">
         <p className="font-display text-xl font-semibold tracking-tight">Next steps</p>
         <ol className="mt-4 space-y-2.5 text-sm leading-6 text-white/75">
-          <li><span className="mr-2 font-semibold text-mint">1.</span>Agree the fix list and order with {report.brand}.</li>
-          <li><span className="mr-2 font-semibold text-mint">2.</span>Critical and high issues are fixed first, usually within two weeks.</li>
-          <li><span className="mr-2 font-semibold text-mint">3.</span>We re-run this audit to confirm the improvement.</li>
+          <li><span className="mr-2 font-semibold text-brand">1.</span>Agree the fix list and order with {report.brand}.</li>
+          <li><span className="mr-2 font-semibold text-brand">2.</span>Critical and high issues are fixed first, usually within two weeks.</li>
+          <li><span className="mr-2 font-semibold text-brand">3.</span>We re-run this audit to confirm the improvement.</li>
         </ol>
       </div>
     </section>

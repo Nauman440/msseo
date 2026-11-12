@@ -23,7 +23,7 @@ export function AuditLauncher() {
         />
         <button
           type="submit"
-          className="h-12 shrink-0 rounded-full bg-mint px-6 text-sm font-semibold text-night transition hover:brightness-105"
+          className="h-12 shrink-0 rounded-full bg-brand px-6 text-sm font-semibold text-night transition hover:brightness-105"
         >
           Run audit
         </button>
@@ -35,7 +35,7 @@ export function AuditLauncher() {
         {AUDIENCES.map((a, i) => (
           <label key={a.value} className="group relative cursor-pointer">
             <input type="radio" name="audience" value={a.value} defaultChecked={i === 0} className="peer sr-only" />
-            <span className="inline-flex h-8 items-center rounded-full border border-white/[0.12] px-3.5 text-[13px] font-medium text-white/60 transition peer-checked:border-primary-tint/60 peer-checked:bg-primary/25 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-mint">
+            <span className="inline-flex h-8 items-center rounded-full border border-white/[0.12] px-3.5 text-[13px] font-medium text-white/60 transition peer-checked:border-primary-tint/60 peer-checked:bg-primary/25 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brand">
               {a.label}
             </span>
           </label>

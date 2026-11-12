@@ -15,12 +15,12 @@ export function PdfCover({ report, mode }: { report: ReportModel; mode: Audience
       <div className="bg-grid-night absolute inset-0 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]" />
       <div className="relative flex flex-1 flex-col px-[18mm] pb-[16mm] pt-[18mm]">
         <div className="flex items-center justify-between">
-          <Logo />
+          <Logo height={60} product={null} priority />
           <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">Confidential</span>
         </div>
 
         <div className="mt-[34mm]">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-mint">SEO audit report</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">SEO audit report</p>
           <h1 className="mt-4 font-display text-[44px] font-bold leading-[1.04] tracking-display">
             {report.project.name}
           </h1>

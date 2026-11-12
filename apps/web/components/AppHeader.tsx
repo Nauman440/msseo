@@ -12,8 +12,8 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-night-line bg-night print:hidden">
       <div className="mx-auto flex h-16 max-w-page items-center gap-8 px-4 sm:px-6">
-        <Link href="/" aria-label="Morosoft Audit home" className="rounded-control">
-          <Logo />
+        <Link href="/" aria-label="Morosoft SEO Audit home" className="rounded-control">
+          <Logo height={44} priority />
         </Link>
         <nav aria-label="Main" className="hidden md:block">
           <ul className="flex items-center gap-1">
@@ -30,7 +30,7 @@ export function AppHeader() {
           </ul>
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <ButtonLink href="/audits/new" variant="mint" className="min-h-9 px-4">
+          <ButtonLink href="/audits/new" variant="brand" className="min-h-9 px-4">
             New audit
           </ButtonLink>
           <span

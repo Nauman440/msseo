@@ -11,7 +11,7 @@ export function Hero({ report }: { report: ReportModel }) {
       <div className="relative mx-auto grid max-w-page grid-cols-1 gap-14 px-4 pb-20 pt-14 sm:px-6 md:pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:pb-28">
         <div>
           <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70">
-            <span className="size-1.5 rounded-full bg-mint" />
+            <span className="size-1.5 rounded-full bg-brand" />
             Technical + on-page audit · Modules 1–2
           </p>
           <h1 className="mt-6 font-display text-[40px] font-bold leading-[1.04] tracking-display text-white sm:text-[54px]">
@@ -31,7 +31,7 @@ export function Hero({ report }: { report: ReportModel }) {
             {SOURCES.map((s) => (
               <li key={s} className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M3 7.2 5.8 10 11 4" fill="none" stroke="#00E5BF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 7.2 5.8 10 11 4" fill="none" stroke="#30BC94" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {s}
               </li>
