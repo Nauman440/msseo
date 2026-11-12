@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(composer *)",
+      "Read(*)",
+      "Edit(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/wp-config.php)"
+    ]
+  },
+  "hooks": {
+    "preToolUse": [],
+    "postToolUse": []
+  }
+}

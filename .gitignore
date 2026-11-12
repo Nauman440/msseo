@@ -1,0 +1,25 @@
+# Claude Code local/personal files
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+
+# Dependencies / builds
+node_modules/
+.next/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Output
+output/
+*.log
+
+# Playwright
+playwright-report/
+test-results/

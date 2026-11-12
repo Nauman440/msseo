@@ -1,0 +1,100 @@
+/*
+ * A4 report layout used by the worker's Playwright `page.pdf({ preferCSSPageSize: true })`.
+ * Running footers use @page margin boxes (Chromium 131+). The footer's left text is
+ * injected per report via a <style> tag in the page so it carries the domain.
+ */
+
+@page {
+  size: A4;
+  margin: 16mm 15mm 18mm;
+
+  @bottom-right {
+    content: counter(page) ' / ' counter(pages);
+    font: 500 8pt var(--font-inter), sans-serif;
+    color: #7e7a9b;
+  }
+}
+
+@page cover {
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+html,
+body {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.pdf-cover {
+  page: cover;
+  width: 210mm;
+  height: 297mm;
+  break-after: page;
+  overflow: hidden;
+}
+
+.pdf-section {
+  break-before: page;
+}
+
+.pdf-avoid {
+  break-inside: avoid;
+}
+
+@media screen {
+  .pdf-doc {
+    background: #e7e5ee;
+    padding: 32px 16px 64px;
+  }
+
+  .pdf-cover,
+  .pdf-flow {
+    margin: 0 auto;
+    box-shadow: 0 1px 2px rgba(18, 11, 31, 0.06), 0 24px 48px -24px rgba(18, 11, 31, 0.3);
+  }
+
+  .pdf-flow {
+    width: 210mm;
+    max-width: 100%;
+    margin-top: 32px;
+    background: #fff;
+    padding: 16mm 15mm 18mm;
+  }
+
+  .pdf-section {
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px dashed #cfcadd;
+  }
+
+  @media (max-width: 820px) {
+    .pdf-cover {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 210 / 297;
+    }
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .pdf-doc {
+    background: none;
+    padding: 0;
+  }
+
+  .pdf-flow {
+    padding: 0;
+  }
+}

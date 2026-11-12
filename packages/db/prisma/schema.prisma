@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  member
+}
+
+enum Audience {
+  client
+  expert
+}
+
+enum AuditStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(member)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  audits       Audit[]
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  domain        String   @unique
+  gscProperty   String?
+  ga4Property   String?
+  templateRules Json?
+  businessName  String?
+  phone         String?
+  address       String?
+  serviceArea   Json?
+  services      String[]
+  gbpUrl        String?
+  createdAt     DateTime @default(now())
+  audits        Audit[]
+}
+
+model ApiUsage {
+  id        String   @id @default(cuid())
+  auditId   String?
+  provider  String
+  endpoint  String
+  units     Int
+  costUsd   Decimal?
+  createdAt DateTime @default(now())
+
+  @@index([provider, createdAt])
+}
+
+model GscConnection {
+  id              String   @id @default(cuid())
+  googleEmail     String
+  refreshTokenEnc String
+  scopes          String
+  createdAt       DateTime @default(now())
+}
+
+model Audit {
+  id             String          @id @default(cuid())
+  projectId      String
+  project        Project         @relation(fields: [projectId], references: [id])
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  url            String
+  audience       Audience
+  crawlLimit     Int
+  jsRendering    Boolean
+  gscProperty    String?
+  gscRangeDays   Int?
+  status         AuditStatus     @default(queued)
+  progress       Int             @default(0)
+  dfsTaskId      String?
+  pagesCrawled   Int?
+  overallScore   Int?
+  categoryScores Json?
+  report         Json?
+  pdfPath        String?
+  error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  steps          AuditStep[]
+  results        RuleResultRow[]
+  rawData        RawData[]
+
+  @@index([projectId, createdAt])
+}
+
+model AuditStep {
+  id         String    @id @default(cuid())
+  auditId    String
+  audit      Audit     @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  name       String
+  status     String
+  startedAt  DateTime?
+  finishedAt DateTime?
+  error      String?
+  meta       Json?
+
+  @@unique([auditId, name])
+}
+
+model RawData {
+  id        String   @id @default(cuid())
+  auditId   String
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  source    String
+  key       String
+  gz        Bytes
+  createdAt DateTime @default(now())
+
+  @@index([auditId, source])
+}
+
+model RuleResultRow {
+  id              String @id @default(cuid())
+  auditId         String
+  audit           Audit  @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  ruleId          String
+  status          String
+  severity        String
+  affectedCount   Int?
+  applicableCount Int?
+  metrics         Json?
+  examples        Json
+  message         Json
+
+  @@index([auditId])
+  @@index([ruleId])
+}
