@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
+import { DEFAULT_PAGE_LIMIT, PAGE_LIMIT_OPTIONS } from '@seo/core';
 import { parseMode } from '@/lib/reports';
 import { Field, Choice } from '@/components/forms/Field';
 
 export const metadata: Metadata = { title: 'New audit' };
-
-/** Placeholder values until the Setting table is wired (§4). */
-const CRAWL = { defaultLimit: 500, maxLimit: 2000 };
 
 type Props = { searchParams: Promise<{ url?: string; audience?: string }> };
 
@@ -40,12 +38,18 @@ export default async function NewAuditPage({ searchParams }: Props) {
         </fieldset>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <Field id="crawlLimit" label="Crawl limit" hint="Number of pages to crawl. Higher = slower and more API credits.">
-            <input id="crawlLimit" name="crawlLimit" type="number" min={1} max={CRAWL.maxLimit} defaultValue={CRAWL.defaultLimit} className={`${input} tabular`} />
+          <Field id="pageLimit" label="Page limit" hint="How many pages to audit. More pages take longer and use more API credits.">
+            <select id="pageLimit" name="pageLimit" defaultValue={DEFAULT_PAGE_LIMIT} className={`${input} tabular`}>
+              {PAGE_LIMIT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field id="gsc" label="Search Console property" hint="Search Console checks are skipped when none is selected.">
             <select id="gsc" name="gsc" className={input} defaultValue="">
-              <option value="">None — skip Search Console checks</option>
+              <option value="">None (skip these checks)</option>
             </select>
           </Field>
         </div>
@@ -57,6 +61,19 @@ export default async function NewAuditPage({ searchParams }: Props) {
             <span className="block text-[13px] text-ink-3">Turn on for sites built with page builders or JS frameworks.</span>
           </span>
         </label>
+
+        <div className="rounded-tile border border-primary/15 bg-primary-soft p-4 sm:p-5">
+          <Field id="notifyEmail" label="Email me the full report" hint="Optional. The full PDF report is sent here when the audit finishes.">
+            <input
+              id="notifyEmail"
+              name="notifyEmail"
+              type="email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              className={input}
+            />
+          </Field>
+        </div>
 
         <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] text-ink-3">Audit queue connects in Phase 1.</p>

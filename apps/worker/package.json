@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
     "start": "tsx src/index.ts",
-    "pdf:sample": "tsx src/pdf/render-sample.ts",
+    "pdf:sample": "tsx --env-file-if-exists=../../.env src/pdf/render-sample.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit"
   },

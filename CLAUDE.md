@@ -129,8 +129,8 @@ seo-audit-tool/
 ### Settings (admin, stored in `Setting` table)
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `crawl.defaultLimit` | 500 | Pre-filled crawl limit on the new-audit form |
-| `crawl.maxLimit` | 2000 | Hard cap; the form and API reject anything above it |
+| `crawl.defaultLimit` | 10 | Pre-selected page limit on the new-audit form |
+| `crawl.maxLimit` | 50 | Hard cap; the form and API reject anything above it |
 | `crawl.enableJsDefault` | true | JS rendering on by default |
 | `lighthouse.maxTemplates` | 6 | Max page templates to run Lighthouse on |
 | `audit.cacheHours` | 0 | If > 0, reuse a completed audit of the same URL + settings within N hours |
@@ -145,7 +145,8 @@ Fields:
 1. **Website URL** (required). Normalise: add https if missing, strip path to the origin for the crawl start but keep the entered URL for display.
 2. **Project** (select existing or "create new from this domain"). A project = one client domain.
 3. **Report for**: `Client` | `SEO expert` (required; radio).
-4. **Crawl limit**: number, default `crawl.defaultLimit`, max `crawl.maxLimit`. Show a short helper: "Number of pages to crawl. Higher = slower and more API credits."
+4. **Page limit**: dropdown with five ranges — 1–10, 11–20, 21–30, 31–40, 41–50 pages (stored as 10/20/30/40/50 in `Audit.crawlLimit`; options in `packages/core/src/audit-input.ts`). Default 1–10. Helper: "How many pages to audit. More pages take longer and use more API credits."
+4a. **Email me the full report**: optional email; when set, the client/expert PDF is emailed there when the audit completes (`Audit.notifyEmail`, sent by the worker after the `pdf` step; provider via `RESEND_API_KEY` / `EMAIL_FROM`).
 5. **JavaScript rendering**: toggle, default from settings. Helper: "Turn on for sites built with page builders or JS frameworks."
 6. **Search Console property**: dropdown. Options = properties from the connected Google account that match the domain, plus **"None — skip Search Console checks"** (default when nothing matches or GSC isn't connected).
 7. **Search Console date range**: last 28 / 90 days (only shown if a property is selected). Default 90.
@@ -533,10 +534,12 @@ Put these in `tailwind.config.ts` as named colours (`surface`, `border`, `ink`, 
 ### 9.4 Sections from the design that are hidden for now
 Behind `FEATURE_SALES_SECTIONS=false`: the "Run audit" hero form (replaced by our `/audits/new` page), pricing plans, sticky "Start fixing" bar, "Fix technical issues" / "Fix on-page issues" banners, email capture box. Keep their components so the public version can switch them on later.
 
-### 9.6 Visual direction (Search Atlas-inspired)
-- Dark violet-black surfaces (`night #0D0817`) with a soft violet glow (`.bg-aurora`) for the app header, homepage hero and PDF cover; light canvas `#F6F5FA` for working screens.
+### 9.6 Visual direction (Search Atlas layout, Morosoft orange)
+- Main colour orange: `primary #CF450A` (buttons, links, white text passes 4.5:1) and `brand #FF7A1A` (accents on dark, dark text on top). No green except pass/good status.
+- Warnings use red: severity ramp medium `#F87171` → high `#DC2626` → critical `#991B1B`; low/info neutral grey; pass `#15803D`.
+- Dark warm-black surfaces (`night #110D0B`) with a soft orange glow (`.bg-aurora`) for the app header, homepage hero and PDF cover; light warm canvas `#F7F6F4` for working screens.
 - Inter Tight 600–800 with tight tracking (`tracking-display`) for headings; Inter for body; tabular figures for every number.
-- Pill buttons (`rounded-full`), mint `#00E5BF` used sparingly as the single accent on dark surfaces (primary CTA, live dots).
+- Pill buttons (`rounded-full`); bright orange `brand` used sparingly on dark surfaces (primary CTA, live dots).
 - Tokens live in `apps/web/tailwind.config.ts`; status → colour mapping only in `apps/web/lib/tones.ts`.
 - PDF: A4 via `@page`, full-bleed dark cover, running footer (brand · domain, page n / total), each major section starts on a new page, cards never split.
 
@@ -748,7 +751,7 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 
 - DataForSEO: use the **sandbox** (`sandbox.dataforseo.com`) in development and tests; it returns sample data and does not charge. Production calls only from the worker.
 - Log each audit's estimated DataForSEO cost (pages × per-page price from config) on the audit; show monthly total in Settings.
-- Crawl limit capped by `crawl.maxLimit`.
+- Page limit capped at 50 (`crawl.maxLimit`).
 - PSI: max `lighthouse.maxTemplates × 2` calls per audit.
 - Claude API (Phase 4): max pages and tokens per audit in config.
 
@@ -767,7 +770,11 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 | Hosting | Hostinger KVM 2 + Coolify, no local setup (§13) |
 | Scope | All 13 modules; 1–2 first (§16) |
 | Visual direction (2026-11-12) | Search Atlas-inspired (§9.6). `Main.dc.html` was never added to `design-reference/`, so §9.1 status colours stay; primary moves from blue to violet `#6D40BC`; headings use Inter Tight |
-| Brand (2026-11-12) | Official logo at `apps/web/public/brand/morosoft-logo.webp` (white text, for dark surfaces). `pnpm --filter @seo/web icons` derives the dark-text logo, the ring + rocket symbol, PWA icons and favicon from it. Accent colour = logo green `brand #30BC94` (replaces mint) |
+| Brand (2026-11-12) | Official logo at `apps/web/public/brand/morosoft-logo.webp` (white text, for dark surfaces). `pnpm --filter @seo/web icons` derives the dark-text logo, the ring + rocket symbol, PWA icons and favicon from it. The logo keeps its own colours; the UI does not use its green |
+| Colours (2026-11-12, client request) | Orange main colour, red for warnings, green only for pass (§9.6). Replaces violet primary and green accent |
+| Page limit (2026-11-12, client request) | "Crawl limit" renamed "Page limit": dropdown of five ranges up to 50 pages (§5.1). Replaces the 500 default / 2,000 max |
+| Email report (2026-11-12, client request) | Optional "Email me the full report" field on the new-audit form (§5.1 4a) |
+| Local env (2026-11-12) | One `.env` at the repo root (copy of `.env.example`), loaded by `apps/web` (`@next/env` in next.config) and `apps/worker` (`--env-file-if-exists`). Never committed |
 | Charts (2026-11-12) | Hand-built server-rendered SVG/CSS instead of Recharts: identical output on screen and in the Playwright PDF, no client JS, no zero-width ResponsiveContainer in print |
 | Print route (2026-11-12) | `app/(print)/audits/[auditId]/print` (own route group, no app chrome) rather than under `(app)` |
 | Design QA (2026-11-12) | Playwright e2e (`apps/web/e2e`) runs every page at desktop 1280 px and mobile 375 px: no horizontal overflow, no console errors, full-page screenshots attached to the report; runs in CI |

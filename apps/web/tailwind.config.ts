@@ -1,8 +1,9 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Design tokens. Semantic status colours follow CLAUDE.md §9.1; brand surfaces,
- * primary and typography follow the Search Atlas-inspired direction (§9.6).
+ * Design tokens (CLAUDE.md §9.6). Orange is the main colour; warnings and failures
+ * use a red ramp (medium → high → critical); green is reserved for pass/good only.
+ * Chart keys are semantic so a palette change never touches components.
  */
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
@@ -14,34 +15,36 @@ const config: Config = {
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
-        canvas: '#F6F5FA',
+        canvas: '#F7F6F4',
         surface: '#FFFFFF',
-        sunken: '#F1EFF6',
-        border: { DEFAULT: '#E6E3EF', strong: '#CFCADD' },
-        ink: { DEFAULT: '#120B1F', 2: '#4A4560', 3: '#7E7A9B' },
-        night: { DEFAULT: '#0D0817', 2: '#170F29', 3: '#241A3B', line: '#2E2447' },
+        sunken: '#F2F0ED',
+        border: { DEFAULT: '#E8E4DF', strong: '#D4CDC6' },
+        ink: { DEFAULT: '#18120E', 2: '#4D4540', 3: '#857A72' },
+        night: { DEFAULT: '#110D0B', 2: '#1B1512', 3: '#2A211C', line: '#352A23' },
         primary: {
-          DEFAULT: '#6D40BC',
-          hover: '#5A30A6',
-          soft: '#F1EBFC',
-          text: '#5A30A6',
-          heading: '#2E1660',
-          tint: '#B89BEE',
+          // #CF450A keeps 4.6:1 contrast with white text on buttons.
+          DEFAULT: '#CF450A',
+          hover: '#B23B08',
+          soft: '#FFF1E8',
+          text: '#B23B08',
+          heading: '#7C2D12',
+          tint: '#FDBA8C',
         },
-        brand: { DEFAULT: '#30BC94', deep: '#1F9E7A' },
+        // Bright orange for accents on dark surfaces (dark text on top).
+        brand: { DEFAULT: '#FF7A1A', deep: '#E8590C' },
         pass: { bg: '#DCFCE7', text: '#15803D' },
-        fail: { bg: '#FEE2E2', text: '#B91C1C' },
-        warn: { bg: '#FEF9C3', text: '#854D0E' },
-        high: { bg: '#FFEDD5', text: '#C2410C' },
-        info: { bg: '#EEECF3', text: '#4A4560' },
+        warn: { bg: '#FEF2F2', text: '#C81E1E' },
+        high: { bg: '#FEE2E2', text: '#B91C1C' },
+        fail: { bg: '#FECACA', text: '#7F1D1D' },
+        info: { bg: '#EFECE8', text: '#4D4540' },
         chart: {
-          green: '#15803D',
-          yellow: '#CA8A04',
-          orange: '#EA580C',
-          red: '#DC2626',
-          violet: '#6D40BC',
-          track: '#E6E3EF',
-          neutral: '#A39FBA',
+          pass: '#15803D',
+          warn: '#F87171',
+          high: '#DC2626',
+          fail: '#991B1B',
+          primary: '#E8590C',
+          track: '#E8E4DF',
+          neutral: '#ADA49C',
         },
       },
       borderRadius: {
@@ -55,8 +58,8 @@ const config: Config = {
         page: '1120px',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(18, 11, 31, 0.04), 0 1px 1px rgba(18, 11, 31, 0.02)',
-        lift: '0 24px 60px -24px rgba(13, 8, 23, 0.45)',
+        card: '0 1px 2px rgba(24, 18, 14, 0.04), 0 1px 1px rgba(24, 18, 14, 0.02)',
+        lift: '0 24px 60px -24px rgba(17, 13, 11, 0.5)',
       },
       letterSpacing: {
         display: '-0.035em',

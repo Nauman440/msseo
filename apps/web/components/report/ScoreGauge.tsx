@@ -1,4 +1,4 @@
-import { TONE_HEX, cn, scoreTone } from '@/lib/tones';
+import { TONE_HEX, TRACK_HEX, cn, scoreTone } from '@/lib/tones';
 
 const SWEEP = 0.75; // 270° arc, open at the bottom
 
@@ -32,7 +32,7 @@ export function ScoreGauge({
               cy={size / 2}
               r={r}
               fill="none"
-              stroke={dark ? 'rgba(255,255,255,0.1)' : '#E6E3EF'}
+              stroke={dark ? 'rgba(255,255,255,0.1)' : TRACK_HEX}
               strokeWidth={stroke}
               strokeLinecap="round"
               strokeDasharray={`${arc} ${c}`}
@@ -42,7 +42,7 @@ export function ScoreGauge({
               cy={size / 2}
               r={r}
               fill="none"
-              stroke={dark && tone === 'primary' ? '#B89BEE' : TONE_HEX[tone]}
+              stroke={dark && tone === 'primary' ? '#FF7A1A' : TONE_HEX[tone]}
               strokeWidth={stroke}
               strokeLinecap="round"
               strokeDasharray={`${value} ${c}`}

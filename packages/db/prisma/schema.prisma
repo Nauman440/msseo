@@ -87,7 +87,8 @@ model Audit {
   createdBy      User            @relation(fields: [createdById], references: [id])
   url            String
   audience       Audience
-  crawlLimit     Int
+  crawlLimit     Int             // "Page limit" in the UI: 10 | 20 | 30 | 40 | 50
+  notifyEmail    String?         // "Email me the full report" (optional)
   jsRendering    Boolean
   gscProperty    String?
   gscRangeDays   Int?

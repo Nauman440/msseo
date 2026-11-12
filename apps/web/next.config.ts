@@ -1,4 +1,10 @@
+import { resolve } from 'node:path';
+import { loadEnvConfig } from '@next/env';
 import type { NextConfig } from 'next';
+
+// One .env at the repo root serves web and worker locally. On Coolify the variables
+// come from the environment and no file exists, so this is a no-op there.
+loadEnvConfig(resolve(process.cwd(), '../..'));
 
 const nextConfig: NextConfig = {
   // Standalone output needs symlinks, which Windows blocks without Developer Mode;

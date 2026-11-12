@@ -29,7 +29,7 @@ export function PdfSummary({ report, summary, mode }: { report: ReportModel; sum
   return (
     <section>
       <PdfHeading n="01" title="Executive summary" />
-      <p className="pdf-avoid border-l-[3px] border-chart-red pl-5 font-display text-lg font-medium leading-8 tracking-tight">
+      <p className="pdf-avoid border-l-[3px] border-chart-high pl-5 font-display text-lg font-medium leading-8 tracking-tight">
         {summary}
       </p>
       <div className="mt-8 grid grid-cols-2 gap-4">

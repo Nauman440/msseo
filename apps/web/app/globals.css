@@ -34,13 +34,13 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Soft violet glow used on dark surfaces (hero, PDF cover). */
+  /* Warm orange glow used on dark surfaces (hero, PDF cover). */
   .bg-aurora {
     background-color: theme('colors.night.DEFAULT');
     background-image:
-      radial-gradient(60% 80% at 85% 0%, rgba(109, 64, 188, 0.45) 0%, transparent 60%),
-      radial-gradient(40% 50% at 100% 100%, rgba(48, 188, 148, 0.14) 0%, transparent 70%),
-      radial-gradient(50% 60% at 0% 100%, rgba(184, 155, 238, 0.16) 0%, transparent 70%);
+      radial-gradient(60% 80% at 85% 0%, rgba(232, 89, 12, 0.38) 0%, transparent 60%),
+      radial-gradient(40% 50% at 100% 100%, rgba(255, 122, 26, 0.12) 0%, transparent 70%),
+      radial-gradient(50% 60% at 0% 100%, rgba(253, 186, 140, 0.1) 0%, transparent 70%);
   }
 
   /* Faint grid texture for dark sections. */

@@ -6,7 +6,7 @@ import { ScoreGauge } from '@/components/report/ScoreGauge';
 export function PdfCover({ report, mode }: { report: ReportModel; mode: Audience }) {
   const facts = [
     { label: 'Audit date', value: formatDate(report.crawledAt) },
-    { label: 'Pages crawled', value: report.pagesCrawled.toLocaleString('en-US') },
+    { label: 'Pages audited', value: report.pagesCrawled.toLocaleString('en-US') },
     { label: 'Report type', value: mode === 'client' ? 'Client summary' : 'Technical (SEO expert)' },
   ];
 

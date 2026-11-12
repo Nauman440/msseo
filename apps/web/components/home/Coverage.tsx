@@ -36,7 +36,7 @@ export function CategoryGrid() {
 }
 
 const STATUS_STYLE: Record<ModuleStatus, { label: string; dot: string; text: string }> = {
-  live: { label: 'Live', dot: 'bg-chart-green', text: 'text-pass-text' },
+  live: { label: 'Live', dot: 'bg-chart-pass', text: 'text-pass-text' },
   building: { label: 'Building now', dot: 'bg-primary', text: 'text-primary-text' },
   planned: { label: 'Planned', dot: 'bg-chart-neutral', text: 'text-ink-3' },
 };

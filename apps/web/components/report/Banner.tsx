@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/tones';
 
-/** `alert` = red hero summary; `soft` = violet CTA banner (sales variant is feature-flagged). */
+/** `alert` = red hero summary; `soft` = orange CTA banner (sales variant is feature-flagged). */
 export function Banner({
   variant,
   title,
@@ -27,7 +27,7 @@ export function Banner({
           aria-hidden="true"
           className={cn(
             'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white',
-            alert ? 'bg-chart-red' : 'bg-primary',
+            alert ? 'bg-chart-fail' : 'bg-primary',
           )}
         >
           {alert ? '!' : 'i'}

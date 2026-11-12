@@ -11,23 +11,26 @@ export const TONE_SOFT: Record<Tone, string> = {
 };
 
 export const TONE_FILL: Record<Tone, string> = {
-  pass: 'bg-chart-green',
-  warn: 'bg-chart-yellow',
-  high: 'bg-chart-orange',
-  fail: 'bg-chart-red',
+  pass: 'bg-chart-pass',
+  warn: 'bg-chart-warn',
+  high: 'bg-chart-high',
+  fail: 'bg-chart-fail',
   info: 'bg-chart-neutral',
-  primary: 'bg-chart-violet',
+  primary: 'bg-chart-primary',
 };
 
-/** Hex values for SVG strokes (SVG can't take Tailwind classes on stroke reliably in print). */
+/** Hex values for SVG strokes; must mirror `chart.*` in tailwind.config.ts. */
 export const TONE_HEX: Record<Tone, string> = {
   pass: '#15803D',
-  warn: '#CA8A04',
-  high: '#EA580C',
-  fail: '#DC2626',
-  info: '#A39FBA',
-  primary: '#6D40BC',
+  warn: '#F87171',
+  high: '#DC2626',
+  fail: '#991B1B',
+  info: '#ADA49C',
+  primary: '#E8590C',
 };
+
+/** Neutral ring/track colour for SVG charts (mirrors `chart.track`). */
+export const TRACK_HEX = '#E8E4DF';
 
 export const STATUS_TONE: Record<RuleStatus, Tone> = {
   pass: 'pass',
@@ -75,7 +78,7 @@ export const CWV_LABEL: Record<CwvRating, string> = {
   poor: 'Poor',
 };
 
-/** §9.2 CategoryBars: < 60 red/orange, 60–79 primary, ≥ 80 green. */
+/** §9.2 CategoryBars: < 45 dark red, 45–59 red, 60–79 orange (primary), ≥ 80 green. */
 export function scoreTone(score: number): Tone {
   if (score >= 80) return 'pass';
   if (score >= 60) return 'primary';

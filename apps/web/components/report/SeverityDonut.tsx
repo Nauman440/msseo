@@ -1,5 +1,5 @@
 import type { Severity } from '@seo/core';
-import { SEVERITY_LABEL, SEVERITY_TONE, TONE_HEX } from '@/lib/tones';
+import { SEVERITY_LABEL, SEVERITY_TONE, TONE_HEX, TRACK_HEX } from '@/lib/tones';
 
 type Counts = Record<Exclude<Severity, 'info'>, number>;
 
@@ -25,7 +25,7 @@ export function SeverityDonut({ counts, size = 132 }: { counts: Counts; size?: n
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${total} issues by severity`}>
           <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E6E3EF" strokeWidth={stroke} />
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={TRACK_HEX} strokeWidth={stroke} />
             {arcs.map((a) =>
               a.len > 0 ? (
                 <circle

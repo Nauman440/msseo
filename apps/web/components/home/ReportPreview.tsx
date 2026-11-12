@@ -13,7 +13,7 @@ export function ReportPreview({ report }: { report: ReportModel }) {
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{report.project.domain}</p>
             <p className="text-xs text-white/45 tabular">
-              {report.pagesCrawled} pages crawled · mobile field data
+              {report.pagesCrawled} pages audited · mobile field data
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-semibold text-brand">

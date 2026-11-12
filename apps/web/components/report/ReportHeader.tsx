@@ -32,7 +32,7 @@ function ModeSwitch({ auditId, mode }: { auditId: string; mode: Audience }) {
 export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audience }) {
   const meta = [
     { label: 'URL', value: report.url, mono: true },
-    { label: 'Pages crawled', value: `${report.pagesCrawled.toLocaleString('en-US')} of ${report.crawlLimit.toLocaleString('en-US')}` },
+    { label: 'Pages audited', value: `${report.pagesCrawled.toLocaleString('en-US')} of ${report.crawlLimit.toLocaleString('en-US')}` },
     { label: 'Crawled', value: formatDate(report.crawledAt) },
     { label: 'Search Console', value: report.gscProperty ?? 'Not used' },
   ];

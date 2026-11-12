@@ -17,10 +17,10 @@ export type RecentAudit = {
 };
 
 export const recentAudits: RecentAudit[] = [
-  { id: 'demo', project: 'Summit Air Heating & Cooling', domain: 'summitairhvac.com', audience: 'client', score: 58, status: 'completed', pages: 412, date: '2026-11-10' },
-  { id: 'a2', project: 'Brightline Plumbing', domain: 'brightlineplumbing.co', audience: 'expert', score: null, status: 'running', progress: 64, pages: 188, date: '2026-11-12' },
-  { id: 'a3', project: 'Cedar Ridge Roofing', domain: 'cedarridgeroof.com', audience: 'client', score: 81, status: 'completed', pages: 236, date: '2026-11-08' },
-  { id: 'a4', project: 'Polar Mechanical', domain: 'polarmech.net', audience: 'expert', score: 47, status: 'completed', pages: 500, date: '2026-11-05' },
+  { id: 'demo', project: 'Summit Air Heating & Cooling', domain: 'summitairhvac.com', audience: 'client', score: 58, status: 'completed', pages: 50, date: '2026-11-10' },
+  { id: 'a2', project: 'Brightline Plumbing', domain: 'brightlineplumbing.co', audience: 'expert', score: null, status: 'running', progress: 64, pages: 20, date: '2026-11-12' },
+  { id: 'a3', project: 'Cedar Ridge Roofing', domain: 'cedarridgeroof.com', audience: 'client', score: 81, status: 'completed', pages: 30, date: '2026-11-08' },
+  { id: 'a4', project: 'Polar Mechanical', domain: 'polarmech.net', audience: 'expert', score: 47, status: 'completed', pages: 50, date: '2026-11-05' },
   { id: 'a5', project: 'Northgate Electric', domain: 'northgate-electric.com', audience: 'client', score: null, status: 'failed', pages: 0, date: '2026-11-04' },
 ];
 
@@ -28,7 +28,7 @@ export const teamStats = [
   { value: '18', label: 'Audits this month', hint: '+6 vs October' },
   { value: '64', label: 'Average health score', hint: 'Across 11 projects' },
   { value: '23', label: 'Critical issues open', hint: '7 fixed this week' },
-  { value: '7,412', label: 'Pages crawled', hint: 'Limit 2,000 per audit' },
+  { value: '640', label: 'Pages audited', hint: 'Up to 50 per audit' },
 ];
 
 export type ModuleStatus = 'live' | 'building' | 'planned';

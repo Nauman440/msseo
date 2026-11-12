@@ -16,7 +16,7 @@ export function Hero({ report }: { report: ReportModel }) {
           </p>
           <h1 className="mt-6 font-display text-[40px] font-bold leading-[1.04] tracking-display text-white sm:text-[54px]">
             Find what&apos;s holding a site back.
-            <span className="mt-1 block bg-gradient-to-r from-primary-tint to-[#E2D6FA] bg-clip-text text-transparent">
+            <span className="mt-1 block bg-gradient-to-r from-primary-tint to-[#FFE0C7] bg-clip-text text-transparent">
               Fix it in order.
             </span>
           </h1>
@@ -31,7 +31,7 @@ export function Hero({ report }: { report: ReportModel }) {
             {SOURCES.map((s) => (
               <li key={s} className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M3 7.2 5.8 10 11 4" fill="none" stroke="#30BC94" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 7.2 5.8 10 11 4" fill="none" stroke="#FF7A1A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {s}
               </li>

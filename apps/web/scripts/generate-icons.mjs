@@ -14,8 +14,8 @@ const brandDir = resolve(root, 'public/brand');
 const iconDir = resolve(root, 'public/icons');
 mkdirSync(iconDir, { recursive: true });
 
-const NIGHT = '#0D0817';
-const INK = [18, 11, 31]; // tailwind ink #120B1F
+const NIGHT = '#110D0B';
+const INK = [24, 18, 14]; // tailwind ink #18120E
 const logoSrc = `data:image/webp;base64,${readFileSync(resolve(brandDir, 'morosoft-logo.webp')).toString('base64')}`;
 
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });

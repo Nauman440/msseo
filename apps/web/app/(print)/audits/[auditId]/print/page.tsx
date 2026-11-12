@@ -27,7 +27,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <style>{`@page { @bottom-left { content: ${cssString(footer)}; font: 500 8pt var(--font-inter), sans-serif; color: #7e7a9b; } }`}</style>
+      <style>{`@page { @bottom-left { content: ${cssString(footer)}; font: 500 8pt var(--font-inter), sans-serif; color: #857a72; } }`}</style>
       <PrintToolbar backHref={`/audits/${report.auditId}?mode=${mode}`} />
       <PdfCover report={report} mode={mode} />
       <div className="pdf-flow">

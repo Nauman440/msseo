@@ -11,6 +11,25 @@ test('homepage launcher pre-fills the new-audit form', async ({ page }) => {
   await expect(page.getByRole('radio', { name: /SEO expert report/ })).toBeChecked();
 });
 
+test('new-audit form offers five page-limit ranges and an optional report email', async ({ page }) => {
+  await page.goto('/audits/new');
+  const pageLimit = page.getByLabel('Page limit');
+  await expect(pageLimit.locator('option')).toHaveText([
+    '1–10 pages',
+    '11–20 pages',
+    '21–30 pages',
+    '31–40 pages',
+    '41–50 pages',
+  ]);
+  await expect(pageLimit).toHaveValue('10');
+  await pageLimit.selectOption('30');
+  await expect(pageLimit).toHaveValue('30');
+
+  const email = page.getByLabel('Email me the full report');
+  await expect(email).toHaveAttribute('type', 'email');
+  await expect(email).not.toHaveAttribute('required', '');
+});
+
 test('report switches between client and expert modes', async ({ page }) => {
   await page.goto('/audits/demo');
   const switcher = page.getByRole('navigation', { name: 'Report audience' });
