@@ -43,7 +43,7 @@ export default function ComponentsPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="StackedBar"><StackedBar segments={r.sitemap.segments} /></Card>
         <Card title="HBarList">{depth?.chart?.kind === 'hbar' && <HBarList rows={depth.chart.rows} />}</Card>
-        <Card title="CwvTile"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{r.cwv.metrics.map((m) => <CwvTile key={m.id} metric={m} />)}</div></Card>
+        <Card title="CwvTile"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{r.cwv?.metrics.map((m) => <CwvTile key={m.id} metric={m} />)}</div></Card>
         <Card title="StatTile"><div className="grid grid-cols-2 gap-3"><StatTile value="50" label="Pages audited" /><StatTile value="8" label="Error pages" hint="16% of pages" /></div></Card>
         <Card title="StatusRow"><ul>{r.robots.rows.map((row) => <StatusRow key={row.ruleId} row={row} mode="expert" />)}</ul></Card>
         <Card title="CodeBlock"><CodeBlock code={r.robots.suggested} label="Suggested robots.txt" /></Card>

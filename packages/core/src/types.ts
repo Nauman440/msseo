@@ -103,9 +103,11 @@ export type ReportModel = {
   categories: { id: Category; label: string; score: number }[];
   severityCounts: Record<Exclude<Severity, 'info'>, number>;
   pageHealth: { healthy: number; warnings: number; errors: number };
-  cwv: { source: 'field' | 'lab'; device: 'mobile'; metrics: CwvMetric[] };
+  cwv: { source: 'field' | 'lab'; device: 'mobile'; metrics: CwvMetric[] } | null;
   topIssues: TopIssue[];
   robots: { found: boolean; rows: CheckRow[]; suggested: string };
   sitemap: { found: boolean; url: string; rows: CheckRow[]; segments: Segment[] };
   cards: CheckCard[];
+  /** Caveats shown above the report, e.g. when pages could not be crawled. */
+  notices?: AudienceText[];
 };

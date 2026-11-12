@@ -1,13 +1,31 @@
 import type { ReactNode } from 'react';
 
-export function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  id,
+  label,
+  hint,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+}) {
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-sm font-semibold text-ink">
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1.5 text-[13px] leading-5 text-ink-3">{hint}</p>}
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="mt-1.5 text-[13px] font-medium leading-5 text-fail-text">
+          {error}
+        </p>
+      ) : (
+        hint && <p className="mt-1.5 text-[13px] leading-5 text-ink-3">{hint}</p>
+      )}
     </div>
   );
 }

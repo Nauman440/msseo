@@ -32,6 +32,11 @@ export function PdfSummary({ report, summary, mode }: { report: ReportModel; sum
       <p className="pdf-avoid border-l-[3px] border-chart-high pl-5 font-display text-lg font-medium leading-8 tracking-tight">
         {summary}
       </p>
+      {report.notices?.map((n) => (
+        <p key={n.expert} className="pdf-avoid mt-4 rounded-tile bg-primary-soft px-4 py-3 text-sm leading-6 text-primary-text">
+          {n[mode]}
+        </p>
+      ))}
       <div className="mt-8 grid grid-cols-2 gap-4">
         <Card title="Score by category">
           <CategoryBars categories={report.categories} />
@@ -51,13 +56,15 @@ export function PdfSummary({ report, summary, mode }: { report: ReportModel; sum
           </Card>
         </div>
       </div>
-      <Card title="Core Web Vitals" eyebrow={`Mobile · ${report.cwv.source === 'field' ? 'real-user field data' : 'lab data'}`} className="mt-4">
-        <div className="grid grid-cols-3 gap-3">
-          {report.cwv.metrics.map((m) => (
-            <CwvTile key={m.id} metric={m} />
-          ))}
-        </div>
-      </Card>
+      {report.cwv && (
+        <Card title="Core Web Vitals" eyebrow={`Mobile homepage · ${report.cwv.source === 'field' ? 'real-user field data' : 'lab data'}`} className="mt-4">
+          <div className="grid grid-cols-3 gap-3">
+            {report.cwv.metrics.map((m) => (
+              <CwvTile key={m.id} metric={m} />
+            ))}
+          </div>
+        </Card>
+      )}
       {mode === 'client' && (
         <p className="mt-6 text-xs leading-5 text-ink-3">
           Scores run from 0 to 100. 90+ is good, 70–89 needs work, 50–69 is poor and under 50 is critical.
@@ -104,7 +111,11 @@ export function PdfChecks({ report, mode }: { report: ReportModel; mode: Audienc
       </section>
       <section className="pdf-section">
         <PdfHeading n="04" title="On-page SEO" intro="How well each page tells search engines and visitors what it is about." />
-        <PdfCheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode={mode} />
+        {report.cards.some((c) => c.section === 'onpage') ? (
+          <PdfCheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode={mode} />
+        ) : (
+          <p className="text-sm text-ink-2">No pages could be read, so on-page checks did not run. See the note in the summary.</p>
+        )}
       </section>
     </>
   );

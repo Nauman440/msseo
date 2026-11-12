@@ -35,7 +35,7 @@ export function RecentAudits({ audits }: { audits: RecentAudit[] }) {
     <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
       <ul className="divide-y divide-border">
         {audits.map((a) => {
-          const openable = a.status === 'completed' && a.id === 'demo';
+          const openable = Boolean(a.href);
           return (
             <li
               key={a.id}
@@ -46,7 +46,7 @@ export function RecentAudits({ audits }: { audits: RecentAudit[] }) {
             >
               <div className="min-w-0">
                 {openable ? (
-                  <Link href={`/audits/${a.id}`} className="font-semibold after:absolute after:inset-0 hover:text-primary-text">
+                  <Link href={a.href!} className="font-semibold after:absolute after:inset-0 hover:text-primary-text">
                     {a.project}
                   </Link>
                 ) : (

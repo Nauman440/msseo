@@ -33,31 +33,35 @@ export function ReportOverview({ report, mode }: { report: ReportModel; mode: Au
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title="Page health" badge={<span className="text-[13px] text-ink-3 tabular">{total} pages</span>}>
-          <p className="mb-5 font-display text-[40px] font-bold leading-none tracking-display tabular">
-            {Math.round((healthy / Math.max(1, total)) * 100)}%
-            <span className="ml-2 text-sm font-medium tracking-normal text-ink-3">healthy</span>
-          </p>
-          <StackedBar
-            segments={[
-              { label: 'Healthy', value: healthy, tone: 'pass' },
-              { label: 'Warnings', value: warnings, tone: 'warn' },
-              { label: 'Errors', value: errors, tone: 'fail' },
-            ]}
-          />
-        </Card>
-        <Card
-          title="Core Web Vitals"
-          eyebrow="Mobile"
-          badge={<TonePill tone={report.cwv.source === 'field' ? 'primary' : 'info'}>{report.cwv.source === 'field' ? 'Field data' : 'Lab data'}</TonePill>}
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {report.cwv.metrics.map((m) => (
-              <CwvTile key={m.id} metric={m} />
-            ))}
-          </div>
-        </Card>
+      <div className={report.cwv && total > 0 ? 'grid grid-cols-1 gap-6 lg:grid-cols-2' : 'grid grid-cols-1 gap-6'}>
+        {total > 0 && (
+          <Card title="Page health" badge={<span className="text-[13px] text-ink-3 tabular">{total} pages</span>}>
+            <p className="mb-5 font-display text-[40px] font-bold leading-none tracking-display tabular">
+              {Math.round((healthy / Math.max(1, total)) * 100)}%
+              <span className="ml-2 text-sm font-medium tracking-normal text-ink-3">healthy</span>
+            </p>
+            <StackedBar
+              segments={[
+                { label: 'Healthy', value: healthy, tone: 'pass' },
+                { label: 'Warnings', value: warnings, tone: 'warn' },
+                { label: 'Errors', value: errors, tone: 'fail' },
+              ]}
+            />
+          </Card>
+        )}
+        {report.cwv && (
+          <Card
+            title="Core Web Vitals"
+            eyebrow="Mobile · homepage"
+            badge={<TonePill tone={report.cwv.source === 'field' ? 'primary' : 'info'}>{report.cwv.source === 'field' ? 'Field data' : 'Lab data'}</TonePill>}
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {report.cwv.metrics.map((m) => (
+                <CwvTile key={m.id} metric={m} />
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
       <Card title="Top issues to fix first" eyebrow={mode === 'expert' ? 'Sorted by ICE priority' : 'Biggest impact first'}>

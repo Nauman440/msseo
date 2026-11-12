@@ -23,3 +23,6 @@ output/
 # Playwright
 playwright-report/
 test-results/
+
+# Local audit data (in-process runner)
+.data/

@@ -14,10 +14,12 @@ export type RecentAudit = {
   progress?: number;
   pages: number;
   date: string;
+  /** Set when the row can be opened (real audits and the demo). */
+  href?: string;
 };
 
 export const recentAudits: RecentAudit[] = [
-  { id: 'demo', project: 'Summit Air Heating & Cooling', domain: 'summitairhvac.com', audience: 'client', score: 58, status: 'completed', pages: 50, date: '2026-11-10' },
+  { id: 'demo', project: 'Summit Air Heating & Cooling', domain: 'summitairhvac.com', audience: 'client', score: 58, status: 'completed', pages: 50, date: '2026-11-10', href: '/audits/demo' },
   { id: 'a2', project: 'Brightline Plumbing', domain: 'brightlineplumbing.co', audience: 'expert', score: null, status: 'running', progress: 64, pages: 20, date: '2026-11-12' },
   { id: 'a3', project: 'Cedar Ridge Roofing', domain: 'cedarridgeroof.com', audience: 'client', score: 81, status: 'completed', pages: 30, date: '2026-11-08' },
   { id: 'a4', project: 'Polar Mechanical', domain: 'polarmech.net', audience: 'expert', score: 47, status: 'completed', pages: 50, date: '2026-11-05' },

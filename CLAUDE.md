@@ -775,6 +775,8 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 | Page limit (2026-11-12, client request) | "Crawl limit" renamed "Page limit": dropdown of five ranges up to 50 pages (§5.1). Replaces the 500 default / 2,000 max |
 | Email report (2026-11-12, client request) | Optional "Email me the full report" field on the new-audit form (§5.1 4a) |
 | Local env (2026-11-12) | One `.env` at the repo root (copy of `.env.example`), loaded by `apps/web` (`@next/env` in next.config) and `apps/worker` (`--env-file-if-exists`). Never committed |
+| Local audit runner (2026-11-12) | Without REDIS_URL/DATABASE_URL, audits run inside the web process (`apps/web/lib/audit-runner.ts`) and are stored as JSON in `.data/audits/` (git-ignored). Same `runAudit()` from `@seo/core` will run in `apps/worker` once Redis/Postgres exist |
+| Crawl fallback (2026-11-12) | If the link crawl returns 0 HTML pages: retry crawling sitemap URLs, then with a browser user agent + alternate proxy pool. If still 0, the report is built from site-level checks with a notice — never a fake pass. Page-scope rules with 0 pages are "not applicable" |
 | Charts (2026-11-12) | Hand-built server-rendered SVG/CSS instead of Recharts: identical output on screen and in the Playwright PDF, no client JS, no zero-width ResponsiveContainer in print |
 | Print route (2026-11-12) | `app/(print)/audits/[auditId]/print` (own route group, no app chrome) rather than under `(app)` |
 | Design QA (2026-11-12) | Playwright e2e (`apps/web/e2e`) runs every page at desktop 1280 px and mobile 375 px: no horizontal overflow, no console errors, full-page screenshots attached to the report; runs in CI |

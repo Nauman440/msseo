@@ -4,7 +4,8 @@ import type { NextConfig } from 'next';
 
 // One .env at the repo root serves web and worker locally. On Coolify the variables
 // come from the environment and no file exists, so this is a no-op there.
-loadEnvConfig(resolve(process.cwd(), '../..'));
+// forceReload: Next has already loaded (and cached) env from apps/web by this point.
+loadEnvConfig(resolve(process.cwd(), '../..'), process.env.NODE_ENV !== 'production', undefined, true);
 
 const nextConfig: NextConfig = {
   // Standalone output needs symlinks, which Windows blocks without Developer Mode;

@@ -3,7 +3,26 @@ import { Hero } from '@/components/home/Hero';
 import { RecentAudits } from '@/components/home/RecentAudits';
 import { CategoryGrid, ModuleRoadmap } from '@/components/home/Coverage';
 import { StatTile } from '@/components/ui/StatTile';
-import { modules, recentAudits, teamStats } from '@/lib/home-data';
+import { modules, recentAudits, teamStats, type RecentAudit } from '@/lib/home-data';
+import { listAudits, type AuditRecord } from '@/lib/audit-store';
+
+export const dynamic = 'force-dynamic';
+
+function toRow(r: AuditRecord): RecentAudit {
+  const host = new URL(r.input.url).hostname.replace(/^www\./, '');
+  return {
+    id: r.id,
+    project: host,
+    domain: r.input.url,
+    audience: r.input.audience,
+    score: r.report?.overall.score ?? null,
+    status: r.status,
+    progress: r.progress,
+    pages: r.report?.pagesCrawled ?? 0,
+    date: r.createdAt.slice(0, 10),
+    href: `/audits/${r.id}`,
+  };
+}
 
 function SectionHeading({ eyebrow, title, aside }: { eyebrow: string; title: string; aside?: React.ReactNode }) {
   return (
@@ -17,7 +36,10 @@ function SectionHeading({ eyebrow, title, aside }: { eyebrow: string; title: str
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const real = (await listAudits(10)).map(toRow);
+  // Real audits first; the demo row stays so the sample report is always one click away.
+  const rows = real.length ? [...real, recentAudits[0]!] : recentAudits;
   return (
     <>
       <Hero report={sampleReport} />
@@ -33,9 +55,9 @@ export default function HomePage() {
           <SectionHeading
             eyebrow="Recent audits"
             title="Latest runs across your projects"
-            aside={<p className="text-[13px] text-ink-3">Sample data until the database is connected</p>}
+            aside={<p className="text-[13px] text-ink-3">{real.length ? 'Your audits, plus the sample report' : 'Sample data — run an audit to see yours here'}</p>}
           />
-          <RecentAudits audits={recentAudits} />
+          <RecentAudits audits={rows} />
         </section>
 
         <section className="pt-20">
