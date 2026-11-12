@@ -12,7 +12,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "pdf:sample": "pnpm --filter @seo/worker pdf:sample",
-    "test:e2e": "pnpm --filter @seo/web test:e2e"
+    "test:e2e": "pnpm --filter @seo/web test:e2e",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

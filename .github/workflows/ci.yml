@@ -31,6 +31,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+      - run: node scripts/check-secrets.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @seo/db generate
       - run: pnpm lint
