@@ -1,0 +1,12 @@
+# Keep build context small and never ship secrets or local data into images.
+**/node_modules
+**/.next
+**/.turbo
+.git
+.data
+output
+**/playwright-report
+**/test-results
+.env
+.env.*
+!.env.example

@@ -1,5 +1,8 @@
 # Built by Coolify from the repo root: docker build -f apps/web/Dockerfile .
-FROM node:20-alpine AS base
+# The web app renders PDFs with Playwright (app/api/audits/[id]/pdf), so the runtime
+# image is Playwright's: Chromium + fonts. Keep the tag in step with `playwright`
+# in pnpm-lock.yaml (same as apps/worker/Dockerfile).
+FROM mcr.microsoft.com/playwright:v1.65.0-noble AS base
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /repo
 
@@ -9,13 +12,17 @@ RUN pnpm install --frozen-lockfile
 ENV NEXT_TELEMETRY_DISABLED=1 NEXT_OUTPUT_STANDALONE=1
 RUN pnpm --filter @seo/web build
 
-FROM node:20-alpine AS run
+FROM mcr.microsoft.com/playwright:v1.65.0-noble AS run
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN addgroup -S app && adduser -S app -G app
-COPY --from=build --chown=app:app /repo/apps/web/.next/standalone ./
-COPY --from=build --chown=app:app /repo/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build --chown=app:app /repo/apps/web/public ./apps/web/public
-USER app
+# DATA_DIR holds the audit JSON files until Postgres is wired in (Phase 1).
+# Mount a Coolify persistent volume at /data so audits survive redeploys.
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data
+RUN mkdir -p /data && chown pwuser:pwuser /data
+COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/standalone ./
+COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=pwuser:pwuser /repo/apps/web/public ./apps/web/public
+USER pwuser
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["node", "apps/web/server.js"]
