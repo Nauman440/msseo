@@ -17,7 +17,8 @@ FROM mcr.microsoft.com/playwright:v1.65.0-noble AS run
 WORKDIR /app
 # DATA_DIR holds the audit JSON files until Postgres is wired in (Phase 1).
 # Mount a Coolify persistent volume at /data so audits survive redeploys.
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data
+# REQUIRE_PREVIEW_PASSWORD makes the app refuse traffic until PREVIEW_PASSWORD is set.
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data REQUIRE_PREVIEW_PASSWORD=1
 RUN mkdir -p /data && chown pwuser:pwuser /data
 COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/static ./apps/web/.next/static

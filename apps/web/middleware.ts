@@ -6,7 +6,14 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 export function middleware(req: NextRequest) {
   const password = process.env.PREVIEW_PASSWORD;
-  if (!password) return NextResponse.next();
+  if (!password) {
+    // Fail closed on servers: the Docker image sets REQUIRE_PREVIEW_PASSWORD=1, so a
+    // deploy that forgot the password shows this instead of opening the app.
+    if (process.env.REQUIRE_PREVIEW_PASSWORD === '1') {
+      return new NextResponse('Not configured: set PREVIEW_PASSWORD in the server environment and redeploy.', { status: 503 });
+    }
+    return NextResponse.next();
+  }
 
   const header = req.headers.get('authorization') ?? '';
   const [scheme, encoded] = header.split(' ');
