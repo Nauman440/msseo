@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   // Standalone output needs symlinks, which Windows blocks without Developer Mode;
   // the Dockerfile sets this so production images stay small.
   output: process.env.NEXT_OUTPUT_STANDALONE === '1' ? 'standalone' : undefined,
+  // Monorepo root, so the standalone build is laid out as apps/web/server.js
+  // (what apps/web/Dockerfile runs) and workspace packages are traced.
+  outputFileTracingRoot: resolve(process.cwd(), '../..'),
   transpilePackages: ['@seo/core'],
   // Playwright launches a browser binary; it must stay a runtime require, not be bundled.
   serverExternalPackages: ['playwright', 'playwright-core'],

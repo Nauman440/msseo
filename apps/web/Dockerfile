@@ -3,7 +3,8 @@
 # image is Playwright's: Chromium + fonts. Keep the tag in step with `playwright`
 # in pnpm-lock.yaml (same as apps/worker/Dockerfile).
 FROM mcr.microsoft.com/playwright:v1.65.0-noble AS base
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# Corepack is no longer bundled with newer Node releases; install pnpm directly.
+RUN npm install -g pnpm@9.15.0
 WORKDIR /repo
 
 FROM base AS build
