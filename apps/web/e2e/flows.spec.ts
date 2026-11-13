@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-test('homepage launcher pre-fills the new-audit form', async ({ page }) => {
-  await page.goto('/');
+test('dashboard launcher pre-fills the new-audit form', async ({ page }) => {
+  await page.goto('/dashboard');
   await page.getByLabel('Website URL').fill('clientsite.com');
   await page.getByRole('group', { name: 'Report for' }).getByText('SEO expert', { exact: true }).click();
   await page.getByRole('button', { name: 'Run audit' }).click();
@@ -73,4 +73,14 @@ test('PDF and Markdown downloads are generated on the server', async ({ request 
 test('unknown audit returns 404', async ({ page }) => {
   const res = await page.goto('/audits/does-not-exist');
   expect(res?.status()).toBe(404);
+});
+
+test('landing page is public, indexable and sends the URL into the audit tool', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /index, follow/);
+  await expect(page.getByText('Coming soon').first()).toBeVisible();
+  await page.getByLabel('Enter your website to start').fill('clientsite.com');
+  await page.getByRole('button', { name: 'Show me what to fix' }).click();
+  await expect(page).toHaveURL(/\/audits\/new\?url=clientsite\.com/);
+  await expect(page.getByLabel('Website URL')).toHaveValue('clientsite.com');
 });

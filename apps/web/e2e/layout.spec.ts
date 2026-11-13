@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 /** Every page must render without errors or sideways scroll on desktop and mobile (§9.5). */
 const ROUTES = [
-  { path: '/', heading: /holding a site back/i },
+  { path: '/', heading: /Get more customers from Google/i },
+  { path: '/dashboard', heading: /holding a site back/i },
   { path: '/audits/demo', heading: 'summitairhvac.com' },
   { path: '/audits/demo?mode=expert', heading: 'summitairhvac.com' },
   { path: '/audits/new', heading: 'Audit a website' },
@@ -32,7 +33,7 @@ for (const route of ROUTES) {
 
 test('interactive elements meet the 40px minimum tap size', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'tap targets matter on touch devices');
-  for (const path of ['/', '/audits/demo', '/audits/new']) {
+  for (const path of ['/', '/dashboard', '/audits/demo', '/audits/new']) {
     await page.goto(path);
     const small = await page.$$eval('main button, main [role="button"], main input[type="submit"]', (els) =>
       els

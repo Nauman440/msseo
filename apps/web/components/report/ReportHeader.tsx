@@ -43,10 +43,10 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
   return (
     <div className="border-b border-border bg-surface">
       <div className="mx-auto max-w-page px-4 py-8 sm:px-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5">
           <div className="min-w-0">
             <p className="text-[13px] font-medium text-ink-3">
-              <Link href="/" className="hover:text-ink">Audits</Link>
+              <Link href="/dashboard" className="hover:text-ink">Audits</Link>
               <span className="mx-2">/</span>
               {report.project.name}
             </p>
@@ -64,7 +64,7 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
               href={`/api/audits/${report.auditId}/markdown?mode=${mode}`}
               download
               title="Markdown fix list for AI agents and MCP tools"
-              className="inline-flex min-h-10 items-center rounded-full border border-border-strong bg-surface px-5 text-sm font-semibold text-ink transition-colors hover:border-ink-3"
+              className="inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold text-ink transition-colors hover:border-ink-3"
             >
               Download .md
             </a>
@@ -72,7 +72,7 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
               type="button"
               disabled
               title="Available once the audit pipeline is connected (Phase 1)"
-              className="inline-flex min-h-10 items-center rounded-full border border-border-strong px-5 text-sm font-semibold text-ink-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-5 text-sm font-semibold text-ink-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Re-run audit
             </button>

@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /*
- * Temporary password gate for sharing a test build (e.g. through a Cloudflare Tunnel)
- * before Auth.js login exists. Off unless PREVIEW_PASSWORD is set.
+ * Temporary password gate for the team's tool until Auth.js login exists.
+ * Off unless PREVIEW_PASSWORD is set. The public landing page and its assets are
+ * always open; everything else (dashboard, audits, PDFs, APIs) is gated.
  */
+const PUBLIC_PATHS = new Set(['/', '/robots.txt', '/sitemap.xml', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png']);
+const PUBLIC_PREFIXES = ['/brand/'];
+
 export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
+
   const password = process.env.PREVIEW_PASSWORD;
   if (!password) {
     // Fail closed on servers: the Docker image sets REQUIRE_PREVIEW_PASSWORD=1, so a
@@ -24,7 +31,7 @@ export function middleware(req: NextRequest) {
   }
   return new NextResponse('Password required', {
     status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Morosoft SEO audit (test)"' },
+    headers: { 'WWW-Authenticate': 'Basic realm="MSScore team"' },
   });
 }
 

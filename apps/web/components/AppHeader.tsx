@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { ButtonLink } from '@/components/ui/Button';
 
 const NAV = [
-  { href: '/', label: 'Overview' },
+  { href: '/dashboard', label: 'Dashboard' },
   { href: '/audits/demo', label: 'Sample report' },
   { href: '/audits/demo/print', label: 'PDF layout' },
 ];
@@ -12,8 +12,8 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-night-line bg-night print:hidden">
       <div className="mx-auto flex h-16 max-w-page items-center gap-8 px-4 sm:px-6">
-        <Link href="/" aria-label="Morosoft SEO Audit home" className="rounded-control">
-          <Logo height={44} priority />
+        <Link href="/dashboard" aria-label="MSScore dashboard" className="rounded-control">
+          <Wordmark tone="light" />
         </Link>
         <nav aria-label="Main" className="hidden md:block">
           <ul className="flex items-center gap-1">

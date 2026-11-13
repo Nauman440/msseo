@@ -28,7 +28,7 @@ function SectionHeading({ eyebrow, title, aside }: { eyebrow: string; title: str
   return (
     <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">{eyebrow}</p>
         <h2 className="mt-2 font-display text-[26px] font-bold tracking-display sm:text-[30px]">{title}</h2>
       </div>
       {aside}
