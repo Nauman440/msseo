@@ -6,7 +6,7 @@ test.describe('PWA', () => {
     expect(res.ok()).toBe(true);
     const manifest = await res.json();
     expect(manifest.display).toBe('standalone');
-    expect(manifest.start_url).toBe('/');
+    expect(manifest.start_url).toBe('/dashboard');
     const sizes = manifest.icons.map((i: { sizes: string }) => i.sizes);
     expect(sizes).toEqual(expect.arrayContaining(['192x192', '512x512']));
     expect(manifest.icons.some((i: { purpose?: string }) => i.purpose === 'maskable')).toBe(true);

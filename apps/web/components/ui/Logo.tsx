@@ -17,7 +17,7 @@ const SRC = {
 export function Logo({
   tone = 'light',
   height = 40,
-  product = 'SEO Audit',
+  product = 'MSScore',
   priority = false,
   className,
 }: {

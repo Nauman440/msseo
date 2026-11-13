@@ -10,8 +10,8 @@
 
   @bottom-right {
     content: counter(page) ' / ' counter(pages);
-    font: 500 8pt var(--font-inter), sans-serif;
-    color: #857a72;
+    font: 500 8pt var(--font-body), sans-serif;
+    color: #64748b;
   }
 }
 

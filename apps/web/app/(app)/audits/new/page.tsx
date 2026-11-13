@@ -14,7 +14,7 @@ export default async function NewAuditPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">New audit</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">New audit</p>
       <h1 className="mt-2 font-display text-[32px] font-bold tracking-display">Audit a website</h1>
       <p className="mt-2 text-[15px] text-ink-2">Technical (Module 1) and on-page (Module 2) checks.</p>
       <NewAuditForm

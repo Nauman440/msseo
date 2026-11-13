@@ -1,34 +1,29 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Inter_Tight } from 'next/font/google';
+import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const interTight = Inter_Tight({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-  variable: '--font-inter-tight',
-  display: 'swap',
-});
+// Fonts from the MSScore homepage design: Sora for headings, Plus Jakarta Sans for text.
+const body = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-body', display: 'swap' });
+const display = Sora({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'Morosoft SEO Audit', template: '%s · Morosoft SEO Audit' },
-  description: 'Internal technical and on-page SEO audit tool for the Morosoft Technologies team.',
-  robots: { index: false, follow: false },
-  applicationName: 'Morosoft SEO Audit',
-  appleWebApp: { capable: true, title: 'MS Audit', statusBarStyle: 'black-translucent' },
+  title: { default: 'MSScore by Morosoft', template: '%s · MSScore' },
+  description: 'Free SEO audit: see what is costing you customers, and what to fix first.',
+  applicationName: 'MSScore',
+  appleWebApp: { capable: true, title: 'MSScore', statusBarStyle: 'black-translucent' },
   icons: { apple: '/icons/apple-touch-icon.png' },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#110D0B',
+  themeColor: '#0F1B2D',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${interTight.variable}`}>
+    <html lang="en" className={`${body.variable} ${display.variable}`}>
       <body>
         {children}
         <RegisterServiceWorker />

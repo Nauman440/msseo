@@ -10,7 +10,7 @@ import { StatusRow } from './StatusRow';
 export function SectionTitle({ n, title, note }: { n: string; title: string; note?: string }) {
   return (
     <div className="flex items-baseline gap-4 border-b border-border pb-4 pt-6">
-      <span className="font-display text-sm font-semibold text-primary tabular">{n}</span>
+      <span className="font-display text-sm font-semibold text-primary-text tabular">{n}</span>
       <h2 className="font-display text-2xl font-bold tracking-display">{title}</h2>
       {note && <p className="ml-auto hidden text-[13px] text-ink-3 sm:block">{note}</p>}
     </div>

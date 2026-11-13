@@ -32,11 +32,11 @@ export function DownloadPdfButton({ auditId, mode, className }: { auditId: strin
       disabled={state === 'busy'}
       aria-live="polite"
       className={cn(
-        'inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-wait disabled:opacity-80',
+        'inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink transition-colors hover:bg-primary-hover disabled:cursor-wait disabled:opacity-80',
         className,
       )}
     >
-      {state === 'busy' && <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />}
+      {state === 'busy' && <span className="size-4 animate-spin rounded-full border-2 border-primary-ink/30 border-t-primary-ink" aria-hidden="true" />}
       {state === 'busy' ? 'Preparing PDF…' : state === 'error' ? 'PDF failed, try again' : 'Download PDF'}
     </button>
   );

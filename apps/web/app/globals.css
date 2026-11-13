@@ -34,13 +34,13 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Warm orange glow used on dark surfaces (hero, PDF cover). */
+  /* Navy with a soft orange glow, for dark surfaces (app header, PDF cover). */
   .bg-aurora {
     background-color: theme('colors.night.DEFAULT');
     background-image:
-      radial-gradient(60% 80% at 85% 0%, rgba(232, 89, 12, 0.38) 0%, transparent 60%),
-      radial-gradient(40% 50% at 100% 100%, rgba(255, 122, 26, 0.12) 0%, transparent 70%),
-      radial-gradient(50% 60% at 0% 100%, rgba(253, 186, 140, 0.1) 0%, transparent 70%);
+      radial-gradient(60% 80% at 85% 0%, rgba(249, 115, 22, 0.22) 0%, transparent 60%),
+      radial-gradient(40% 50% at 100% 100%, rgba(249, 115, 22, 0.08) 0%, transparent 70%),
+      radial-gradient(50% 60% at 0% 100%, rgba(253, 186, 116, 0.06) 0%, transparent 70%);
   }
 
   /* Faint grid texture for dark sections. */

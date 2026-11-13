@@ -25,12 +25,12 @@ export const TONE_HEX: Record<Tone, string> = {
   warn: '#F87171',
   high: '#DC2626',
   fail: '#991B1B',
-  info: '#ADA49C',
-  primary: '#E8590C',
+  info: '#94A3B8',
+  primary: '#F97316',
 };
 
 /** Neutral ring/track colour for SVG charts (mirrors `chart.track`). */
-export const TRACK_HEX = '#E8E4DF';
+export const TRACK_HEX = '#E7E2D8';
 
 export const STATUS_TONE: Record<RuleStatus, Tone> = {
   pass: 'pass',

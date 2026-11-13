@@ -82,7 +82,7 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
   const failed = snap.status === 'failed';
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">{failed ? 'Audit failed' : 'Audit running'}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">{failed ? 'Audit failed' : 'Audit running'}</p>
       <h1 className="mt-2 break-all font-display text-[28px] font-bold tracking-display sm:text-[32px]">{url}</h1>
 
       <section className="mt-8 rounded-card border border-border bg-surface p-6 shadow-card sm:p-8" aria-live="polite">
@@ -126,7 +126,7 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
         {failed && (
           <div className="mt-6 rounded-tile border border-fail-text/20 bg-fail-bg p-4">
             <p className="text-sm font-medium text-fail-text">{snap.error ?? 'Something went wrong.'}</p>
-            <Link href={`/audits/new?url=${encodeURIComponent(url)}`} className="mt-3 inline-flex min-h-10 items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover">
+            <Link href={`/audits/new?url=${encodeURIComponent(url)}`} className="mt-3 inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover">
               Try again
             </Link>
           </div>

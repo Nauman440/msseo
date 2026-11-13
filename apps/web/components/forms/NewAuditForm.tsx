@@ -15,9 +15,9 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
     <button
       type="submit"
       disabled={disabled || pending}
-      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex min-h-11 items-center gap-2 rounded-button bg-primary px-6 text-sm font-semibold text-primary-ink transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {pending && <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />}
+      {pending && <span className="size-4 animate-spin rounded-full border-2 border-primary-ink/30 border-t-primary-ink" aria-hidden="true" />}
       {pending ? 'Starting…' : 'Start audit'}
     </button>
   );

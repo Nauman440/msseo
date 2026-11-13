@@ -26,8 +26,8 @@ export function Banner({
         <span
           aria-hidden="true"
           className={cn(
-            'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white',
-            alert ? 'bg-chart-fail' : 'bg-primary',
+            'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold',
+            alert ? 'bg-chart-fail text-white' : 'bg-primary text-primary-ink',
           )}
         >
           {alert ? '!' : 'i'}

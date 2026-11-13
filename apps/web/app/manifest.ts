@@ -3,15 +3,15 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Morosoft SEO Audit',
-    short_name: 'MS Audit',
-    description: 'Technical and on-page SEO audits for the Morosoft Technologies team.',
-    start_url: '/',
+    name: 'MSScore by Morosoft',
+    short_name: 'MSScore',
+    description: 'SEO audits for the Morosoft team.',
+    start_url: '/dashboard',
     scope: '/',
     display: 'standalone',
     orientation: 'any',
-    background_color: '#110D0B',
-    theme_color: '#110D0B',
+    background_color: '#0F1B2D',
+    theme_color: '#0F1B2D',
     categories: ['business', 'productivity'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

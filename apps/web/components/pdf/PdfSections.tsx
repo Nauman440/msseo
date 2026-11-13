@@ -18,7 +18,7 @@ import { CrawlFiles } from '@/components/report/ReportSections';
 export function PdfHeading({ n, title, intro }: { n: string; title: string; intro?: string }) {
   return (
     <header className="pdf-avoid mb-6">
-      <p className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-primary tabular">Section {n}</p>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-primary-text tabular">Section {n}</p>
       <h2 className="mt-2 font-display text-[28px] font-bold leading-tight tracking-display">{title}</h2>
       {intro && <p className="mt-2 max-w-[150mm] text-sm leading-6 text-ink-2">{intro}</p>}
     </header>
