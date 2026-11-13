@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getAuditView, getReport, parseMode, reportSummary } from '@/lib/reports';
+import { getAuditView, getReport, parseMode, reportSummary, typicalDurationSeconds } from '@/lib/reports';
+import { AiRecommendationsCard } from '@/components/report/AiRecommendationsCard';
 import { AuditProgress } from '@/components/report/AuditProgress';
 import { Banner } from '@/components/report/Banner';
 import { ReportHeader } from '@/components/report/ReportHeader';
@@ -23,8 +24,17 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const view = await getAuditView((await params).auditId);
   if (!view) notFound();
   if (view.kind === 'progress') {
-    const { id, input, status, progress, steps, error } = view.record;
-    return <AuditProgress id={id} url={input.url} initial={{ status, progress, steps, error }} />;
+    const { id, input, status, progress, steps, error, createdAt, finishedAt } = view.record;
+    const typical = await typicalDurationSeconds(input.pageLimit);
+    return (
+      <AuditProgress
+        id={id}
+        url={input.url}
+        pageLimit={input.pageLimit}
+        typical={typical}
+        initial={{ status, progress, steps, error, createdAt, finishedAt }}
+      />
+    );
   }
   const report = view.report;
   const mode = parseMode((await searchParams).mode, report.audience);
@@ -44,6 +54,8 @@ export default async function ReportPage({ params, searchParams }: Props) {
         ))}
 
         <ReportOverview report={report} mode={mode} />
+
+        {report.ai && <AiRecommendationsCard ai={report.ai} mode={mode} />}
 
         <SectionTitle n="01" title="Crawl files" note="robots.txt and sitemap.xml" />
         <CrawlFiles report={report} mode={mode} />

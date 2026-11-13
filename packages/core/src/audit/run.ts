@@ -2,7 +2,9 @@ import type { NewAuditInput } from '../audit-input';
 import { createDataForSeoClient, type DataForSeoClient, type OnPageSummary } from '../providers/dataforseo';
 import { runPreflight } from '../providers/direct-fetch';
 import type { HttpLog } from '../providers/http';
+import { createOpenAiClient } from '../providers/openai';
 import { runPageSpeed, type PageSpeedResult } from '../providers/pagespeed';
+import { generateAiRecommendations } from './ai-recommendations';
 import type { ReportModel } from '../types';
 import { buildReport } from './build-report';
 import type { AuditData } from './types';
@@ -14,6 +16,7 @@ export const AUDIT_STEPS = [
   { id: 'fetch', label: 'Collecting page data' },
   { id: 'lighthouse', label: 'Measuring mobile speed' },
   { id: 'report', label: 'Scoring and building the report' },
+  { id: 'ai', label: 'Writing AI recommendations' },
 ] as const;
 
 export type StepId = (typeof AUDIT_STEPS)[number]['id'];
@@ -22,6 +25,8 @@ export type StepState = 'queued' | 'running' | 'done' | 'skipped' | 'failed';
 export type AuditEnv = {
   dataforseo: { login: string; password: string; baseUrl: string };
   pagespeedKey?: string;
+  /** Enables the optional AI recommendations step. */
+  openai?: { apiKey: string; model?: string };
   brand: string;
   /** Crawl polling cadence and timeout. */
   pollMs?: number;
@@ -39,7 +44,9 @@ export type ProgressUpdate = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
-const WEIGHT: Record<StepId, [number, number]> = { preflight: [0, 10], crawl: [10, 70], fetch: [70, 78], lighthouse: [78, 95], report: [95, 100] };
+const WEIGHT: Record<StepId, [number, number]> = {
+  preflight: [0, 10], crawl: [10, 70], fetch: [70, 76], lighthouse: [76, 88], report: [88, 92], ai: [92, 100],
+};
 const at = (step: StepId, fraction: number) => Math.round(WEIGHT[step][0] + (WEIGHT[step][1] - WEIGHT[step][0]) * fraction);
 
 async function waitForCrawl(
@@ -156,6 +163,28 @@ export async function runAudit(
     notices,
   };
   const report = buildReport(data, { auditId, audience: input.audience, brand: env.brand });
-  onProgress({ step: 'report', state: 'done', progress: 100 });
+  onProgress({ step: 'report', state: 'done', progress: at('report', 1) });
+
+  // Optional and never fatal: the report is complete without it.
+  if (input.aiRecommendations && env.openai) {
+    onProgress({ step: 'ai', state: 'running', progress: at('ai', 0) });
+    try {
+      const client = createOpenAiClient({ ...env.openai, log: env.log });
+      const { ai, tokens } = await generateAiRecommendations(report, client);
+      report.ai = ai;
+      onProgress({ step: 'ai', state: 'done', detail: `${ai.items.length} recommendations · ${tokens.toLocaleString('en-US')} tokens`, progress: 100 });
+    } catch (err) {
+      onProgress({ step: 'ai', state: 'failed', detail: aiErrorText(err), progress: 100 });
+    }
+  } else {
+    onProgress({ step: 'ai', state: 'skipped', detail: env.openai ? 'Not requested' : 'No OpenAI key', progress: 100 });
+  }
   return { report, cost };
+}
+
+function aiErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/401|incorrect api key|invalid_api_key/i.test(msg)) return 'OpenAI rejected the API key';
+  if (/429|quota|rate/i.test(msg)) return 'OpenAI quota or rate limit reached';
+  return `OpenAI failed: ${msg.slice(0, 160)}`;
 }

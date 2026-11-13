@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   // the Dockerfile sets this so production images stay small.
   output: process.env.NEXT_OUTPUT_STANDALONE === '1' ? 'standalone' : undefined,
   transpilePackages: ['@seo/core'],
+  // Playwright launches a browser binary; it must stay a runtime require, not be bundled.
+  serverExternalPackages: ['playwright', 'playwright-core'],
+  // Playwright loads parts of itself dynamically, which file tracing can miss;
+  // ship the whole package with the PDF route in the standalone (Docker) build.
+  outputFileTracingIncludes: {
+    '/api/audits/[id]/pdf': ['../../node_modules/.pnpm/playwright*/**/*'],
+  },
   poweredByHeader: false,
   async headers() {
     return [

@@ -57,7 +57,7 @@ The tool will grow to cover **all 13 modules of the SEO Coverage Checklist** (§
 | Worker | Node 20 process (`apps/worker`) | Runs the audit pipeline |
 | Validation | Zod | All API inputs and external API responses |
 | PDF export | Playwright (Chromium) rendering the report page to PDF | Runs in the worker |
-| AI checks (later) | Claude API | For judgement-based rules (§6, `method: ai`) |
+| AI | OpenAI API (Responses API, `OPENAI_MODEL`) | AI recommendations now; judgement-based rules later (§6, `method: ai`) |
 | Logging | pino | JSON logs |
 | Tests | Vitest (unit), Playwright (e2e) | |
 | Deployment | Hostinger VPS (KVM 2) with **Coolify** (self-hosted PaaS), deploys from GitHub on every push | Cloudflare for DNS/proxy; Cloudflare R2 for backups and PDFs |
@@ -103,7 +103,7 @@ seo-audit-tool/
 ├─ packages/
 │  ├─ core/                      # pure logic, no framework code
 │  │  └─ src/
-│  │     ├─ providers/           # dataforseo.ts, pagespeed.ts, gsc.ts, direct-fetch.ts, claude.ts
+│  │     ├─ providers/           # dataforseo.ts, pagespeed.ts, gsc.ts, direct-fetch.ts, openai.ts
 │  │     ├─ normalise/           # turn provider responses into our SiteData model
 │  │     ├─ rules/               # module1/*.ts, module2/*.ts, registry.ts
 │  │     ├─ scoring/
@@ -172,7 +172,7 @@ Each step is idempotent, stores its raw output, and records start/end time in `A
 | 7 | `normalise` | Build the `SiteData` model (§5.4) from steps 1–6. Compute click depth, inlinks, orphan pages (in sitemap but 0 inlinks), template classification (§7). | — |
 | 8 | `lighthouse` ‖ | For each template representative (§7): PageSpeed Insights API, `strategy=mobile` and `desktop`, category `performance` (+ `seo`, `best-practices`, `accessibility` for the home page). Store CrUX field data (`loadingExperience`, `originLoadingExperience`) and lab metrics/audits. | 1.8.x, 1.9.1, 1.9.2 |
 | 9 | `gsc` ‖ (optional) | Only if a property was selected. Search Analytics (by page, by query, by page+query; current period and previous period), Sitemaps list, URL Inspection for a sample (§5.5). | 1.3.3, 1.3.4, 1.4.1, 2.9.x |
-| 10 | `ai-checks` ‖ (Phase 4) | Judgement rules via Claude API on the top N pages per template. | 2.1.6, 2.1.7, 2.3.4, 2.4.2, 2.4.8, 2.7.x, 2.8.x |
+| 10 | `ai-checks` ‖ (Phase 4) | Judgement rules via the OpenAI API on the top N pages per template. | 2.1.6, 2.1.7, 2.3.4, 2.4.2, 2.4.8, 2.7.x, 2.8.x |
 | 11 | `rules` | Run every applicable rule → `RuleResult[]`. Rules whose data source was skipped get status `skipped` (not shown). | all |
 | 12 | `score` | Category + overall scores, "score after fixes" (§6.4). | — |
 | 13 | `finalise` | Build and store the `ReportModel` JSON on the audit; mark `completed`. | — |
@@ -267,7 +267,7 @@ Rules live in `packages/core/src/rules/module1/*.ts` and `module2/*.ts`, one fil
 
 ### 6.2 Rule catalogue — Module 1 (Technical SEO)
 
-Method: **A** = automatic, **G** = needs Search Console, **AI** = judgement via Claude API, **M** = manual check (shown in Expert mode only).
+Method: **A** = automatic, **G** = needs Search Console, **AI** = judgement via the OpenAI API, **M** = manual check (shown in Expert mode only).
 
 | ID | Check | M | Source | Pass condition / logic | Default sev. |
 | --- | --- | --- | --- | --- | --- |
@@ -645,7 +645,8 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=https://staging.audit.example.com/api/gsc/callback
 
 # AI (Phase 4)
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-6.1-sol
 
 # Worker
 WORKER_CONCURRENCY=2
@@ -694,7 +695,7 @@ R2_BUCKET=seo-audit-files      # PDFs + exports
 **Done when:** the same site audited with and without a GSC property produces reports where GSC content appears only in the first, and nothing references GSC in the second.
 
 ### Phase 4 — AI-assisted checks (weeks 9–10)
-- `ai-checks` step using the Claude API on representative pages (cap tokens per audit; cache by page content hash).
+- `ai-checks` step using the OpenAI API on representative pages (cap tokens per audit; cache by page content hash).
 - Rules marked **AI**; mobile screenshot checks for 1.9.5 and 2.7.5.
 - Expert mode shows "AI-assessed" tag on these rows.
 
@@ -753,7 +754,7 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 - Log each audit's estimated DataForSEO cost (pages × per-page price from config) on the audit; show monthly total in Settings.
 - Page limit capped at 50 (`crawl.maxLimit`).
 - PSI: max `lighthouse.maxTemplates × 2` calls per audit.
-- Claude API (Phase 4): max pages and tokens per audit in config.
+- OpenAI API: max pages and tokens per audit in config.
 
 ---
 
@@ -764,7 +765,7 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 | Search Console access | Team Google account has access to client properties → one agency-level connection |
 | Crawler | DataForSEO from day one; sandbox on staging |
 | Brand | Morosoft Technologies (logo to be provided → `apps/web/public/brand/`) |
-| AI checks | Claude API, Phase 4 |
+| AI checks | OpenAI API (replaces Claude API, 2026-11-13) |
 | Default report audience | Client |
 | Sharing with clients | PDF only; no share links |
 | Hosting | Hostinger KVM 2 + Coolify, no local setup (§13) |
@@ -781,6 +782,9 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 | Print route (2026-11-12) | `app/(print)/audits/[auditId]/print` (own route group, no app chrome) rather than under `(app)` |
 | Design QA (2026-11-12) | Playwright e2e (`apps/web/e2e`) runs every page at desktop 1280 px and mobile 375 px: no horizontal overflow, no console errors, full-page screenshots attached to the report; runs in CI |
 | PWA (2026-11-12) | Installable: `app/manifest.ts`, icons in `public/icons` (from `app/icon.svg`), `public/sw.js` caches only build assets + icons and serves `/offline.html` for offline navigations. Pages and API data are never cached |
+| AI recommendations (2026-11-13, user request) | OpenAI (user has a key) writes a prioritised fix plan from the audit findings: Responses API with strict JSON schema, `OPENAI_API_KEY` / `OPENAI_MODEL` (default `gpt-6.1-sol`), opt-in checkbox on the new-audit form, optional `ai` pipeline step that never fails the audit. Only findings and URLs are sent, never page HTML |
+| AI provider (2026-11-13, user decision) | The team uses the **OpenAI API, not the Claude API**, for every AI feature. Wherever this spec says "Claude" for in-app AI (Phase 4 rules, Modules 4–12 clustering, briefs, drafts, recommendations), read OpenAI via `packages/core/src/providers/openai.ts` |
+| Markdown export (2026-11-13, user request) | "Download .md" next to Download PDF (`/api/audits/[id]/markdown?mode=`): every issue as a checkbox with evidence, why, fix and all affected URLs, for AI coding agents / MCP. Built by `reportToMarkdown()` in `packages/core/src/report/markdown.ts` |
 | Branches (2026-11-12) | Repo `github.com/Nauman440/msseo`; `dev` is the working branch (staging), `main` production. Replaces `develop` in §13 |
 
 ---
@@ -807,7 +811,7 @@ Everything hangs off `Project`. Each module adds: Prisma models → provider cli
 | DataForSEO AI Optimization API (LLM responses / mentions) | prompt tracking across AI assistants, citations | 6.6, 10 |
 | Google Search Console API | queries, pages, decay | 4, 5, 7, 11, 13 |
 | Google Analytics 4 Data API (new OAuth scope `analytics.readonly`) | sessions, key events, conversions by landing page | 7, 11, 13 |
-| Claude API | clustering, briefs, title/meta drafts, content quality, recommendations | 4, 5, 6, 7, 10, 12 |
+| OpenAI API | clustering, briefs, title/meta drafts, content quality, recommendations | 4, 5, 6, 7, 10, 12 |
 
 ### 16.2 Module by module
 

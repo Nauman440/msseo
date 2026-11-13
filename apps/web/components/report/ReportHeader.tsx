@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import type { Audience, ReportModel } from '@seo/core';
+import { formatDuration } from '@/lib/duration';
+import { DownloadPdfButton } from './DownloadPdfButton';
 import { formatDate } from '@/lib/reports';
 import { cn } from '@/lib/tones';
 import { ButtonLink } from '@/components/ui/Button';
@@ -34,6 +36,7 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
     { label: 'URL', value: report.url, mono: true },
     { label: 'Pages audited', value: `${report.pagesCrawled.toLocaleString('en-US')} of ${report.crawlLimit.toLocaleString('en-US')}` },
     { label: 'Crawled', value: formatDate(report.crawledAt) },
+    ...(report.durationSeconds !== undefined ? [{ label: 'Audit time', value: formatDuration(report.durationSeconds) }] : []),
     { label: 'Search Console', value: report.gscProperty ?? 'Not used' },
   ];
 
@@ -53,9 +56,18 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <ModeSwitch auditId={report.auditId} mode={mode} />
-            <ButtonLink href={`/audits/${report.auditId}/print?mode=${mode}`} variant="primary" className="min-h-10">
-              Download PDF
+            <DownloadPdfButton auditId={report.auditId} mode={mode} />
+            <ButtonLink href={`/audits/${report.auditId}/print?mode=${mode}`} variant="secondary" className="min-h-10">
+              Preview PDF
             </ButtonLink>
+            <a
+              href={`/api/audits/${report.auditId}/markdown?mode=${mode}`}
+              download
+              title="Markdown fix list for AI agents and MCP tools"
+              className="inline-flex min-h-10 items-center rounded-full border border-border-strong bg-surface px-5 text-sm font-semibold text-ink transition-colors hover:border-ink-3"
+            >
+              Download .md
+            </a>
             <button
               type="button"
               disabled

@@ -17,7 +17,7 @@ export const onpageRules: RuleDef[] = [
     fix: { client: 'Write a unique title for each page.', expert: 'Add a unique, descriptive <title> to every indexable page.' },
     ice: { impact: 4, confidence: 5, effort: 1 },
     evaluate: ({ ok }) => countPages(ok, (p) => !p.meta?.title, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no title`, expert: `${n} pages missing <title>` } : { client: 'Every page has a title', expert: '<title> present on all 200 pages' }),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no title`, expert: `${plural(n, 'page')} missing <title>` } : { client: 'Every page has a title', expert: '<title> present on all 200 pages' }),
   },
   {
     id: '2.1.2', module: 2, category: 'onpage', card: 'titles', scope: 'page', severity: 'high',
@@ -44,7 +44,7 @@ export const onpageRules: RuleDef[] = [
     fix: { client: 'Write a short summary for each page.', expert: 'Add unique 140–160 char meta descriptions with benefit + CTA.' },
     ice: { impact: 3, confidence: 5, effort: 2 },
     evaluate: ({ ok }) => countPages(ok, (p) => !p.meta?.description, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no search snippet text`, expert: `${n} pages missing meta description` } : { client: 'Every page has snippet text', expert: 'Meta description on all 200 pages' }),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no search snippet text`, expert: `${plural(n, 'page')} missing meta description` } : { client: 'Every page has snippet text', expert: 'Meta description on all 200 pages' }),
   },
   {
     id: '2.2.1-b', module: 2, category: 'onpage', card: 'meta', scope: 'page', severity: 'medium',
@@ -85,7 +85,7 @@ export const onpageRules: RuleDef[] = [
     fix: { client: 'Add helpful detail to these pages.', expert: 'Expand to 300+ useful words or consolidate.' },
     ice: { impact: 3, confidence: 4, effort: 4 },
     evaluate: ({ ok }) => countPages(ok.filter((p) => !SHORT_OK.test(p.url)), (p) => words(p) < 300, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} very little text`, expert: `${n} pages < 300 words` } : { client: 'Pages have enough text', expert: 'All content pages ≥ 300 words' }),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} very little text`, expert: `${plural(n, 'page')} < 300 words` } : { client: 'Pages have enough text', expert: 'All content pages ≥ 300 words' }),
   },
   {
     id: '2.4.7', module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'critical',
@@ -94,7 +94,7 @@ export const onpageRules: RuleDef[] = [
     fix: { client: 'Rewrite these pages so each is unique.', expert: 'Differentiate or canonicalise duplicate pages.' },
     ice: { impact: 5, confidence: 4, effort: 4 },
     evaluate: ({ ok }) => countPages(ok, (p) => p.duplicate_content === true, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'copies' : 'copy'} another page`, expert: `${n} pages flagged duplicate_content` } : { client: 'No copied pages', expert: '0 duplicate-content pages' }),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'copies' : 'copy'} another page`, expert: `${plural(n, 'page')} flagged duplicate_content` } : { client: 'No copied pages', expert: '0 duplicate-content pages' }),
   },
   {
     id: '2.5.2', module: 2, category: 'onpage', card: 'images', scope: 'page', severity: 'medium',
@@ -103,6 +103,6 @@ export const onpageRules: RuleDef[] = [
     fix: { client: 'Describe each image in a few words.', expert: 'Add descriptive alt to content images.' },
     ice: { impact: 2, confidence: 5, effort: 2 },
     evaluate: ({ ok }) => countPages(ok.filter((p) => (p.meta?.images_count ?? 1) > 0), (p) => p.checks?.no_image_alt === true, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} images with no description`, expert: `${n} pages with images missing alt` } : { client: 'Images have descriptions', expert: 'All images have alt' }),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} images with no description`, expert: `${plural(n, 'page')} with images missing alt` } : { client: 'Images have descriptions', expert: 'All images have alt' }),
   },
 ];

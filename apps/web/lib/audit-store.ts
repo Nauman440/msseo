@@ -13,7 +13,7 @@ export type AuditRecord = {
   input: NewAuditInput;
   status: 'running' | 'completed' | 'failed';
   progress: number;
-  steps: { id: StepId; label: string; state: StepState; detail?: string }[];
+  steps: { id: StepId; label: string; state: StepState; detail?: string; startedAt?: string; finishedAt?: string }[];
   error?: string;
   report?: ReportModel;
   costUsd?: number;
@@ -21,7 +21,8 @@ export type AuditRecord = {
   finishedAt?: string;
 };
 
-const DIR = resolve(process.cwd(), '../../.data/audits');
+// DATA_DIR is set in Docker (a persistent volume); locally it is <repo>/.data.
+const DIR = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'), 'audits');
 const file = (id: string) => resolve(DIR, `${id.replace(/[^a-z0-9-]/gi, '')}.json`);
 
 export async function createAudit(input: NewAuditInput): Promise<AuditRecord> {

@@ -23,6 +23,7 @@ export default async function NewAuditPage({ searchParams }: Props) {
         ready={status.dataforseo}
         pagespeedReady={status.pagespeed}
         emailReady={status.email}
+        aiReady={status.openai}
       />
     </div>
   );

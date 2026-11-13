@@ -27,8 +27,11 @@
   }
 }
 
+/* Keep dark cover and coloured charts even if someone prints with Ctrl+P and
+   "Background graphics" switched off. */
 html,
-body {
+body,
+.pdf-doc * {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -47,6 +50,15 @@ body {
 
 .pdf-avoid {
   break-inside: avoid;
+}
+
+/* Long cards (expert top-10 list, AI plan) may split between their rows; the
+   rows themselves avoid breaks. Without this a tall card jumps to the next
+   page and leaves a near-empty page behind. Border/padding repeat per page. */
+.pdf-breakable {
+  break-inside: auto !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 @media screen {

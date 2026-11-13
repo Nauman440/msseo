@@ -43,6 +43,8 @@ export const newAuditSchema = z.object({
     .refine((v): v is PageLimit => (pageLimitValues as number[]).includes(v), 'Choose a page limit from the list')
     .default(DEFAULT_PAGE_LIMIT),
   jsRendering: z.coerce.boolean().default(true),
+  /** Add LLM-written recommendations to the report (needs OPENAI_API_KEY). */
+  aiRecommendations: z.coerce.boolean().default(false),
   gscProperty: z.string().trim().min(1).nullable().default(null),
   /** Optional: send the full report (PDF) to this address when the audit completes. */
   notifyEmail: z

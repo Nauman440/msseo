@@ -89,6 +89,43 @@ export type TopIssue = {
   ice: Ice;
 };
 
+/** One warn/fail rule with everything needed to fix it (feeds the Markdown export and AI). */
+export type ReportIssue = {
+  ruleId: string;
+  category: Category;
+  severity: Severity;
+  status: RuleStatus;
+  title: AudienceText;
+  message: AudienceText;
+  explain: AudienceText;
+  fix: AudienceText;
+  affectedCount?: number;
+  applicableCount?: number;
+  /** Every affected URL (capped at 500). */
+  urls: string[];
+  ice: Ice;
+};
+
+export type AiLevel = 'low' | 'medium' | 'high';
+
+export type AiRecommendation = {
+  title: string;
+  why: string;
+  steps: string[];
+  ruleIds: string[];
+  impact: AiLevel;
+  effort: AiLevel;
+};
+
+/** Recommendations written by an LLM from the audit findings. */
+export type AiRecommendations = {
+  provider: 'openai';
+  model: string;
+  generatedAt: string;
+  summary: AudienceText;
+  items: AiRecommendation[];
+};
+
 export type ReportModel = {
   auditId: string;
   brand: string;
@@ -98,6 +135,8 @@ export type ReportModel = {
   pagesCrawled: number;
   crawlLimit: number;
   crawledAt: string;
+  /** Wall-clock time from audit start to finished report. */
+  durationSeconds?: number;
   gscProperty: string | null;
   overall: { score: number; label: ScoreLabel; afterFixes: number };
   categories: { id: Category; label: string; score: number }[];
@@ -108,6 +147,9 @@ export type ReportModel = {
   robots: { found: boolean; rows: CheckRow[]; suggested: string };
   sitemap: { found: boolean; url: string; rows: CheckRow[]; segments: Segment[] };
   cards: CheckCard[];
+  /** All issues, sorted like topIssues. Missing on reports saved before it existed. */
+  issues?: ReportIssue[];
+  ai?: AiRecommendations;
   /** Caveats shown above the report, e.g. when pages could not be crawled. */
   notices?: AudienceText[];
 };

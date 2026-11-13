@@ -4,10 +4,39 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { StepState } from '@seo/core';
+import { formatDuration, secondsBetween } from '@/lib/duration';
 import { cn } from '@/lib/tones';
 
-type Step = { id: string; label: string; state: StepState; detail?: string };
-export type ProgressSnapshot = { status: 'running' | 'completed' | 'failed'; progress: number; steps: Step[]; error?: string };
+type Step = { id: string; label: string; state: StepState; detail?: string; startedAt?: string; finishedAt?: string };
+export type ProgressSnapshot = {
+  status: 'running' | 'completed' | 'failed';
+  progress: number;
+  steps: Step[];
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
+};
+
+/**
+ * Current time, re-rendered every second while `active`. Null until mounted so the
+ * server render and the first client render match (no hydration mismatch).
+ */
+function useNow(active: boolean): number | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    if (!active) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return now;
+}
+
+function stepTime(s: Step, now: number | null): string | null {
+  if (now === null || !s.startedAt || s.state === 'skipped' || s.state === 'queued') return null;
+  const secs = secondsBetween(s.startedAt, s.finishedAt, now);
+  return secs >= 1 ? formatDuration(secs) : null;
+}
 
 const DOT: Record<StepState, string> = {
   queued: 'border-2 border-border-strong bg-surface',
@@ -19,9 +48,20 @@ const DOT: Record<StepState, string> = {
 
 const STATE_TEXT: Record<StepState, string> = { queued: 'Waiting', running: 'In progress', done: 'Done', skipped: 'Skipped', failed: 'Failed' };
 
-export function AuditProgress({ id, url, initial }: { id: string; url: string; initial: ProgressSnapshot }) {
+type Props = {
+  id: string;
+  url: string;
+  pageLimit: number;
+  /** Median duration of earlier audits with the same page limit. */
+  typical: { seconds: number; samples: number } | null;
+  initial: ProgressSnapshot;
+};
+
+export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
   const router = useRouter();
   const [snap, setSnap] = useState(initial);
+  const now = useNow(snap.status === 'running');
+  const elapsed = now === null ? null : secondsBetween(snap.createdAt, snap.finishedAt, now);
 
   useEffect(() => {
     if (snap.status !== 'running') return;
@@ -50,6 +90,19 @@ export function AuditProgress({ id, url, initial }: { id: string; url: string; i
           <p className="text-sm font-semibold">{failed ? 'Stopped' : snap.status === 'completed' ? 'Finishing…' : 'Working on it'}</p>
           <p className="font-display text-2xl font-bold tabular">{snap.progress}%</p>
         </div>
+        <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13px] text-ink-3">
+          <p>
+            Time elapsed{' '}
+            <span className="font-semibold text-ink tabular" role="timer" aria-live="off">
+              {elapsed === null ? '–' : formatDuration(elapsed)}
+            </span>
+          </p>
+          {typical && !failed && (
+            <p className="tabular">
+              Usually about {formatDuration(typical.seconds)} for up to {pageLimit} pages
+            </p>
+          )}
+        </div>
         <div className="mt-3 h-2 overflow-hidden rounded-bar bg-chart-track" role="progressbar" aria-valuenow={snap.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Audit progress">
           <div className={cn('h-full rounded-bar transition-[width] duration-700', failed ? 'bg-chart-fail' : 'bg-primary')} style={{ width: `${snap.progress}%` }} />
         </div>
@@ -62,7 +115,10 @@ export function AuditProgress({ id, url, initial }: { id: string; url: string; i
                 <p className={cn('text-sm font-medium', s.state === 'queued' ? 'text-ink-3' : 'text-ink')}>{s.label}</p>
                 {s.detail && <p className="text-[13px] text-ink-3 tabular">{s.detail}</p>}
               </div>
-              <span className="text-xs font-medium text-ink-3">{STATE_TEXT[s.state]}</span>
+              <span className="text-right text-xs font-medium text-ink-3">
+                {STATE_TEXT[s.state]}
+                {stepTime(s, now) && <span className="block font-normal tabular">{stepTime(s, now)}</span>}
+              </span>
             </li>
           ))}
         </ol>

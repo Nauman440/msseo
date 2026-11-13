@@ -5,4 +5,7 @@ export { AUDIT_STEPS, runAudit, type AuditEnv, type ProgressUpdate, type StepId,
 export { buildReport, evaluateRules, ALL_RULES } from './audit/build-report';
 export type { AuditData } from './audit/types';
 export { buildSummary } from './report/summary';
+export { reportToMarkdown } from './report/markdown';
+export { DEFAULT_OPENAI_MODEL } from './providers/openai';
+export { aiInput } from './audit/ai-recommendations';
 export { sampleReport } from './report/sample';

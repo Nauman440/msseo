@@ -1,5 +1,6 @@
 import { TOP_ISSUES_LIMIT, type Audience, type CheckCard, type ReportModel } from '@seo/core';
 import { Card } from '@/components/ui/Card';
+import { AiRecommendationsCard } from '@/components/report/AiRecommendationsCard';
 import { CategoryBars } from '@/components/report/CategoryBars';
 import { CheckCardView, isCardVisible } from '@/components/report/CheckCardView';
 import { CwvTile } from '@/components/report/CwvTile';
@@ -82,9 +83,10 @@ export function PdfTopIssues({ report, mode }: { report: ReportModel; mode: Audi
         title="Top issues to fix first"
         intro={mode === 'client' ? 'Ordered by how much each fix helps compared with the effort it takes.' : 'Ordered by ICE priority (impact × confidence ÷ effort).'}
       />
-      <Card>
+      <Card className="pdf-breakable">
         <TopIssuesList issues={report.topIssues.slice(0, TOP_ISSUES_LIMIT[mode])} mode={mode} />
       </Card>
+      {report.ai && <AiRecommendationsCard ai={report.ai} mode={mode} className="pdf-breakable mt-6" />}
     </section>
   );
 }

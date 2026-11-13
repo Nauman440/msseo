@@ -1,6 +1,6 @@
 import { CATEGORY_LABEL, SEVERITY_WEIGHT } from '../scoring/constants';
 import { categoryScores, icePriority, overallScore, scoreAfterFixes, scoreLabel, type ScoredRule } from '../scoring';
-import type { Audience, Category, CheckCard, CheckChart, CheckRow, CwvMetric, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
+import type { Audience, Category, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
 import { onpageRules } from './rules-onpage';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
@@ -175,13 +175,27 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
   const errors = html.filter((p) => p.status_code !== 200 || failUrls.has(p.url)).length;
   const warnings = ctx.ok.filter((p) => !failUrls.has(p.url) && warnUrls.has(p.url)).length;
 
-  const topIssues: TopIssue[] = issues
-    .slice()
-    .sort((a, b) => {
-      const sw = (r: EvaluatedRule) => (r.result.severity === 'info' ? 0 : SEVERITY_WEIGHT[r.result.severity]);
-      return sw(b) - sw(a) || icePriority(b.def.ice) - icePriority(a.def.ice);
-    })
-    .map((r) => ({ ruleId: r.def.id, severity: r.result.severity, category: r.def.category, ice: r.def.ice, title: r.result.message, sub: r.sub ?? r.def.explain }));
+  const ranked = issues.slice().sort((a, b) => {
+    const sw = (r: EvaluatedRule) => (r.result.severity === 'info' ? 0 : SEVERITY_WEIGHT[r.result.severity]);
+    return sw(b) - sw(a) || icePriority(b.def.ice) - icePriority(a.def.ice);
+  });
+  const topIssues: TopIssue[] = ranked.map((r) => ({
+    ruleId: r.def.id, severity: r.result.severity, category: r.def.category, ice: r.def.ice, title: r.result.message, sub: r.sub ?? r.def.explain,
+  }));
+  const reportIssues: ReportIssue[] = ranked.map((r) => ({
+    ruleId: r.def.id,
+    category: r.def.category,
+    severity: r.result.severity,
+    status: r.result.status,
+    title: r.def.title,
+    message: r.result.message,
+    explain: r.def.explain,
+    fix: r.def.fix,
+    affectedCount: r.result.affectedCount,
+    applicableCount: r.result.applicableCount,
+    urls: r.result.examples.slice(0, 500).map((e) => e.url),
+    ice: r.def.ice,
+  }));
 
   const byCard = (id: CardId) => evaluated.filter((r) => r.def.card === id);
   const cards: CheckCard[] = CARDS.map((c) => ({ ...c, chart: chartFor(c.id, ctx), rows: byCard(c.id).map(toRow) })).filter((c) => c.rows.length);
@@ -220,6 +234,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
       segments,
     },
     cards,
+    issues: reportIssues,
     notices: data.notices?.length ? data.notices : undefined,
   };
 }

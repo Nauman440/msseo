@@ -164,7 +164,7 @@ export const technicalRules: RuleDef[] = [
     fix: { client: 'Update links to point to the final page.', expert: 'Replace links to 3xx URLs with their targets.' },
     ice: { impact: 2, confidence: 5, effort: 2 },
     evaluate: ({ ok }) => countPages(ok, (p) => check(p, 'has_links_to_redirects'), (n) =>
-      n ? { client: `${plural(n, 'page')} link${n === 1 ? 's' : ''} to redirected pages`, expert: `${n} pages with links to 3xx URLs` } : { client: 'Internal links go straight to pages', expert: '0 pages link to redirects' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} link${n === 1 ? 's' : ''} to redirected pages`, expert: `${plural(n, 'page')} with links to 3xx URLs` } : { client: 'Internal links go straight to pages', expert: '0 pages link to redirects' }, 'warn'),
   },
   {
     id: '1.6.1', module: 1, category: 'technical', card: 'canonical', scope: 'page', severity: 'high',
@@ -173,7 +173,7 @@ export const technicalRules: RuleDef[] = [
     fix: { client: 'Add a canonical tag to every page (SEO plugins do this).', expert: 'Emit self-referencing rel=canonical on all indexable pages.' },
     ice: { impact: 3, confidence: 5, effort: 1 },
     evaluate: ({ ok }) => countPages(ok, (p) => !p.meta?.canonical, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'does' : 'do'} not say which version is the main one`, expert: `${n} pages without rel=canonical` } : { client: 'Every page has a canonical tag', expert: 'rel=canonical present on all 200 pages' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'does' : 'do'} not say which version is the main one`, expert: `${plural(n, 'page')} without rel=canonical` } : { client: 'Every page has a canonical tag', expert: 'rel=canonical present on all 200 pages' }, 'warn'),
   },
   {
     id: '1.6.2', module: 1, category: 'technical', card: 'canonical', scope: 'page', severity: 'high',
@@ -230,7 +230,7 @@ export const technicalRules: RuleDef[] = [
     fix: { client: 'Update links to use https://.', expert: 'Rewrite http:// links to https://.' },
     ice: { impact: 1, confidence: 5, effort: 2 },
     evaluate: ({ ok }) => countPages(ok, (p) => check(p, 'https_to_http_links'), (n) =>
-      n ? { client: `${plural(n, 'page')} link${n === 1 ? 's' : ''} to insecure addresses`, expert: `${n} pages with https→http links` } : { client: 'No insecure links', expert: '0 https→http links' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} link${n === 1 ? 's' : ''} to insecure addresses`, expert: `${plural(n, 'page')} with https→http links` } : { client: 'No insecure links', expert: '0 https→http links' }, 'warn'),
   },
   {
     id: '1.10.3', module: 1, category: 'security', card: 'domains', scope: 'site', severity: 'low',
@@ -263,7 +263,7 @@ export const technicalRules: RuleDef[] = [
     fix: { client: 'Fix the errors in the structured data.', expert: 'Resolve schema validation errors.' },
     ice: { impact: 2, confidence: 4, effort: 2 },
     evaluate: ({ ok }) => countPages(ok, (p) => check(p, 'has_micromarkup_errors'), (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} errors in business details`, expert: `${n} pages with schema errors` } : { client: 'Business details are valid', expert: '0 schema validation errors' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} errors in business details`, expert: `${plural(n, 'page')} with schema errors` } : { client: 'Business details are valid', expert: '0 schema validation errors' }, 'warn'),
   },
   {
     id: '1.12.1', module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',
@@ -272,7 +272,7 @@ export const technicalRules: RuleDef[] = [
     fix: { client: 'Link important pages from the menu or homepage.', expert: 'Flatten architecture; add hub/nav links.' },
     ice: { impact: 3, confidence: 4, effort: 2 },
     evaluate: ({ ok }) => countPages(ok, (p) => (p.click_depth ?? 0) > 3, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} hard to reach`, expert: `${n} pages at depth > 3` } : { client: 'Every page is within 3 clicks', expert: 'Max depth ≤ 3' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} hard to reach`, expert: `${plural(n, 'page')} at depth > 3` } : { client: 'Every page is within 3 clicks', expert: 'Max depth ≤ 3' }, 'warn'),
   },
   {
     id: '1.12.2', module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',

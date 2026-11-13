@@ -53,7 +53,21 @@ test('print route lays out A4 pages for PDF', async ({ page }) => {
   // 210mm × 297mm at 96 dpi ≈ 794 × 1123 px.
   expect(Math.round(box?.width ?? 0)).toBe(794);
   expect(Math.round(box?.height ?? 0)).toBe(1123);
-  await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toBeHidden();
+});
+
+test('PDF and Markdown downloads are generated on the server', async ({ request }) => {
+  const pdf = await request.get('/api/audits/demo/pdf?mode=client');
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()['content-type']).toBe('application/pdf');
+  const bytes = await pdf.body();
+  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+  // Cover + at least the summary, issues and checks sections.
+  expect((bytes.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length).toBeGreaterThanOrEqual(4);
+
+  const md = await request.get('/api/audits/demo/markdown?mode=expert');
+  expect(md.headers()['content-type']).toContain('text/markdown');
+  expect(await md.text()).toContain('## Issues to fix');
 });
 
 test('unknown audit returns 404', async ({ page }) => {

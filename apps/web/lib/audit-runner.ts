@@ -32,12 +32,18 @@ export async function startAudit(input: NewAuditInput): Promise<AuditRecord> {
     update((r) => {
       r.progress = Math.max(r.progress, u.progress);
       const step = r.steps.find((s) => s.id === u.step);
-      if (step) Object.assign(step, { state: u.state, detail: u.detail });
+      if (!step) return;
+      const now = new Date().toISOString();
+      step.startedAt ??= now;
+      if (u.state !== 'running' && u.state !== 'queued') step.finishedAt = now;
+      Object.assign(step, { state: u.state, detail: u.detail });
     }),
   )
     .then(({ report, cost }) =>
       update((r) => {
-        Object.assign(r, { status: 'completed', progress: 100, report, costUsd: cost, finishedAt: new Date().toISOString() });
+        const finishedAt = new Date().toISOString();
+        const durationSeconds = Math.round((Date.parse(finishedAt) - Date.parse(r.createdAt)) / 1000);
+        Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: cost, finishedAt });
       }),
     )
     .catch((err: unknown) =>

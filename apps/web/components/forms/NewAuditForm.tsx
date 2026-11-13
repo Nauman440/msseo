@@ -29,12 +29,14 @@ export function NewAuditForm({
   ready,
   pagespeedReady,
   emailReady,
+  aiReady,
 }: {
   defaultUrl: string;
   audience: Audience;
   ready: boolean;
   pagespeedReady: boolean;
   emailReady: boolean;
+  aiReady: boolean;
 }) {
   const [state, action] = useActionState<NewAuditState, FormData>(createAuditAction, {});
   const err = state.fieldErrors ?? {};
@@ -87,6 +89,18 @@ export function NewAuditForm({
         <span>
           <span className="block text-sm font-semibold">JavaScript rendering</span>
           <span className="block text-[13px] text-ink-3">For page builders and JS frameworks. Uses more API credits.</span>
+        </span>
+      </label>
+
+      <label className={aiReady ? 'flex cursor-pointer items-start gap-3' : 'flex cursor-not-allowed items-start gap-3 opacity-60'}>
+        <input type="checkbox" name="ai" defaultChecked={aiReady} disabled={!aiReady} className="mt-1 size-4 accent-primary" />
+        <span>
+          <span className="block text-sm font-semibold">AI recommendations</span>
+          <span className="block text-[13px] text-ink-3">
+            {aiReady
+              ? 'OpenAI turns the findings into a prioritised, step-by-step fix plan in the report. Adds about 30–60 seconds.'
+              : 'Add OPENAI_API_KEY to .env to turn this on.'}
+          </span>
         </span>
       </label>
 

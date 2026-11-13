@@ -53,7 +53,7 @@ export const speedRules: RuleDef[] = [
     fix: { client: 'Ask the developer to load these files later.', expert: 'Inline critical CSS; defer/async JS.' },
     ice: { impact: 2, confidence: 4, effort: 3 },
     evaluate: ({ ok }) => countPages(ok, (p) => p.checks?.has_render_blocking_resources === true, (n) =>
-      n ? { client: `${plural(n, 'page')} load${n === 1 ? 's' : ''} blocking files first`, expert: `${n} pages with render-blocking resources` } : { client: 'No blocking files', expert: '0 pages with render-blocking resources' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} load${n === 1 ? 's' : ''} blocking files first`, expert: `${plural(n, 'page')} with render-blocking resources` } : { client: 'No blocking files', expert: '0 pages with render-blocking resources' }, 'warn'),
   },
   {
     id: '1.8.6', module: 1, category: 'speed', card: 'speed', scope: 'page', severity: 'medium',
@@ -62,6 +62,6 @@ export const speedRules: RuleDef[] = [
     fix: { client: 'Turn on caching or upgrade hosting.', expert: 'Enable page caching/CDN; profile slow backend.' },
     ice: { impact: 3, confidence: 4, effort: 3 },
     evaluate: ({ ok }) => countPages(ok, (p) => p.checks?.high_waiting_time === true, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} slow to start loading`, expert: `${n} pages with high waiting time` } : { client: 'The server responds quickly', expert: '0 pages with high waiting time' }, 'warn'),
+      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} slow to start loading`, expert: `${plural(n, 'page')} with high waiting time` } : { client: 'The server responds quickly', expert: '0 pages with high waiting time' }, 'warn'),
   },
 ];
