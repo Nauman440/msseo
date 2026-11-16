@@ -34,6 +34,7 @@ export default async function SearchConsolePage({ searchParams }: Props) {
   return (
     <Container className="flex max-w-3xl flex-col gap-8 py-12">
       <SectionHeader
+        as="h1"
         align="left"
         eyebrow="Settings"
         title="Search Console"

@@ -25,6 +25,8 @@ type Opts = {
   timeoutMs: number;
   retries: number;
   concurrency?: number;
+  /** Admin setting lighthouse.maxTemplates (default MAX_TEMPLATES). */
+  maxTemplates?: number;
   log?: HttpLog;
 };
 
@@ -36,7 +38,7 @@ const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/,
  * run sets the time, within `budgetMs`; failures never fail the audit.
  */
 export async function runTemplateLighthouse(templates: Template[], o: Opts): Promise<LighthouseRun[]> {
-  const picked = templates.slice(0, MAX_TEMPLATES);
+  const picked = templates.slice(0, Math.min(MAX_TEMPLATES, o.maxTemplates ?? MAX_TEMPLATES));
   const runs: LighthouseRun[] = picked.map((t) => ({ label: t.label, type: t.type, url: t.representative, pages: t.urls.length, mobile: null, desktop: null }));
   const jobs: { run: LighthouseRun; strategy: 'mobile' | 'desktop' }[] = [];
   for (const run of runs) {

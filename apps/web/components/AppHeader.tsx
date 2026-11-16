@@ -60,6 +60,9 @@ export function AppHeader({ user }: { user: SessionUser }) {
                   <Link href="/settings/users" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
                     Team members
                   </Link>
+                  <Link href="/settings/general" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
+                    Audit settings
+                  </Link>
                   <Link href="/settings/search-console" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
                     Search Console
                   </Link>

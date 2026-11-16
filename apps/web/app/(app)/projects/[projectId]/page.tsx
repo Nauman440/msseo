@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { diffReports } from '@seo/core';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { ChangesSinceLast } from '@/components/project/ChangesSinceLast';
+import { DeleteAuditButton } from '@/components/project/DeleteAuditButton';
 import { ScoreTrend } from '@/components/project/ScoreTrend';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/lib/tones';
@@ -30,7 +31,7 @@ const BUTTON = 'inline-flex min-h-11 items-center rounded-button bg-primary px-5
 
 /** Project page (spec Phase 3): audit history, score trend and what changed since the last audit. */
 export default async function ProjectPage({ params }: Props) {
-  await requireUser();
+  const user = await requireUser();
   const data = await load((await params).projectId);
   if (!data) notFound();
   const { project, audits, latest, previous } = data;
@@ -41,7 +42,7 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <Container className="flex flex-col gap-10 py-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <SectionHeader align="left" eyebrow="Project" title={project.domain} intro={`${audits.length} ${audits.length === 1 ? 'audit' : 'audits'} since ${project.createdAt.toISOString().slice(0, 10)}.`} />
+        <SectionHeader as="h1" align="left" eyebrow="Project" title={project.domain} intro={`${audits.length} ${audits.length === 1 ? 'audit' : 'audits'} since ${project.createdAt.toISOString().slice(0, 10)}.`} />
         <Link href={`/audits/new?url=${encodeURIComponent(`https://${project.domain}/`)}`} className={BUTTON}>
           Re-audit
         </Link>
@@ -80,6 +81,7 @@ export default async function ProjectPage({ params }: Props) {
               <Link href={`/audits/${a.id}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
                 {a.status === 'completed' ? 'Open report' : 'View'}
               </Link>
+              {user.role === 'admin' && <DeleteAuditButton auditId={a.id} projectId={project.id} label={a.createdAt.toISOString().slice(0, 10)} />}
             </li>
           ))}
         </ul>

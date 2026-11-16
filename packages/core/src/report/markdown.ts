@@ -6,6 +6,7 @@ import type { Audience, ReportIssue, ReportModel, Severity } from '../types';
  */
 
 const SEVERITY_LABEL: Record<Severity, string> = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low', info: 'Info' };
+/** Default for the admin setting report.maxExampleUrlsClient. */
 const CLIENT_URL_LIMIT = 5;
 
 const cell = (s: string | number) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
@@ -25,7 +26,7 @@ function issuesOf(report: ReportModel): ReportIssue[] {
   }));
 }
 
-function issueBlock(i: ReportIssue, n: number, mode: Audience): string {
+function issueBlock(i: ReportIssue, n: number, mode: Audience, clientUrls: number): string {
   const expert = mode === 'expert';
   const head = expert ? `${i.ruleId} · ${SEVERITY_LABEL[i.severity]} · ${i.title.expert}` : `${SEVERITY_LABEL[i.severity]} · ${i.message.client}`;
   const lines = [`### ${n}. [ ] ${head}`, ''];
@@ -33,7 +34,7 @@ function issueBlock(i: ReportIssue, n: number, mode: Audience): string {
   if (i.explain[mode]) lines.push(`- **Why it matters:** ${i.explain[mode]}`);
   if (i.fix[mode]) lines.push(`- **How to fix:** ${i.fix[mode]}`);
   if (expert) lines.push(`- **Priority (ICE):** impact ${i.ice.impact} · confidence ${i.ice.confidence} · effort ${i.ice.effort}`);
-  const urls = expert ? i.urls : i.urls.slice(0, CLIENT_URL_LIMIT);
+  const urls = expert ? i.urls : i.urls.slice(0, clientUrls);
   if (urls.length) {
     const count = i.affectedCount ?? i.urls.length;
     lines.push(`- **Affected${i.applicableCount ? ` (${count} of ${i.applicableCount})` : ` (${count})`}:**`);
@@ -43,7 +44,8 @@ function issueBlock(i: ReportIssue, n: number, mode: Audience): string {
   return lines.join('\n');
 }
 
-export function reportToMarkdown(report: ReportModel, mode: Audience): string {
+export function reportToMarkdown(report: ReportModel, mode: Audience, opts: { clientUrls?: number } = {}): string {
+  const clientUrls = opts.clientUrls ?? CLIENT_URL_LIMIT;
   const expert = mode === 'expert';
   const issues = issuesOf(report);
   const sc = report.severityCounts;
@@ -101,7 +103,7 @@ export function reportToMarkdown(report: ReportModel, mode: Audience): string {
 
   out.push('## Issues to fix', '');
   if (issues.length === 0) out.push('No issues found.', '');
-  issues.forEach((i, idx) => out.push(issueBlock(i, idx + 1, mode), ''));
+  issues.forEach((i, idx) => out.push(issueBlock(i, idx + 1, mode, clientUrls), ''));
 
   if (report.robots.suggested) {
     out.push('## Suggested robots.txt', '', '```txt', report.robots.suggested.trim(), '```', '');

@@ -20,7 +20,7 @@ export default async function UsersPage() {
 
   return (
     <Container className="flex flex-col gap-10 py-12">
-      <SectionHeader align="left" eyebrow="Settings" title="Team members" intro="Admins can add people, switch accounts off and reset passwords. Members can run and export audits." />
+      <SectionHeader as="h1" align="left" eyebrow="Settings" title="Team members" intro="Admins can add people, switch accounts off and reset passwords. Members can run and export audits." />
 
       <section className="rounded-panel border border-border bg-surface p-6">
         <h2 className="mb-4 font-display text-lg font-bold">Add a team member</h2>

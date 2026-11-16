@@ -9,6 +9,7 @@ const ROUTES = [
   { path: '/audits/demo', heading: 'summitairhvac.com' },
   { path: '/audits/demo?mode=expert', heading: 'summitairhvac.com' },
   { path: '/audits/new', heading: 'Audit a website' },
+  { path: '/settings/general', heading: 'Audit settings' },
   { path: '/audits/demo/print', heading: 'Summit Air Heating & Cooling' },
   { path: '/dev/components', heading: 'Components' },
 ];

@@ -36,6 +36,8 @@ export type AuditEnv = {
   pagespeedKey?: string;
   /** Search Console access (agency connection); absent when not connected. */
   gsc?: { accessToken: () => Promise<string> };
+  /** Admin setting lighthouse.maxTemplates: page types measured with PageSpeed (1–6). */
+  maxTemplates?: number;
   /** Enables the optional AI recommendations step. */
   openai?: { apiKey: string; model?: string };
   brand: string;
@@ -112,10 +114,11 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
           budgetMs: quick ? 40_000 : 180_000,
           timeoutMs: quick ? 40_000 : 90_000,
           retries: quick ? 0 : 1,
+          maxTemplates: env.maxTemplates,
         })
       : Promise.resolve([]);
   const measuring = (t: Template[]) => {
-    if (env.pagespeedKey) onProgress({ step: 'lighthouse', state: 'running', detail: `${Math.min(t.length, MAX_TEMPLATES)} page types`, progress: at('lighthouse', 0) });
+    if (env.pagespeedKey) onProgress({ step: 'lighthouse', state: 'running', detail: `${Math.min(t.length, env.maxTemplates ?? MAX_TEMPLATES)} page types`, progress: at('lighthouse', 0) });
   };
 
   // Search Console (optional, spec §5.5): analytics start now; URL Inspection waits for the page list.

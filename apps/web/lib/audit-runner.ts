@@ -4,6 +4,7 @@ import { gscAuditAccess } from '@seo/db';
 import { enqueueAudit } from '@seo/db/queue';
 import { createAudit, getAudit, saveAudit, usingDatabase, type AuditRecord } from './audit-store';
 import { providerConfig } from './providers-config';
+import { appSettings } from './settings';
 
 /**
  * Starts audits. With USE_WORKER=1 (plus Postgres and Redis) each audit becomes a
@@ -26,7 +27,7 @@ export async function startAudit(input: NewAuditInput, createdById?: string | nu
     return record;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined }, saveAudit).finally(() => running.delete(record.id));
+  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined, maxTemplates: (await appSettings())['lighthouse.maxTemplates'] }, saveAudit).finally(() => running.delete(record.id));
   return record;
 }
 
@@ -48,7 +49,7 @@ export async function retryAudit(id: string): Promise<boolean> {
     return true;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined }, saveAudit).finally(() => running.delete(record.id));
+  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined, maxTemplates: (await appSettings())['lighthouse.maxTemplates'] }, saveAudit).finally(() => running.delete(record.id));
   return true;
 }
 

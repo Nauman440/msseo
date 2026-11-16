@@ -42,6 +42,7 @@ export function SectionHeader({
   dark = false,
   align = 'center',
   soon = false,
+  as: Heading = 'h2',
 }: {
   eyebrow?: string;
   title: ReactNode;
@@ -49,6 +50,8 @@ export function SectionHeader({
   dark?: boolean;
   align?: 'center' | 'left';
   soon?: boolean;
+  /** h1 when the header is the page title (app pages); h2 for landing sections. */
+  as?: 'h1' | 'h2';
 }) {
   return (
     <div className={cn('flex flex-col gap-3.5', align === 'center' ? 'items-center text-center' : 'items-start')}>
@@ -58,9 +61,9 @@ export function SectionHeader({
           {soon && <ComingSoon dark={dark} />}
         </div>
       )}
-      <h2 className={cn('max-w-[820px] font-display text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em] sm:text-[40px]', dark ? 'text-mist' : 'text-ink')}>
+      <Heading className={cn('max-w-[820px] font-display text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em] sm:text-[40px]', dark ? 'text-mist' : 'text-ink')}>
         {title}
-      </h2>
+      </Heading>
       {intro && <p className={cn('max-w-[700px] text-[17px] leading-[1.6] sm:text-lg', dark ? 'text-mist-3' : 'text-ink-2')}>{intro}</p>}
     </div>
   );

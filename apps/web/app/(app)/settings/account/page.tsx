@@ -14,7 +14,7 @@ export default async function AccountPage() {
   const me = await requireUser();
   return (
     <Container className="flex max-w-2xl flex-col gap-8 py-12">
-      <SectionHeader align="left" eyebrow="Settings" title="Your account" intro={me.email ? `Signed in as ${me.email} (${me.role}).` : 'Login is not switched on in this environment.'} />
+      <SectionHeader as="h1" align="left" eyebrow="Settings" title="Your account" intro={me.email ? `Signed in as ${me.email} (${me.role}).` : 'Login is not switched on in this environment.'} />
       {me.id && (
         <section className="rounded-panel border border-border bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Change password</h2>

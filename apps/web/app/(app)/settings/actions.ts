@@ -78,3 +78,33 @@ export async function disconnectGscAction(): Promise<ActionState> {
   revalidatePath('/settings/search-console');
   return { ok: 'Search Console disconnected.' };
 }
+
+/** Admin: save the audit settings (spec §4). */
+export async function saveSettingsAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  if (!process.env.DATABASE_URL) return { error: 'Settings need the database (DATABASE_URL).' };
+  const { settingsSchema } = await import('@seo/core');
+  const parsed = settingsSchema.safeParse({
+    'crawl.defaultLimit': form.get('crawl.defaultLimit'),
+    'crawl.maxLimit': form.get('crawl.maxLimit'),
+    'crawl.enableJsDefault': form.get('crawl.enableJsDefault') === 'on',
+    'lighthouse.maxTemplates': form.get('lighthouse.maxTemplates'),
+    'report.maxExampleUrlsClient': form.get('report.maxExampleUrlsClient'),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+  const { saveSettings } = await import('@seo/db');
+  await saveSettings(parsed.data);
+  revalidatePath('/settings/general');
+  return { ok: 'Settings saved. New audits use them straight away.' };
+}
+
+/** Admin: permanently delete one audit (spec §4). */
+export async function deleteAuditAction(auditId: string, projectId: string): Promise<ActionState> {
+  await requireAdmin();
+  if (!process.env.DATABASE_URL) return { error: 'Deleting audits needs the database.' };
+  const { deleteAuditRecord } = await import('@seo/db');
+  if (!(await deleteAuditRecord(auditId))) return { error: 'That audit no longer exists.' };
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/dashboard');
+  return { ok: 'Audit deleted.' };
+}

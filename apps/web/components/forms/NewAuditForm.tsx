@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { DEFAULT_PAGE_LIMIT, PAGE_LIMIT_OPTIONS, matchGscProperties, normaliseUrl, type Audience } from '@seo/core';
+import { DEFAULT_SETTINGS, matchGscProperties, normaliseUrl, pageLimitOptions, type AppSettings, type Audience } from '@seo/core';
 import { createAuditAction, type NewAuditState } from '@/app/(app)/audits/new/actions';
 import { Choice, Field } from './Field';
 
@@ -32,6 +32,7 @@ export function NewAuditForm({
   aiReady,
   gscProperties = [],
   gscConnected = false,
+  settings = DEFAULT_SETTINGS,
 }: {
   defaultUrl: string;
   audience: Audience;
@@ -42,6 +43,8 @@ export function NewAuditForm({
   /** All properties of the connected Google account; filtered here to the typed domain. */
   gscProperties?: string[];
   gscConnected?: boolean;
+  /** Admin settings: default/maximum page limit and the JS-rendering default. */
+  settings?: AppSettings;
 }) {
   const [state, action] = useActionState<NewAuditState, FormData>(createAuditAction, {});
   const err = state.fieldErrors ?? {};
@@ -87,8 +90,8 @@ export function NewAuditForm({
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field id="pageLimit" label="Page limit" error={err.pageLimit} hint="How many pages to audit. More pages take longer and use more API credits.">
-          <select id="pageLimit" name="pageLimit" defaultValue={DEFAULT_PAGE_LIMIT} className={`${INPUT} tabular`}>
-            {PAGE_LIMIT_OPTIONS.map((o) => (
+          <select id="pageLimit" name="pageLimit" defaultValue={settings['crawl.defaultLimit']} className={`${INPUT} tabular`}>
+            {pageLimitOptions(settings).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -125,7 +128,7 @@ export function NewAuditForm({
       </fieldset>
 
       <label className="flex cursor-pointer items-start gap-3">
-        <input type="checkbox" name="js" className="mt-1 size-4 accent-primary" />
+        <input type="checkbox" name="js" defaultChecked={settings['crawl.enableJsDefault']} className="mt-1 size-4 accent-primary" />
         <span>
           <span className="block text-sm font-semibold">JavaScript rendering</span>
           <span className="block text-[13px] text-ink-3">Only for sites built with JS frameworks or heavy page builders. About 3× slower and 10× the API cost.</span>

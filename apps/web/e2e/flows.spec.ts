@@ -98,7 +98,7 @@ test('reports without a Search Console property never mention it', async ({ page
 
 test('Search Console settings list what the server still needs', async ({ page }) => {
   await page.goto('/settings/search-console');
-  await expect(page.getByRole('heading', { name: 'Search Console', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Search Console', level: 1 })).toBeVisible();
   await expect(page.getByText('Server settings needed')).toBeVisible();
   await expect(page.getByText('GOOGLE_CLIENT_ID', { exact: true })).toBeVisible();
   await expect(page.getByText('/api/gsc/callback')).toBeVisible();

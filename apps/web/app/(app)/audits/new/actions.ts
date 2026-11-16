@@ -5,6 +5,7 @@ import { matchGscProperties, newAuditSchema } from '@seo/core';
 import { ConfigError, startAudit } from '@/lib/audit-runner';
 import { availableGscProperties } from '@/lib/gsc';
 import { requireUser } from '@/lib/session';
+import { appSettings } from '@/lib/settings';
 
 export type NewAuditState = { error?: string; fieldErrors?: Partial<Record<'url' | 'pageLimit' | 'notifyEmail' | 'gscProperty', string>> };
 
@@ -24,6 +25,9 @@ export async function createAuditAction(_prev: NewAuditState, form: FormData): P
     const f = parsed.error.flatten().fieldErrors;
     return { fieldErrors: { url: f.url?.[0], pageLimit: f.pageLimit?.[0], notifyEmail: f.notifyEmail?.[0] } };
   }
+
+  const max = (await appSettings())['crawl.maxLimit'];
+  if (parsed.data.pageLimit > max) return { fieldErrors: { pageLimit: `The maximum is ${max} pages (set by an admin).` } };
 
   // The property must be one the connected account can read and must cover this domain.
   if (parsed.data.gscProperty) {
