@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
+import { verifyPrintToken } from '@seo/core/print-token';
 import { authConfig } from './auth.config';
 
 /*
@@ -37,6 +38,15 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
   }
 
   if (PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
+
+  // The worker's headless browser renders a report PDF to email: a signed, 10-minute token
+  // for that one audit's print page stands in for a login (see @seo/core/print-token).
+  const print = /^\/audits\/([^/]+)\/print$/.exec(pathname);
+  const token = req.nextUrl.searchParams.get('pdf_token');
+  if (print && token && process.env.ENCRYPTION_KEY) {
+    if (await verifyPrintToken(token, decodeURIComponent(print[1]!), process.env.ENCRYPTION_KEY).catch(() => false)) return NextResponse.next();
+    return new NextResponse('Link expired', { status: 401 });
+  }
 
   const preview = process.env.PREVIEW_PASSWORD;
   if (pathname === '/setup') return preview ? basicAuth(req, preview) : new NextResponse('Not found', { status: 404 });

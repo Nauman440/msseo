@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { AUTH_DATA, E2E_PREVIEW_PASSWORD } from '../playwright.config';
+import { signPrintToken } from '@seo/core/print-token';
+import { AUTH_DATA, E2E_ENCRYPTION_KEY, E2E_PREVIEW_PASSWORD } from '../playwright.config';
 
 // One ordered story against a fresh server with login on (see playwright.config.ts).
 test.describe.configure({ mode: 'serial' });
@@ -109,4 +110,15 @@ test('a failed audit can be retried in place with the same settings', async ({ p
   if (await noKeys.count()) return; // CI without provider keys: the action explains why it cannot run.
   await expect(page.getByRole('button', { name: 'Retry with the same settings' })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByText(/does not exist|could not|did not respond/i)).toBeVisible();
+});
+
+test('a signed print link opens one report for the PDF email, and nothing else', async ({ request }) => {
+  const opts = { maxRedirects: 0 };
+  expect((await request.get('/audits/demo/print', opts)).status()).toBe(307); // login required
+  const token = await signPrintToken('demo', E2E_ENCRYPTION_KEY);
+  expect((await request.get(`/audits/demo/print?pdf_token=${encodeURIComponent(token)}`, opts)).status()).toBe(200);
+  expect((await request.get(`/audits/demo/print?pdf_token=${encodeURIComponent(`${token}x`)}`, opts)).status()).toBe(401);
+  // The token is bound to its audit and to the print page.
+  expect((await request.get(`/audits/other/print?pdf_token=${encodeURIComponent(token)}`, opts)).status()).toBe(401);
+  expect((await request.get(`/audits/demo?pdf_token=${encodeURIComponent(token)}`, opts)).status()).toBe(307);
 });

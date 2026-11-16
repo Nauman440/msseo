@@ -29,3 +29,18 @@ export async function renderReportPdf({ url, outPath, cookie }: RenderPdfOptions
     await browser.close();
   }
 }
+
+/** Same rendering, returned in memory (for the report email attachment). */
+export async function renderPdfBytes(url: string): Promise<Uint8Array> {
+  const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  try {
+    const page = await browser.newPage();
+    const res = await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
+    if (!res || res.status() >= 400) throw new Error(`print page answered ${res?.status() ?? 'nothing'}`);
+    await page.emulateMedia({ media: 'print' });
+    await page.evaluate(() => document.fonts.ready);
+    return new Uint8Array(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
+  } finally {
+    await browser.close();
+  }
+}

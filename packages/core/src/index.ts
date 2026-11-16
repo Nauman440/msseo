@@ -17,3 +17,4 @@ export { diffReports, type IssueChange, type ReportDiff } from './report/diff';
 export { issuesToCsv } from './report/csv';
 export { sitemapXml } from './report/sitemap';
 export { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema, type AppSettings, type SettingKey } from './settings';
+export { deliverReportEmail, emailConfig, reportEmail, type EmailEnv } from './report/email';

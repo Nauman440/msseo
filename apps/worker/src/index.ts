@@ -1,8 +1,9 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
-import { executeAudit, providerConfig } from '@seo/core';
+import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
 import { getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, redisConnection, type AuditJobData } from '@seo/db/queue';
+import { renderPdfBytes } from './pdf/render';
 
 /**
  * Audit worker (spec §5.3): runs the audits apps/web queues, with the same
@@ -37,6 +38,20 @@ const worker = new Worker<AuditJobData>(
     const settings = await getSettings();
     await executeAudit(record, { ...env, gsc: gscAuditAccess(), maxTemplates: settings['lighthouse.maxTemplates'], log: http }, saveAuditRecord);
     log.info({ auditId: record.id, status: record.status, score: record.report?.overall.score, error: record.error }, 'audit finished');
+
+    // "Email me the full report": never fails the job; the result is logged.
+    if (record.status === 'completed' && record.input.notifyEmail) {
+      const mail = emailConfig();
+      if (!mail.ok) log.warn({ auditId: record.id, missing: mail.missing }, 'report email not sent: settings missing');
+      else {
+        try {
+          const sent = await deliverReportEmail(record, { ...mail, renderPdf: renderPdfBytes, log: http });
+          log.info({ auditId: record.id, emailId: sent.id }, 'report email sent');
+        } catch (err) {
+          log.error({ auditId: record.id, err: err instanceof Error ? err.message : String(err) }, 'report email failed');
+        }
+      }
+    }
   },
   // Audits take a minute or two; renew the lock often enough that a busy process is not
   // mistaken for a dead one, and retry a stalled job once.

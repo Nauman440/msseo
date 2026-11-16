@@ -9,6 +9,8 @@ const AUTH_PORT = PORT + 1;
 // Set once in the main process; test workers re-load this file but inherit the variable.
 export const AUTH_DATA = (process.env.E2E_AUTH_DATA ??= resolve(tmpdir(), `msscore-e2e-auth-${Date.now()}`));
 export const E2E_PREVIEW_PASSWORD = 'e2e-shared-password';
+// Test-only key for the auth server (signs the print-page token used for emailed PDFs).
+export const E2E_ENCRYPTION_KEY = Buffer.alloc(32, 42).toString('base64');
 // Locally, PLAYWRIGHT_CHANNEL=chrome reuses installed Chrome instead of downloading Chromium.
 const channel = process.env.PLAYWRIGHT_CHANNEL || undefined;
 
@@ -45,6 +47,7 @@ export default defineConfig({
         NEXT_TELEMETRY_DISABLED: '1',
         AUTH_SECRET: 'e2e-only-secret-not-used-anywhere-else-0123456789',
         PREVIEW_PASSWORD: E2E_PREVIEW_PASSWORD,
+        ENCRYPTION_KEY: E2E_ENCRYPTION_KEY,
         DATA_DIR: AUTH_DATA,
         DATABASE_URL: '',
         REDIS_URL: '',
