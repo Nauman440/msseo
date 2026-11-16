@@ -28,6 +28,8 @@ export type Account = {
   status: 'trial' | 'active' | 'cancelled';
   trialEndsAt: string;
   website: string | null;
+  /** Growth: more websites (up to PLANS.growth.websites in total). */
+  extraWebsites: string[];
   sourceAuditId: string | null;
   country: string | null;
   areas: string[];
@@ -44,6 +46,18 @@ export type Account = {
   lastAutoAuditAt: string | null;
   createdAt: string;
 };
+
+/** Every website on the account (main first), one per domain. */
+export function accountSites(a: Pick<Account, 'website' | 'extraWebsites'>): string[] {
+  const seen = new Set<string>();
+  return [a.website, ...(a.extraWebsites ?? [])].filter((w): w is string => {
+    if (!w) return false;
+    const d = domainOf(w);
+    if (!d || seen.has(d)) return false;
+    seen.add(d);
+    return true;
+  });
+}
 
 export type AccountPatch = Partial<Omit<Account, 'id' | 'userId' | 'createdAt'>>;
 
@@ -109,7 +123,7 @@ export async function createAccount(input: { userId: string; businessName: strin
     return fromDb(await prisma.customerAccount.create({ data: { ...input, projectId, trialEndsAt: new Date(trialEndsAt) } }));
   }
   const account: Account = {
-    id: randomUUID(), ...input, status: 'trial', trialEndsAt, country: null, areas: [], otherCountries: false, language: null, services: [], competitors: [],
+    id: randomUUID(), ...input, extraWebsites: [], status: 'trial', trialEndsAt, country: null, areas: [], otherCountries: false, language: null, services: [], competitors: [],
     connections: [], consentChanges: false, consentAt: null, onboardingStep: 2, onboardedAt: null, lastAutoAuditAt: null, createdAt: new Date().toISOString(),
   };
   await writeFileAccounts([...(await readFileAccounts()), account]);

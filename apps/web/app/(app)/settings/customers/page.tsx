@@ -65,6 +65,7 @@ export default async function CustomersPage() {
                       {a.website ? (
                         a.projectId ? <Link href={`/projects/${a.projectId}`} className="text-primary-text hover:underline">{domainOf(a.website)}</Link> : domainOf(a.website)
                       ) : '–'}
+                      {a.extraWebsites.length > 0 && <span className="text-ink-2"> + {a.extraWebsites.map(domainOf).join(', ')}</span>}
                     </Row>
                     <Row term="Signed up">{day(a.createdAt)}</Row>
                     <Row term="Trial ends">{day(a.trialEndsAt)}</Row>

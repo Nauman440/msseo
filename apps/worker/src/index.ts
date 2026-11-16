@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudit, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
+import { createWeeklyCustomerAudits, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { renderPdfBytes } from './pdf/render';
 
@@ -68,7 +68,7 @@ const scheduler = new Worker(
     const due = await dueCustomerSites();
     for (const account of due) {
       try {
-        await enqueueAudit(await createWeeklyCustomerAudit(account));
+        for (const id of await createWeeklyCustomerAudits(account)) await enqueueAudit(id);
       } catch (err) {
         log.error({ accountId: account.id, err: err instanceof Error ? err.message : String(err) }, 'weekly audit not queued');
       }

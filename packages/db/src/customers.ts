@@ -16,15 +16,20 @@ export async function dueCustomerSites(now = new Date()) {
       OR: [{ status: 'active' }, { status: 'trial', trialEndsAt: { gt: now } }],
       AND: [{ OR: [{ lastAutoAuditAt: null }, { lastAutoAuditAt: { lt: sixDaysAgo } }] }],
     },
-    select: { id: true, userId: true, website: true },
+    select: { id: true, userId: true, website: true, extraWebsites: true },
   });
 }
 
-/** Creates a queued customer audit of their website and records the run; returns the audit id. */
-export async function createWeeklyCustomerAudit(account: { id: string; userId: string; website: string | null }, now = new Date()): Promise<string> {
-  const input = newAuditSchema.parse({ url: account.website, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
-  const record = newAuditRecord(input, account.userId);
-  await insertAuditRecord(record);
+/** Creates a queued customer audit for each of their websites, records the run, returns the audit ids. */
+export async function createWeeklyCustomerAudits(account: { id: string; userId: string; website: string | null; extraWebsites: string[] }, now = new Date()): Promise<string[]> {
+  const sites = [...new Set([account.website, ...account.extraWebsites].filter((w): w is string => Boolean(w)))].slice(0, 3);
+  const ids: string[] = [];
+  for (const url of sites) {
+    const input = newAuditSchema.parse({ url, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
+    const record = newAuditRecord(input, account.userId);
+    await insertAuditRecord(record);
+    ids.push(record.id);
+  }
   await prisma.customerAccount.update({ where: { id: account.id }, data: { lastAutoAuditAt: now } });
-  return record.id;
+  return ids;
 }

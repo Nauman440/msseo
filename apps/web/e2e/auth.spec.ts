@@ -210,6 +210,18 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(new RegExp(`/my/reports/${id}$`));
   await expect(page.getByRole('link', { name: 'Download .md' })).toBeVisible();
 
+  // Growth covers up to 3 websites: add one (an address that cannot exist, so its audit stops at DNS), switch, remove.
+  await page.goto('/my');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel(/Add a website/).fill('https://second-site.invalid/');
+  await page.getByRole('button', { name: 'Add website' }).click();
+  await expect(page).toHaveURL(/\/my\?site=second-site\.invalid$/);
+  await expect(page.getByRole('heading', { name: 'second-site.invalid', level: 1 })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Remove second-site.invalid' }).click();
+  await expect(page).toHaveURL(/\/my$/);
+  await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
+
   // Customers stay in their own area and cannot open other sites' audits.
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/my$/);
@@ -234,4 +246,12 @@ test('the team sees the new customer with their onboarding answers', async ({ pa
   // Customers are not team members.
   await page.goto('/settings/users');
   await expect(page.getByText('owner@summitair.example')).toHaveCount(0);
+});
+
+test('password reset: the login page links to it and a bad link is refused', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('link', { name: 'Forgot your password?' }).click();
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
+  await page.goto('/reset-password?token=bm90LWEtdXNlcg.9999999999.forged');
+  await expect(page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
 });

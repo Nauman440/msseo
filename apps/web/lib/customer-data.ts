@@ -1,22 +1,22 @@
 import 'server-only';
 import type { ReportModel } from '@seo/core';
-import { domainOf, type Account } from './accounts';
+import { domainOf } from './accounts';
 import { isAuditActive } from './audit-runner';
 import { listAudits, usingDatabase } from './audit-store';
 
 export type CustomerAuditRow = { id: string; createdAt: string; status: 'running' | 'completed' | 'failed'; score: number | null; pages: number };
 
 /**
- * A customer's audits: every audit of their website's domain (their free audit, the
+ * Audits of one of a customer's websites: every audit of its domain (the free audit, the
  * weekly re-audits and the ones they run), newest first, plus the two latest reports.
  */
-export async function customerAudits(account: Account): Promise<{ rows: CustomerAuditRow[]; latest?: ReportModel; previous?: ReportModel }> {
-  if (!account.website) return { rows: [] };
-  const domain = domainOf(account.website);
+export async function customerAudits(website: string | null): Promise<{ rows: CustomerAuditRow[]; latest?: ReportModel; previous?: ReportModel }> {
+  if (!website) return { rows: [] };
+  const domain = domainOf(website);
 
   if (usingDatabase()) {
     const { getProjectHistory, projectIdFor } = await import('@seo/db');
-    const history = await getProjectHistory(await projectIdFor(account.website));
+    const history = await getProjectHistory(await projectIdFor(website));
     if (!history) return { rows: [] };
     const rows = [...history.audits].reverse().map((a) => ({
       id: a.id,

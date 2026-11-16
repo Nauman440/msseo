@@ -4,8 +4,8 @@ import { useActionState } from 'react';
 import { runCustomerAuditAction, type RunState } from '@/app/(customer)/my/actions';
 
 /** "Run a new audit" for customers, with the reason when it is refused. */
-export function RunAuditButton({ disabled }: { disabled: boolean }) {
-  const [state, action, pending] = useActionState<RunState>(runCustomerAuditAction, {});
+export function RunAuditButton({ disabled, site }: { disabled: boolean; site: string }) {
+  const [state, action, pending] = useActionState<RunState>(runCustomerAuditAction.bind(null, site), {});
   return (
     <form action={action} className="flex flex-col items-start gap-2 sm:items-end">
       <button type="submit" disabled={disabled || pending} className="inline-flex min-h-11 items-center rounded-button bg-primary px-5 text-sm font-bold text-primary-ink hover:bg-primary-hover disabled:opacity-60">

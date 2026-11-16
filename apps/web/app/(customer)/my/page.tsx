@@ -8,7 +8,9 @@ import { RunAuditButton } from '@/components/customer/RunAuditButton';
 import { MiniScore } from '@/components/signup/MiniScore';
 import { TopIssuesList } from '@/components/report/TopIssuesList';
 import { Card } from '@/components/ui/Card';
-import { domainOf, getAccountByUserId, PLANS } from '@/lib/accounts';
+import { accountSites, domainOf, getAccountByUserId, PLANS } from '@/lib/accounts';
+import { AddWebsiteForm } from '@/components/customer/AddWebsiteForm';
+import { removeWebsiteAction } from './actions';
 import { customerAudits } from '@/lib/customer-data';
 import { requireCustomer } from '@/lib/session';
 import { FINISHED, stepPath } from '@/lib/signup';
@@ -17,7 +19,7 @@ import { cn } from '@/lib/tones';
 export const metadata: Metadata = { title: 'Your dashboard' };
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ welcome?: string }> };
+type Props = { searchParams: Promise<{ welcome?: string; site?: string }> };
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const scoreTone = (s: number) => (s >= 90 ? 'bg-pass-bg text-pass-text' : s >= 70 ? 'bg-warn-bg text-warn-text' : 'bg-high-bg text-high-text');
@@ -28,8 +30,11 @@ export default async function CustomerDashboard({ searchParams }: Props) {
   const account = await getAccountByUserId(user.id);
   if (!account) redirect('/signup');
   if (account.onboardingStep < FINISHED) redirect(stepPath(account.onboardingStep));
-  const { welcome } = await searchParams;
-  const { rows, latest, previous } = await customerAudits(account);
+  const { welcome, site } = await searchParams;
+  const sites = accountSites(account);
+  const current = sites.find((w) => domainOf(w) === site) ?? sites[0] ?? null;
+  const { rows, latest, previous } = await customerAudits(current);
+  const limit = PLANS[account.plan].websites;
   const plan = PLANS[account.plan];
   const trialLeft = Math.ceil((Date.parse(account.trialEndsAt) - Date.now()) / 86_400_000);
   const trend = [...rows]
@@ -53,10 +58,34 @@ export default async function CustomerDashboard({ searchParams }: Props) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">Your website</p>
-          <h1 className="mt-1 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{account.website ? domainOf(account.website) : account.businessName}</h1>
+          <h1 className="mt-1 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{current ? domainOf(current) : account.businessName}</h1>
         </div>
-        <RunAuditButton disabled={Boolean(running)} />
+        {current && <RunAuditButton disabled={Boolean(running)} site={domainOf(current)} />}
       </div>
+
+      {(sites.length > 1 || limit > 1) && (
+        <nav aria-label="Your websites" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-5">
+          <ul className="flex flex-wrap gap-2">
+            {sites.map((w) => {
+              const d = domainOf(w);
+              const active = w === current;
+              return (
+                <li key={d} className="flex items-center">
+                  <Link href={`/my?site=${encodeURIComponent(d)}`} aria-current={active ? 'page' : undefined} className={cn('inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-semibold', active ? 'border-night bg-night text-mist' : 'border-border-strong hover:border-ink-3')}>
+                    {d}
+                  </Link>
+                  {w !== account.website && (
+                    <form action={removeWebsiteAction.bind(null, d)}>
+                      <button type="submit" aria-label={`Remove ${d}`} className="ml-1 min-h-10 rounded-full px-2.5 text-sm text-ink-3 hover:text-fail-text">×</button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {sites.length < limit && <AddWebsiteForm left={limit - sites.length} />}
+        </nav>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Your plan">
