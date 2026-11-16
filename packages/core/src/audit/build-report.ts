@@ -1,12 +1,15 @@
 import { CATEGORY_LABEL, SEVERITY_WEIGHT } from '../scoring/constants';
 import { categoryScores, icePriority, overallScore, scoreAfterFixes, scoreLabel, type ScoredRule } from '../scoring';
 import type { Audience, Category, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
+import { contentRules } from './rules-content';
 import { onpageRules } from './rules-onpage';
+import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
+import { trustRules } from './rules-trust';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...speedRules, ...onpageRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...siteRules, ...speedRules, ...onpageRules, ...contentRules, ...trustRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 
@@ -18,21 +21,38 @@ const CARDS: { id: CardId; title: string; section: CheckCard['section']; expertO
   { id: 'depth', title: 'Click depth and internal links', section: 'technical' },
   { id: 'schema', title: 'Structured data', section: 'technical' },
   { id: 'speed', title: 'Page speed', section: 'technical' },
+  { id: 'mobile', title: 'Mobile', section: 'technical' },
+  { id: 'links', title: 'Links and anchor text', section: 'technical' },
+  { id: 'stack', title: 'Security and tech stack', section: 'technical' },
+  { id: 'intl', title: 'International', section: 'technical' },
   { id: 'urls', title: 'URL structure', section: 'technical', expertOnly: true },
   { id: 'titles', title: 'Title tags', section: 'onpage' },
   { id: 'meta', title: 'Meta descriptions', section: 'onpage' },
   { id: 'headings', title: 'Headings', section: 'onpage' },
   { id: 'content', title: 'Content', section: 'onpage' },
-  { id: 'images', title: 'Image alt text', section: 'onpage' },
+  { id: 'images', title: 'Images and video', section: 'onpage' },
+  { id: 'trust', title: 'Trust signals', section: 'onpage' },
+  { id: 'aeo', title: 'AI search readiness', section: 'onpage' },
 ];
 
 const toMeta = (d: RuleDef): RuleMeta => ({
   id: d.id, module: d.module, category: d.category, title: d.title, method: 'auto', scope: d.scope, explain: d.explain, fix: d.fix, ice: d.ice,
 });
 
-export function evaluateRules(data: AuditData): EvaluatedRule[] {
+/** Same page, ignoring scheme, "www." and a trailing slash. */
+const samePage = (a: string, b: string) => {
+  const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  return norm(a) === norm(b);
+};
+
+function contextOf(data: AuditData): AuditContext {
   const html = data.pages.filter((p) => p.resource_type === 'html');
-  const ctx: AuditContext = { data, html, ok: html.filter((p) => p.status_code === 200) };
+  const content = (data.content ?? []).filter((c) => c.status === 200);
+  return { data, html, ok: html.filter((p) => p.status_code === 200), content, home: content.find((c) => samePage(c.url, data.preflight.homepage.finalUrl)) };
+}
+
+export function evaluateRules(data: AuditData): EvaluatedRule[] {
+  const ctx = contextOf(data);
   const out: EvaluatedRule[] = [];
   for (const def of ALL_RULES) {
     // Quick audits have no link graph: never let a crawl-only rule read as "pass".
@@ -160,7 +180,7 @@ function cwvFrom(data: AuditData): ReportModel['cwv'] {
 
 export function buildReport(data: AuditData, opts: { auditId: string; audience: Audience; brand: string }): ReportModel {
   const html = data.pages.filter((p) => p.resource_type === 'html');
-  const ctx: AuditContext = { data, html, ok: html.filter((p) => p.status_code === 200) };
+  const ctx = contextOf(data);
   const evaluated = evaluateRules(data);
   const scored: ScoredRule[] = evaluated.map((r) => ({ meta: toMeta(r.def), result: r.result }));
 

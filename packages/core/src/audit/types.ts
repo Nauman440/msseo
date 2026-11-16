@@ -1,6 +1,7 @@
 import type { OnPagePage, OnPageSummary } from '../providers/dataforseo';
 import type { Preflight } from '../providers/direct-fetch';
 import type { PageSpeedResult } from '../providers/pagespeed';
+import type { PageContent } from './page-content';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
 export type AuditMode = 'quick' | 'deep';
@@ -16,6 +17,8 @@ export type AuditData = {
   preflight: Preflight;
   summary: OnPageSummary | null;
   pages: OnPagePage[];
+  /** Parsed HTML of the audited pages (read by us; see page-content.ts). */
+  content?: PageContent[];
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];
@@ -28,6 +31,10 @@ export type AuditContext = {
   html: OnPagePage[];
   /** HTML pages that answered 200 — the denominator for most on-page rules. */
   ok: OnPagePage[];
+  /** Parsed HTML of pages that answered 200 (may be fewer than `ok` if a fetch failed). */
+  content: PageContent[];
+  /** The homepage's parsed HTML, when it could be read. */
+  home?: PageContent;
 };
 
 export type CardId =
@@ -45,7 +52,13 @@ export type CardId =
   | 'meta'
   | 'headings'
   | 'content'
-  | 'images';
+  | 'images'
+  | 'mobile'
+  | 'links'
+  | 'stack'
+  | 'intl'
+  | 'trust'
+  | 'aeo';
 
 export type Evaluation = {
   status: RuleStatus;
@@ -94,9 +107,9 @@ export const pathOf = (url: string) => {
  * otherwise `status` (default fail). Returns null (rule not applicable) when there
  * are no pages to check — an empty crawl must never read as "all clear".
  */
-export function countPages(
-  pages: OnPagePage[],
-  test: (p: OnPagePage) => boolean,
+export function countPages<T extends { url: string }>(
+  pages: T[],
+  test: (p: T) => boolean,
   message: (n: number, total: number) => AudienceText,
   status: Extract<RuleStatus, 'warn' | 'fail'> = 'fail',
 ): Evaluation | null {

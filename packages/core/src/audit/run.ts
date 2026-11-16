@@ -8,7 +8,8 @@ import type { AiRecommendations, ReportModel } from '../types';
 import { generateAiRecommendations } from './ai-recommendations';
 import { buildReport } from './build-report';
 import { deepCrawl, type CrawlResult } from './deep-crawl';
-import { quickCrawl } from './quick-crawl';
+import { fetchPageContents, type PageContent } from './page-content';
+import { pickPages, quickCrawl } from './quick-crawl';
 import type { AuditData } from './types';
 
 /** Pipeline steps shown on the progress screen (subset of §5.3 for Modules 1–2). */
@@ -86,15 +87,20 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
 
   let preflight: Preflight;
   let crawl: CrawlResult;
+  let content: PageContent[];
   if (mode === 'quick') {
+    // Our own HTML read of the same pages runs alongside the live DataForSEO checks.
+    const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
     const crawlP = quickCrawl(client, found, input, crawlProgress);
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
-    crawl = await crawlP;
+    [crawl, content] = await Promise.all([crawlP, contentP]);
   } else {
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
     crawl = await deepCrawl(client, preflight, { ...input, timeoutMs: env.timeoutMs, pollMs: env.pollMs }, crawlProgress);
+    const okUrls = crawl.pages.filter((p) => p.resource_type === 'html' && p.status_code === 200).map((p) => p.url);
+    content = await fetchPageContents(okUrls.slice(0, input.pageLimit), env.log);
   }
   const htmlCount = crawl.pages.filter((p) => p.resource_type === 'html').length;
   onProgress({ step: 'crawl', state: htmlCount ? 'done' : 'failed', detail: crawl.detail, progress: at('crawl', 1) });
@@ -118,6 +124,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     preflight,
     summary: crawl.summary,
     pages: crawl.pages,
+    content,
     psi,
     notices: crawl.notices,
   };
