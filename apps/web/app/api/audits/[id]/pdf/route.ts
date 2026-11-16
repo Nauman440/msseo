@@ -11,10 +11,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!report) return new Response('Report not found', { status: 404 });
   const mode = parseMode(new URL(req.url).searchParams.get('mode') ?? undefined, report.audience);
 
-  // Forward the caller's credentials so the print route passes the same auth gate.
+  // Forward the caller's credentials (login cookie, or the old shared password) so the
+  // headless browser passes the same gate as the person who clicked "Download PDF".
   const headers: Record<string, string> = {};
-  const auth = req.headers.get('authorization');
-  if (auth) headers.authorization = auth;
+  for (const name of ['cookie', 'authorization']) {
+    const value = req.headers.get(name);
+    if (value) headers[name] = value;
+  }
 
   try {
     const pdf = await renderPdf(`${internalOrigin()}/audits/${encodeURIComponent(id)}/print?mode=${mode}`, headers);

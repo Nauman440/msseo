@@ -17,6 +17,8 @@ export type AuditRecord = {
   error?: string;
   report?: ReportModel;
   costUsd?: number;
+  /** Team member who started it (absent before login existed, or in local development). */
+  createdById?: string;
   createdAt: string;
   finishedAt?: string;
 };

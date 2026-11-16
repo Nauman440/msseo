@@ -11,11 +11,11 @@ const running = ((globalThis as { __auditJobs?: Set<string> }).__auditJobs ??= n
 
 export class ConfigError extends Error {}
 
-export async function startAudit(input: NewAuditInput): Promise<AuditRecord> {
+export async function startAudit(input: NewAuditInput, createdById?: string | null): Promise<AuditRecord> {
   const { env } = providerConfig();
   if (!env) throw new ConfigError('DataForSEO login and password are missing from .env.');
 
-  const record = await createAudit(input);
+  const record = await createAudit(input, createdById);
   running.add(record.id);
 
   // Progress writes are serialised so they never overwrite each other out of order.

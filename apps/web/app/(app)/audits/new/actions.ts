@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { newAuditSchema } from '@seo/core';
 import { ConfigError, startAudit } from '@/lib/audit-runner';
+import { requireUser } from '@/lib/session';
 
 export type NewAuditState = { error?: string; fieldErrors?: Partial<Record<'url' | 'pageLimit' | 'notifyEmail', string>> };
 
@@ -24,7 +25,7 @@ export async function createAuditAction(_prev: NewAuditState, form: FormData): P
 
   let id: string;
   try {
-    id = (await startAudit(parsed.data)).id;
+    id = (await startAudit(parsed.data, (await requireUser()).id)).id;
   } catch (err) {
     if (err instanceof ConfigError) return { error: err.message };
     return { error: err instanceof Error ? err.message : 'Could not start the audit.' };

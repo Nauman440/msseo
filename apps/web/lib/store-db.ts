@@ -75,7 +75,7 @@ export async function createAudit(record: AuditRecord): Promise<void> {
   await importFileAuditsOnce();
   const projectId = await projectIdFor(record.input.url);
   await prisma.$transaction([
-    prisma.audit.create({ data: { id: record.id, projectId, createdAt: new Date(record.createdAt), ...auditColumns(record) } }),
+    prisma.audit.create({ data: { id: record.id, projectId, createdById: record.createdById ?? null, createdAt: new Date(record.createdAt), ...auditColumns(record) } }),
     ...stepWrites(record),
   ]);
 }

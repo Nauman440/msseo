@@ -14,10 +14,11 @@ export type { AuditRecord } from './store-file';
 
 export const usingDatabase = () => Boolean(process.env.DATABASE_URL);
 
-export async function createAudit(input: NewAuditInput): Promise<AuditRecord> {
+export async function createAudit(input: NewAuditInput, createdById?: string | null): Promise<AuditRecord> {
   const record: AuditRecord = {
     id: randomUUID(),
     input,
+    ...(createdById ? { createdById } : {}),
     status: 'running',
     progress: 0,
     steps: AUDIT_STEPS.map((s) => ({ id: s.id, label: s.label, state: 'queued' })),

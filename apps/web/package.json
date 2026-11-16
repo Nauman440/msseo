@@ -13,12 +13,16 @@
   },
   "dependencies": {
     "@seo/core": "workspace:*",
+    "@seo/db": "workspace:*",
+    "bcryptjs": "3.0.3",
+    "ioredis": "5.11.1",
     "next": "^15.3.0",
+    "next-auth": "5.0.0-beta.32",
     "playwright": "^1.65.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "0.0.1",
-    "@seo/db": "workspace:*"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

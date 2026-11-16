@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
 import { AppHeader } from '@/components/AppHeader';
 import { Logo } from '@/components/ui/Logo';
+import { requireUser } from '@/lib/session';
 
-// The team's tool is password-protected and must never appear in search results;
+// The team's tool is login-protected and must never appear in search results;
 // only the public landing page (/) is indexable.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // The middleware checks the session cookie; this also rejects disabled accounts at once.
+  const user = await requireUser();
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -15,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <AppHeader />
+      <AppHeader user={user} />
       <main id="main" className="flex-1">
         {children}
       </main>

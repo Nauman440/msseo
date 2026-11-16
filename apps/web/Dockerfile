@@ -17,8 +17,8 @@ FROM mcr.microsoft.com/playwright:v1.65.0-noble AS run
 WORKDIR /app
 # Audits live in Postgres (DATABASE_URL). DATA_DIR keeps the pre-database JSON audits,
 # which are imported into Postgres once; keep the /data volume mounted until then.
-# REQUIRE_PREVIEW_PASSWORD makes the app refuse traffic until PREVIEW_PASSWORD is set.
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data REQUIRE_PREVIEW_PASSWORD=1
+# REQUIRE_AUTH makes the app refuse traffic until AUTH_SECRET (or the old PREVIEW_PASSWORD) is set.
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data REQUIRE_AUTH=1
 RUN mkdir -p /data && chown pwuser:pwuser /data
 # Prisma CLI for `migrate deploy` at start-up (version must match packages/db).
 # `prisma --version` downloads its engines now, as root: at runtime the app user cannot write there.

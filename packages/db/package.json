@@ -9,10 +9,12 @@
     "generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:admin": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "bcryptjs": "3.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.17.10",
