@@ -7,9 +7,9 @@ import { TONE_HEX, TRACK_HEX } from '@/lib/tones';
  */
 type Point = { x: number; y: number; label: string };
 
-const W = 560;
-const H = 220;
-const PAD = { l: 44, r: 12, t: 10, b: 30 };
+const W = 400;
+const H = 230;
+const PAD = { l: 36, r: 10, t: 10, b: 28 };
 
 export function QuickWinsScatter({ points, band, xLabel, yLabel }: { points: Point[]; band: [number, number]; xLabel: string; yLabel: string }) {
   const maxX = Math.max(30, Math.ceil(Math.max(...points.map((p) => p.x))));
@@ -21,20 +21,20 @@ export function QuickWinsScatter({ points, band, xLabel, yLabel }: { points: Poi
   const inBand = points.filter((p) => p.x >= band[0] && p.x <= band[1]).length;
 
   return (
-    <figure className="mb-5">
+    <figure className="mb-5 max-w-xl">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${points.length} queries by position and impressions; ${inBand} in positions ${band[0]}–${band[1]}`}>
         <rect x={sx(band[0])} y={PAD.t} width={sx(band[1]) - sx(band[0])} height={H - PAD.t - PAD.b} fill={TONE_HEX.primary} opacity={0.08} />
         <line x1={PAD.l} y1={H - PAD.b} x2={W - PAD.r} y2={H - PAD.b} stroke={TRACK_HEX} />
         {yTicks.map((t) => (
           <g key={t}>
             <line x1={PAD.l} y1={sy(t)} x2={W - PAD.r} y2={sy(t)} stroke={TRACK_HEX} strokeDasharray="2 4" />
-            <text x={PAD.l - 6} y={sy(t) + 4} textAnchor="end" fontSize="10" fill="#6B7280">
+            <text x={PAD.l - 6} y={sy(t) + 4} textAnchor="end" fontSize="12" fill="#6B7280">
               {t >= 1000 ? `${t / 1000}k` : t}
             </text>
           </g>
         ))}
         {[1, 4, 10, 20, maxX].map((t) => (
-          <text key={t} x={sx(t)} y={H - PAD.b + 16} textAnchor="middle" fontSize="10" fill="#6B7280">
+          <text key={t} x={sx(t)} y={H - PAD.b + 16} textAnchor="middle" fontSize="12" fill="#6B7280">
             {t}
           </text>
         ))}

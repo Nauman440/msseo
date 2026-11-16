@@ -137,3 +137,34 @@ export async function existingAuditIds(ids: string[]): Promise<Set<string>> {
   const rows = await prisma.audit.findMany({ where: { id: { in: ids } }, select: { id: true } });
   return new Set(rows.map((a) => a.id));
 }
+
+/** One project with its audits, oldest first (score trend), plus the latest two completed reports (for the diff). */
+export async function getProjectHistory(id: string) {
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: {
+      audits: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, createdAt: true, status: true, overallScore: true, auditMode: true, crawlLimit: true, pagesCrawled: true, gscProperty: true, createdBy: { select: { name: true, email: true } } },
+      },
+    },
+  });
+  if (!project) return null;
+  const completed = project.audits.filter((a) => a.status === 'completed' && a.overallScore !== null);
+  const lastTwo = completed.slice(-2).map((a) => a.id);
+  const reports = lastTwo.length
+    ? await prisma.audit.findMany({ where: { id: { in: lastTwo } }, select: { id: true, report: true } })
+    : [];
+  const report = (auditId: string | undefined) => (reports.find((r) => r.id === auditId)?.report ?? undefined) as ReportModel | undefined;
+  return {
+    project: { id: project.id, domain: project.domain, name: project.name, createdAt: project.createdAt },
+    audits: project.audits.map((a) => ({ ...a, createdBy: a.createdBy ? a.createdBy.name || a.createdBy.email : null })),
+    latest: report(lastTwo[lastTwo.length - 1]),
+    previous: lastTwo.length === 2 ? report(lastTwo[0]) : undefined,
+  };
+}
+
+/** The project of an audit's domain (for links from a report to its project page). */
+export async function projectIdForAudit(auditId: string): Promise<string | null> {
+  return (await prisma.audit.findUnique({ where: { id: auditId }, select: { projectId: true } }))?.projectId ?? null;
+}

@@ -22,6 +22,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: report ? `${report.project.domain} report` : 'Audit' };
 }
 
+/** Link to the project page (database only; the demo report has none). */
+async function projectHref(auditId: string): Promise<string | undefined> {
+  if (!process.env.DATABASE_URL || auditId === 'demo') return undefined;
+  const { projectIdForAudit } = await import('@seo/db');
+  const id = await projectIdForAudit(auditId).catch(() => null);
+  return id ? `/projects/${id}` : undefined;
+}
+
 export default async function ReportPage({ params, searchParams }: Props) {
   const view = await getAuditView((await params).auditId);
   if (!view) notFound();
@@ -44,7 +52,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <ReportHeader report={report} mode={mode} />
+      <ReportHeader report={report} mode={mode} projectHref={await projectHref(report.auditId)} />
       <div className="mx-auto max-w-page space-y-6 px-4 py-8 sm:px-6 sm:py-10">
         <Banner variant="alert" title={`${report.overall.label}: ${report.severityCounts.critical} critical ${report.severityCounts.critical === 1 ? 'issue needs' : 'issues need'} attention`}>
           {summary[mode]}

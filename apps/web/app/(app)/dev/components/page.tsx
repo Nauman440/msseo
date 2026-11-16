@@ -1,5 +1,8 @@
 import { notFound } from 'next/navigation';
-import { sampleReport as r } from '@seo/core';
+import { diffReports, sampleReport as r, type ReportIssue } from '@seo/core';
+import { ChangesSinceLast } from '@/components/project/ChangesSinceLast';
+import { ScoreTrend } from '@/components/project/ScoreTrend';
+import { QuickWinsScatter } from '@/components/report/QuickWinsScatter';
 import { Card } from '@/components/ui/Card';
 import { IssueBadge, SeverityPill, StatusPill } from '@/components/ui/Pills';
 import { StatTile } from '@/components/ui/StatTile';
@@ -19,6 +22,11 @@ import { TopIssuesList } from '@/components/report/TopIssuesList';
 export const dynamic = 'force-dynamic';
 
 /** §9.2 component catalogue on sample data. Dev only. */
+const TREND = [41, 48, 47, 55, 62, 64].map((score, i) => ({ date: `2026-0${i + 4}-01`, score, href: `#t${i}` }));
+const SCATTER = [[1.2, 900], [3.4, 420], [5.1, 1300], [7.8, 260], [9.4, 75], [12.6, 610], [15.2, 140], [18.9, 55], [24, 30]].map(([x, y], i) => ({ x: x!, y: y!, label: `query ${i + 1}` }));
+
+const DEMO_ISSUES: ReportIssue[] = r.topIssues.map((t, i) => ({ ...t, status: 'fail', message: t.sub, explain: t.sub, fix: t.sub, affectedCount: 4 + i, urls: [] }));
+
 export default function ComponentsPage() {
   if (process.env.NODE_ENV === 'production' && process.env.SHOW_DEV_PAGES !== '1') notFound();
   const depth = r.cards.find((c) => c.id === 'depth');
@@ -52,6 +60,9 @@ export default function ComponentsPage() {
       <Banner variant="alert" title="Alert banner">One-sentence summary built from the top three issues.</Banner>
       <Banner variant="soft" title="Soft banner">Sales CTA variant — hidden behind FEATURE_SALES_SECTIONS.</Banner>
       <Card title="TopIssuesList"><TopIssuesList issues={r.topIssues.slice(0, 3)} mode="expert" /></Card>
+      <Card title="ScoreTrend"><ScoreTrend points={TREND} /></Card>
+      <Card title="ChangesSinceLast"><ChangesSinceLast diff={diffReports({ ...r, overall: { ...r.overall, score: 58 }, issues: DEMO_ISSUES.slice(2).map((i) => ({ ...i, affectedCount: (i.affectedCount ?? 0) + 3 })) }, { ...r, issues: DEMO_ISSUES.slice(0, 5) })} /></Card>
+      <Card title="QuickWinsScatter"><QuickWinsScatter xLabel="Average position" yLabel="Impressions" band={[4, 20]} points={SCATTER} /></Card>
     </div>
   );
 }

@@ -20,7 +20,9 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
       {projects.map((p) => (
         <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{p.domain}</p>
+            <Link href={`/projects/${p.id}`} className="block truncate font-semibold hover:text-primary-text hover:underline">
+              {p.domain}
+            </Link>
             <p className="text-[13px] text-ink-3 tabular">
               {p.audits} {p.audits === 1 ? 'audit' : 'audits'}
               {p.latest && ` · last ${p.latest.createdAt.toISOString().slice(0, 10)}`}
@@ -29,7 +31,10 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
           {p.latest?.overallScore != null && (
             <span className={cn('rounded-pill px-2.5 py-1 text-sm font-bold tabular', scoreTone(p.latest.overallScore))}>{p.latest.overallScore}</span>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/projects/${p.id}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
+              History
+            </Link>
             {p.latest && (
               <Link href={`/audits/${p.latest.id}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
                 Latest report

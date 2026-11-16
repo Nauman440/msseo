@@ -31,7 +31,7 @@ function ModeSwitch({ auditId, mode }: { auditId: string; mode: Audience }) {
   );
 }
 
-export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audience }) {
+export function ReportHeader({ report, mode, projectHref }: { report: ReportModel; mode: Audience; projectHref?: string }) {
   const meta = [
     { label: 'URL', value: report.url, mono: true },
     { label: 'Pages audited', value: `${report.pagesCrawled.toLocaleString('en-US')} of ${report.crawlLimit.toLocaleString('en-US')}` },
@@ -50,7 +50,13 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
             <p className="text-[13px] font-medium text-ink-3">
               <Link href="/dashboard" className="hover:text-ink">Audits</Link>
               <span className="mx-2">/</span>
-              {report.project.name}
+              {projectHref ? (
+                <Link href={projectHref} className="hover:text-ink">
+                  {report.project.name}
+                </Link>
+              ) : (
+                report.project.name
+              )}
             </p>
             <h1 className="mt-2 font-display text-[30px] font-bold tracking-display sm:text-[36px]">
               {report.project.domain}

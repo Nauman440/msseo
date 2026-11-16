@@ -111,3 +111,8 @@ test('new-audit form falls back to no Search Console property', async ({ page })
   await expect(page.getByLabel('Search Console date range')).toHaveCount(0);
   await expect(page.getByText('Search Console is not connected')).toBeVisible();
 });
+
+test('unknown project returns 404', async ({ page }) => {
+  const res = await page.goto('/projects/does-not-exist');
+  expect(res?.status()).toBe(404);
+});
