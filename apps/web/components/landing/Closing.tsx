@@ -1,4 +1,4 @@
-import { Wordmark } from '@/components/ui/Wordmark';
+import { Logo } from '@/components/ui/Logo';
 import { CONTACT_HREF } from '@/lib/site';
 import { AuditForm } from './AuditForm';
 import { ComingSoon, Container, CtaLink } from './primitives';
@@ -72,8 +72,8 @@ export function SiteFooter() {
     <footer className="bg-night-deep py-9 text-sm text-mist-3">
       <Container className="flex flex-wrap justify-between gap-5">
         <div>
-          <Wordmark tone="light" />
-          <p className="mt-1.5">SEO audits and automatic fixes for local businesses.</p>
+          <Logo tone="light" height={34} />
+          <p className="mt-3">SEO audits and automatic fixes for local businesses.</p>
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-5">
           <a href={CONTACT_HREF} className="hover:text-mist">

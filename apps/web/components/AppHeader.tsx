@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { Wordmark } from '@/components/ui/Wordmark';
-import { ButtonLink } from '@/components/ui/Button';
+import { Logo } from '@/components/ui/Logo';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -8,21 +7,19 @@ const NAV = [
   { href: '/audits/demo/print', label: 'PDF layout' },
 ];
 
+/** Team app header, styled like the public landing page header (white bar, dark logo, orange CTA). */
 export function AppHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-night-line bg-night print:hidden">
-      <div className="mx-auto flex h-16 max-w-page items-center gap-8 px-4 sm:px-6">
-        <Link href="/dashboard" aria-label="MSScore dashboard" className="rounded-control">
-          <Wordmark tone="light" />
+    <header className="sticky top-0 z-30 border-b border-border bg-surface print:hidden">
+      <div className="mx-auto flex h-16 max-w-page items-center gap-6 px-4 sm:px-6">
+        <Link href="/dashboard" aria-label="MS SCORE dashboard" className="shrink-0 rounded-control">
+          <Logo height={32} priority />
         </Link>
         <nav aria-label="Main" className="hidden md:block">
-          <ul className="flex items-center gap-1">
+          <ul className="flex items-center gap-[22px] text-[15px]">
             {NAV.map((item) => (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="rounded-full px-3 py-2 text-sm font-medium text-white/65 transition-colors hover:bg-white/5 hover:text-white"
-                >
+                <Link href={item.href} className="font-medium text-ink-2 transition-colors hover:text-ink">
                   {item.label}
                 </Link>
               </li>
@@ -30,13 +27,13 @@ export function AppHeader() {
           </ul>
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <ButtonLink href="/audits/new" variant="brand" className="min-h-9 px-4">
-            New audit
-          </ButtonLink>
-          <span
-            className="hidden size-9 items-center justify-center rounded-full bg-night-3 text-xs font-semibold text-white/80 sm:flex"
-            aria-label="Signed in as team member"
+          <Link
+            href="/audits/new"
+            className="inline-flex min-h-[42px] items-center rounded-control bg-primary px-4 text-sm font-extrabold text-primary-ink transition-colors hover:bg-primary-hover sm:px-5"
           >
+            New audit
+          </Link>
+          <span className="hidden size-9 items-center justify-center rounded-full bg-night text-xs font-semibold text-mist sm:flex" aria-label="Signed in as team member">
             MT
           </span>
         </div>

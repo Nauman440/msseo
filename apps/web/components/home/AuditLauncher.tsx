@@ -3,39 +3,40 @@ const AUDIENCES = [
   { value: 'expert', label: 'SEO expert' },
 ] as const;
 
-/** Plain GET form → /audits/new pre-fills the full form (§5.1). Works without JS. */
+/**
+ * Plain GET form → /audits/new pre-fills the full form (§5.1). Works without JS.
+ * Same box as the landing page's website form (navy panel, white input, orange button).
+ */
 export function AuditLauncher() {
   return (
-    <form action="/audits/new" method="get" className="w-full max-w-xl">
-      <div className="flex flex-col gap-2 rounded-[20px] border border-white/[0.12] bg-white/[0.06] p-2 shadow-lift backdrop-blur sm:flex-row sm:items-center sm:rounded-full">
-        <label htmlFor="launch-url" className="sr-only">
-          Website URL
-        </label>
-        <input
-          id="launch-url"
-          name="url"
-          type="text"
-          inputMode="url"
-          autoComplete="url"
-          required
-          placeholder="clientwebsite.com"
-          className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-[15px] text-white placeholder:text-white/40 focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="h-12 shrink-0 rounded-full bg-brand px-6 text-sm font-semibold text-night transition hover:brightness-105"
-        >
+    <form action="/audits/new" method="get" className="flex max-w-[640px] flex-col gap-3 rounded-card border border-night-line bg-night-2 p-[18px]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="launch-url" className="text-[13px] font-bold text-mist-2">
+            Client website
+          </label>
+          <input
+            id="launch-url"
+            name="url"
+            type="text"
+            inputMode="url"
+            autoComplete="url"
+            required
+            placeholder="https://clientwebsite.com"
+            className="min-h-[54px] w-full rounded-control border-0 bg-surface px-4 text-base text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <button type="submit" className="min-h-[54px] shrink-0 rounded-button bg-primary px-[30px] text-base font-extrabold text-primary-ink transition-colors hover:bg-primary-hover">
           Run audit
         </button>
       </div>
-
-      <fieldset className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <legend className="sr-only">Report for</legend>
-        <span className="text-[13px] text-white/45">Report for</span>
+        <span className="text-[13px] text-mist-3">Report for</span>
         {AUDIENCES.map((a, i) => (
-          <label key={a.value} className="group relative cursor-pointer">
+          <label key={a.value} className="relative cursor-pointer">
             <input type="radio" name="audience" value={a.value} defaultChecked={i === 0} className="peer sr-only" />
-            <span className="inline-flex h-8 items-center rounded-full border border-white/[0.12] px-3.5 text-[13px] font-medium text-white/60 transition peer-checked:border-primary-tint/60 peer-checked:bg-primary/25 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brand">
+            <span className="inline-flex min-h-9 items-center rounded-full border border-night-line px-3.5 text-[13px] font-semibold text-mist-3 transition peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-primary">
               {a.label}
             </span>
           </label>

@@ -13,10 +13,10 @@ const scoreTone = (s: number) => (s >= 90 ? 'bg-pass-bg text-pass-text' : s >= 7
 /** One row per client domain (Project), newest activity first. */
 export function ProjectList({ projects }: { projects: ProjectRow[] }) {
   if (!projects.length) {
-    return <p className="rounded-card border border-border bg-surface p-6 text-sm text-ink-2">No projects yet. Run an audit and its domain becomes a project.</p>;
+    return <p className="rounded-panel border border-border bg-surface p-6 text-sm text-ink-2">No projects yet. Run an audit and its domain becomes a project.</p>;
   }
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
+    <ul className="divide-y divide-border overflow-hidden rounded-panel border border-border bg-surface">
       {projects.map((p) => (
         <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4">
           <div className="min-w-0 flex-1">

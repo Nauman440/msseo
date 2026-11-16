@@ -1,9 +1,6 @@
 import type { Audience } from '@seo/core';
 
-/**
- * Sample rows for the overview until the Audit/Project tables are wired up (Phase 1).
- * Domains are fictional.
- */
+/** A row in the dashboard's "Recent audits" list. */
 export type RecentAudit = {
   id: string;
   project: string;
@@ -18,20 +15,18 @@ export type RecentAudit = {
   href?: string;
 };
 
-export const recentAudits: RecentAudit[] = [
-  { id: 'demo', project: 'Summit Air Heating & Cooling', domain: 'summitairhvac.com', audience: 'client', score: 58, status: 'completed', pages: 50, date: '2026-11-10', href: '/audits/demo' },
-  { id: 'a2', project: 'Brightline Plumbing', domain: 'brightlineplumbing.co', audience: 'expert', score: null, status: 'running', progress: 64, pages: 20, date: '2026-11-12' },
-  { id: 'a3', project: 'Cedar Ridge Roofing', domain: 'cedarridgeroof.com', audience: 'client', score: 81, status: 'completed', pages: 30, date: '2026-11-08' },
-  { id: 'a4', project: 'Polar Mechanical', domain: 'polarmech.net', audience: 'expert', score: 47, status: 'completed', pages: 50, date: '2026-11-05' },
-  { id: 'a5', project: 'Northgate Electric', domain: 'northgate-electric.com', audience: 'client', score: null, status: 'failed', pages: 0, date: '2026-11-04' },
-];
-
-export const teamStats = [
-  { value: '18', label: 'Audits this month', hint: '+6 vs October' },
-  { value: '64', label: 'Average health score', hint: 'Across 11 projects' },
-  { value: '23', label: 'Critical issues open', hint: '7 fixed this week' },
-  { value: '640', label: 'Pages audited', hint: 'Up to 50 per audit' },
-];
+/** The sample report, always listed so it is one click away. Fictional domain. */
+export const demoAudit: RecentAudit = {
+  id: 'demo',
+  project: 'Sample report · Summit Air Heating & Cooling',
+  domain: 'summitairhvac.com',
+  audience: 'client',
+  score: 58,
+  status: 'completed',
+  pages: 50,
+  date: '2026-11-10',
+  href: '/audits/demo',
+};
 
 export type ModuleStatus = 'live' | 'building' | 'planned';
 

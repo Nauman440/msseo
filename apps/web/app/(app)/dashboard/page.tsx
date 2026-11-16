@@ -1,11 +1,12 @@
-import { sampleReport } from '@seo/core';
-import { Hero } from '@/components/home/Hero';
-import { RecentAudits } from '@/components/home/RecentAudits';
+import { Container, SectionHeader } from '@/components/landing/primitives';
 import { CategoryGrid, ModuleRoadmap } from '@/components/home/Coverage';
-import { StatTile } from '@/components/ui/StatTile';
-import { modules, recentAudits, teamStats, type RecentAudit } from '@/lib/home-data';
+import { Hero } from '@/components/home/Hero';
 import { ProjectList } from '@/components/home/ProjectList';
+import { RecentAudits } from '@/components/home/RecentAudits';
+import { isAuditActive } from '@/lib/audit-runner';
 import { listAudits, listProjects, type AuditRecord } from '@/lib/audit-store';
+import { dashboardStats } from '@/lib/dashboard-stats';
+import { demoAudit, modules, type RecentAudit } from '@/lib/home-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,8 @@ function toRow(r: AuditRecord): RecentAudit {
     domain: r.input.url,
     audience: r.input.audience,
     score: r.report?.overall.score ?? null,
-    status: r.status,
+    // A "running" audit no process is working on was interrupted by a restart.
+    status: r.status === 'running' && !isAuditActive(r.id) ? 'failed' : r.status,
     progress: r.progress,
     pages: r.report?.pagesCrawled ?? 0,
     date: r.createdAt.slice(0, 10),
@@ -25,60 +27,43 @@ function toRow(r: AuditRecord): RecentAudit {
   };
 }
 
-function SectionHeading({ eyebrow, title, aside }: { eyebrow: string; title: string; aside?: React.ReactNode }) {
-  return (
-    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">{eyebrow}</p>
-        <h2 className="mt-2 font-display text-[26px] font-bold tracking-display sm:text-[30px]">{title}</h2>
-      </div>
-      {aside}
-    </div>
-  );
-}
+/** Team dashboard, styled like the public landing page (navy hero, canvas sections, white panels). */
+export default async function DashboardPage() {
+  const [all, projects] = await Promise.all([listAudits(500), listProjects()]);
+  const rows = [...all.slice(0, 10).map(toRow), demoAudit];
 
-export default async function HomePage() {
-  const [audits, projects] = await Promise.all([listAudits(10), listProjects()]);
-  const real = audits.map(toRow);
-  // Real audits first; the demo row stays so the sample report is always one click away.
-  const rows = real.length ? [...real, recentAudits[0]!] : recentAudits;
   return (
     <>
-      <Hero report={sampleReport} />
+      <Hero stats={dashboardStats(all)} />
 
-      <div className="mx-auto max-w-page px-4 sm:px-6">
-        <section aria-label="Team stats" className="relative z-10 -mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {teamStats.map((s) => (
-            <StatTile key={s.label} value={s.value} label={s.label} hint={s.hint} variant="raised" />
-          ))}
-        </section>
-
+      <Container className="flex flex-col gap-16 py-16">
         {projects && (
-          <section className="pt-16" aria-labelledby="projects-heading">
-            <SectionHeading eyebrow="Projects" title="Client websites" aside={<p id="projects-heading" className="text-[13px] text-ink-3">One project per domain, created by its first audit</p>} />
+          <section className="flex flex-col gap-6">
+            <SectionHeader align="left" eyebrow="Projects" title="Client websites" intro="One project per domain, created by its first audit." />
             <ProjectList projects={projects} />
           </section>
         )}
 
-        <section className="pt-16">
-          <SectionHeading
+        <section className="flex flex-col gap-6">
+          <SectionHeader
+            align="left"
             eyebrow="Recent audits"
-            title="Latest runs across your projects"
-            aside={<p className="text-[13px] text-ink-3">{real.length ? 'Your audits, plus the sample report' : 'Sample data — run an audit to see yours here'}</p>}
+            title="Latest runs"
+            intro={all.length ? 'Your newest audits, plus the sample report.' : 'Run an audit to see it here. The sample report is always available.'}
           />
           <RecentAudits audits={rows} />
         </section>
 
-        <section className="pt-20">
-          <SectionHeading eyebrow="What every audit checks" title="Seven categories, one health score" />
+        <section className="flex flex-col gap-6">
+          <SectionHeader align="left" eyebrow="What every audit checks" title="Seven categories, one health score" />
           <CategoryGrid />
         </section>
 
-        <section className="pb-24 pt-20">
-          <SectionHeading eyebrow="Roadmap" title="Thirteen modules, built in order" />
+        <section className="flex flex-col gap-6">
+          <SectionHeader align="left" eyebrow="Roadmap" title="Thirteen modules, built in order" />
           <ModuleRoadmap modules={modules} />
         </section>
-      </div>
+      </Container>
     </>
   );
 }

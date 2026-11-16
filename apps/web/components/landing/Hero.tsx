@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Wordmark } from '@/components/ui/Wordmark';
+import { Logo } from '@/components/ui/Logo';
 import { AuditForm } from './AuditForm';
 import { Check } from './icons';
 import { ComingSoon, Container, CtaLink } from './primitives';
@@ -31,8 +31,10 @@ export function TopBar() {
       </p>
       <header className="border-b border-border bg-surface">
         <Container className="flex items-center justify-between gap-3 py-3.5">
-          <Link href="/" aria-label="MSScore home">
-            <Wordmark />
+          <Link href="/" aria-label="MS SCORE home" className="shrink-0">
+            {/* Smaller on phones so the logo and the CTA fit one line at 375 px. */}
+            <Logo height={28} priority className="sm:hidden" />
+            <Logo height={36} priority className="hidden sm:block" />
           </Link>
           <nav aria-label="Main" className="flex items-center gap-x-[22px] text-[15px]">
             {NAV.map((n) => (

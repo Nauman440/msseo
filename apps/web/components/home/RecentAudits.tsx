@@ -32,7 +32,7 @@ const STATUS = {
 
 export function RecentAudits({ audits }: { audits: RecentAudit[] }) {
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+    <div className="overflow-hidden rounded-panel border border-border bg-surface">
       <ul className="divide-y divide-border">
         {audits.map((a) => {
           const openable = Boolean(a.href);

@@ -64,6 +64,9 @@ export async function startAudit(input: NewAuditInput): Promise<AuditRecord> {
   return record;
 }
 
+/** Whether this process is still working on the audit (false after a restart). */
+export const isAuditActive = (id: string) => running.has(id);
+
 /** A running audit whose job is gone (server restarted) is reported as interrupted. */
 export async function getAuditStatus(id: string): Promise<AuditRecord | null> {
   const record = await getAudit(id);

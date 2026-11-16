@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('dashboard launcher pre-fills the new-audit form', async ({ page }) => {
   await page.goto('/dashboard');
-  await page.getByLabel('Website URL').fill('clientsite.com');
+  await page.getByLabel('Client website').fill('clientsite.com');
   await page.getByRole('group', { name: 'Report for' }).getByText('SEO expert', { exact: true }).click();
   await page.getByRole('button', { name: 'Run audit' }).click();
 
