@@ -50,6 +50,8 @@ export const newAuditSchema = z.object({
   gscProperty: z.string().trim().min(1).nullable().default(null),
   /** Search Console date range in days (spec §5.1 field 7); used only when a property is selected. */
   gscRangeDays: z.coerce.number().refine((v) => v === 28 || v === 90, 'Choose 28 or 90 days').default(90),
+  /** Who started it: the team, a visitor's free audit (step 8) or a signed-up customer. */
+  source: z.enum(['team', 'public', 'customer']).default('team'),
   /** Optional: send the full report (PDF) to this address when the audit completes. */
   notifyEmail: z
     .string()

@@ -19,6 +19,7 @@ export async function createAuditAction(_prev: NewAuditState, form: FormData): P
     aiRecommendations: form.get('ai') === 'on',
     gscProperty: (form.get('gsc') as string) || null,
     gscRangeDays: form.get('gscRange') ?? undefined,
+    source: 'team',
     notifyEmail: form.get('notifyEmail') ?? '',
   });
   if (!parsed.success) {

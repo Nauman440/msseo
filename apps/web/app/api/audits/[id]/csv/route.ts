@@ -1,3 +1,4 @@
+import { canViewAudit, notFound } from '@/lib/access';
 import { issuesToCsv } from '@seo/core';
 import { getReport } from '@/lib/reports';
 
@@ -5,7 +6,9 @@ export const dynamic = 'force-dynamic';
 
 /** GET /api/audits/[id]/csv?rule=1.5.1 — affected URLs of one issue (or all issues without `rule`) as CSV (Expert, spec §8). */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const report = await getReport((await params).id);
+  const id = (await params).id;
+  if (!(await canViewAudit(id))) return notFound();
+  const report = await getReport(id);
   if (!report) return new Response('Report not found', { status: 404 });
   const rule = new URL(req.url).searchParams.get('rule') ?? undefined;
   if (rule && !/^[\w.-]{1,20}$/.test(rule)) return new Response('Bad rule id', { status: 400 });

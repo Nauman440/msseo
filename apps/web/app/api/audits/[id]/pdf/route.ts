@@ -1,3 +1,4 @@
+import { canViewAudit, notFound } from '@/lib/access';
 import { internalOrigin, renderPdf } from '@/lib/pdf';
 import { getReport, parseMode } from '@/lib/reports';
 
@@ -7,6 +8,7 @@ export const runtime = 'nodejs';
 /** GET /api/audits/[id]/pdf?mode=client|expert — server-rendered PDF download. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = (await params).id;
+  if (!(await canViewAudit(id))) return notFound();
   const report = await getReport(id);
   if (!report) return new Response('Report not found', { status: 404 });
   const mode = parseMode(new URL(req.url).searchParams.get('mode') ?? undefined, report.audience);

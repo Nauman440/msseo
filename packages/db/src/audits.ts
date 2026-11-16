@@ -9,7 +9,8 @@ import { Prisma, prisma } from './client';
 
 const domainOf = (url: string) => new URL(url).hostname.replace(/^www\./, '').toLowerCase();
 
-async function projectIdFor(url: string): Promise<string> {
+/** The Project for a URL's domain, created on first sight. */
+export async function projectIdFor(url: string): Promise<string> {
   const domain = domainOf(url);
   const project = await prisma.project.upsert({ where: { domain }, create: { domain, name: domain }, update: {} });
   return project.id;
@@ -21,6 +22,7 @@ function auditColumns(r: AuditRecord) {
     audience: r.input.audience,
     crawlLimit: r.input.pageLimit,
     notifyEmail: r.input.notifyEmail ?? null,
+    source: r.input.source ?? 'team',
     jsRendering: r.input.jsRendering,
     auditMode: r.input.auditMode ?? 'quick',
     aiRecommendations: r.input.aiRecommendations ?? false,

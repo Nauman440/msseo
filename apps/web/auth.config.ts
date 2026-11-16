@@ -15,14 +15,14 @@ export const authConfig = {
     jwt({ token, user }) {
       if (user) {
         token.uid = user.id;
-        token.role = (user as { role?: 'admin' | 'member' }).role ?? 'member';
+        token.role = (user as { role?: 'admin' | 'member' | 'customer' }).role ?? 'member';
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.uid as string;
-        session.user.role = (token.role as 'admin' | 'member') ?? 'member';
+        session.user.role = (token.role as 'admin' | 'member' | 'customer') ?? 'member';
       }
       return session;
     },
@@ -31,6 +31,6 @@ export const authConfig = {
 
 declare module 'next-auth' {
   interface Session {
-    user: { id: string; role: 'admin' | 'member'; name?: string | null; email?: string | null };
+    user: { id: string; role: 'admin' | 'member' | 'customer'; name?: string | null; email?: string | null };
   }
 }

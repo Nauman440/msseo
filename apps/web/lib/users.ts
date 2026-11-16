@@ -9,7 +9,9 @@ import { prisma } from '@seo/db';
  * Team accounts. Postgres `User` table when DATABASE_URL is set (the server); a JSON
  * file in DATA_DIR otherwise, so login can be developed and tested without a database.
  */
-export type Role = 'admin' | 'member';
+export type Role = 'admin' | 'member' | 'customer';
+/** Team roles use the internal tool; customers only see their own website (step 8). */
+export const isTeamRole = (r: Role): r is 'admin' | 'member' => r === 'admin' || r === 'member';
 export type TeamUser = { id: string; email: string; name: string | null; role: Role; active: boolean; passwordHash: string; createdAt: string };
 export type PublicUser = Omit<TeamUser, 'passwordHash'>;
 
@@ -59,9 +61,10 @@ export async function findUserById(id: string): Promise<TeamUser | null> {
   return (await readFileUsers()).find((u) => u.id === id) ?? null;
 }
 
+/** Team members only (customers are listed on the Customers page). */
 export async function listUsers(): Promise<PublicUser[]> {
   const users = dbEnabled() ? (await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })).map(fromDb) : await readFileUsers();
-  return users.map(toPublic);
+  return users.filter((u) => isTeamRole(u.role)).map(toPublic);
 }
 
 export class UserExistsError extends Error {}
