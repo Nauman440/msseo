@@ -1,5 +1,16 @@
 /** Public-site constants for the landing page (one place to change them). */
 
+/**
+ * Canonical public address. The landing page is prerendered at build time, when
+ * Coolify's runtime-only variables are not set, so production is the default;
+ * staging therefore canonicalises to msseo.tech, which is what we want.
+ */
+export const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://msseo.tech').replace(/\/$/, '');
+export const SITE_NAME = 'MSScore';
+export const COMPANY = { name: 'Morosoft Technologies', url: 'https://morosoft.com/' };
+export const SITE_DESCRIPTION =
+  'MSScore is a free SEO audit tool by Morosoft. It checks technical SEO, on-page SEO, speed, mobile and AI search readiness, gives your website a health score and a prioritised list of what to fix first.';
+
 /** Where audit CTAs go. The audit tool is team-only for now (public free audit comes later). */
 export const AUDIT_HREF = '/audits/new';
 

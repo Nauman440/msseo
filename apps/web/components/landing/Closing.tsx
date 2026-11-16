@@ -3,8 +3,10 @@ import { CONTACT_HREF } from '@/lib/site';
 import { AuditForm } from './AuditForm';
 import { ComingSoon, Container, CtaLink } from './primitives';
 
-// `soon` marks answers that describe features not built yet.
-const FAQ: { q: string; a: string; soon?: boolean }[] = [
+// `soon` marks answers that describe features not built yet. Exported: the FAQPage
+// structured data is generated from this same list, so it always matches the page.
+export const FAQ: { q: string; a: string; soon?: boolean }[] = [
+  { q: 'What is MSScore?', a: 'MSScore is a free SEO audit tool by Morosoft Technologies. Enter your website and it checks technical SEO, on-page SEO, page speed, mobile and AI search readiness, then gives you a health score out of 100 and a list of issues ranked by what to fix first. The quick audit takes about a minute.' },
   { q: 'What does the free SEO audit include?', a: 'A scan of your website that checks technical SEO, on-page SEO, speed, mobile, robots.txt, sitemap, structured data and AI search readiness. You get a health score and your top issues ranked by priority.' },
   { q: 'Do I need to know SEO to use it?', a: 'No. Every issue is explained in plain language, and the tool prepares the fix for you. You only decide whether to approve it.', soon: true },
   { q: 'Will anything change on my website without my permission?', a: 'No. You see the old and new version of every change before it goes live, and you can undo any change with one click. Risky changes such as robots.txt, redirects and new pages always wait for your approval.', soon: true },

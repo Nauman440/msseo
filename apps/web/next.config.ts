@@ -23,8 +23,22 @@ const nextConfig: NextConfig = {
     '/api/audits/[id]/pdf': ['../../node_modules/.pnpm/playwright*/**/*'],
   },
   poweredByHeader: false,
+  // Inline the (small, ~8 KB gzipped) stylesheet into the HTML so it is not a
+  // render-blocking request (our own rule 1.8.4 flagged msseo.tech for it).
+  experimental: { inlineCss: true },
   async headers() {
     return [
+      {
+        // Security headers our own rule 1.10.3 checks for.
+        source: '/:path*',
+        headers: [
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [

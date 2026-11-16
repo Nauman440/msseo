@@ -5,11 +5,22 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Off unless PREVIEW_PASSWORD is set. The public landing page and its assets are
  * always open; everything else (dashboard, audits, PDFs, APIs) is gated.
  */
-const PUBLIC_PATHS = new Set(['/', '/robots.txt', '/sitemap.xml', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png']);
-const PUBLIC_PREFIXES = ['/brand/'];
+const PUBLIC_PATHS = new Set(['/', '/robots.txt', '/sitemap.xml', '/llms.txt', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png']);
+const PUBLIC_PREFIXES = ['/brand/', '/opengraph-image', '/twitter-image'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // One host only: www.msseo.tech → msseo.tech (our own rule 1.6.3 flagged the duplicate).
+  const host = req.headers.get('host') ?? '';
+  if (host.startsWith('www.')) {
+    const url = req.nextUrl.clone();
+    url.host = host.slice(4);
+    url.port = '';
+    url.protocol = 'https:';
+    return NextResponse.redirect(url, 308);
+  }
+
   if (PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   const password = process.env.PREVIEW_PASSWORD;
