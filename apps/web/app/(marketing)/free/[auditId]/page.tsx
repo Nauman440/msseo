@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SiteFooter } from '@/components/landing/Closing';
 import { TopBar } from '@/components/landing/Hero';
-import { Banner } from '@/components/report/Banner';
+import { ReportBanner } from '@/components/report/Banner';
 import { AuditProgress } from '@/components/report/AuditProgress';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { getAudit } from '@/lib/audit-store';
-import { getAuditView, reportSummary, typicalDurationSeconds } from '@/lib/reports';
+import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
 
 export const dynamic = 'force-dynamic';
 // A visitor's own report: never indexed, never cached.
@@ -39,7 +39,6 @@ export default async function FreeReportPage({ params }: Props) {
   }
 
   const report = view.report;
-  const summary = reportSummary(report).client;
   const trialHref = `/signup?audit=${encodeURIComponent(report.auditId)}`;
   return (
     <>
@@ -53,9 +52,7 @@ export default async function FreeReportPage({ params }: Props) {
           </div>
         </div>
         <div className="mx-auto max-w-page space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-          <Banner variant="alert" title={`${report.overall.label}: ${report.severityCounts.critical} critical ${report.severityCounts.critical === 1 ? 'issue needs' : 'issues need'} attention`}>
-            {summary}
-          </Banner>
+          <ReportBanner report={report} mode="client" />
 
           <TrialCta href={trialHref} score={report.overall.score} after={report.overall.afterFixes} />
 

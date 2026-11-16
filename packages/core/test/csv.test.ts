@@ -23,3 +23,13 @@ describe('issuesToCsv', () => {
     expect(row).toContain(`"'=HYPERLINK(""http://evil"")"`);
   });
 });
+
+describe('summaryHeadline', () => {
+  it('is red only with critical issues and says so when there are none', async () => {
+    const { summaryHeadline } = await import('../src');
+    const r = (critical: number, high: number) => ({ overall: { ...sampleReport.overall, label: 'Needs work' as const }, severityCounts: { critical, high, medium: 3, low: 1 } });
+    expect(summaryHeadline(r(2, 1))).toEqual({ tone: 'critical', title: 'Needs work: 2 critical issues need attention' });
+    expect(summaryHeadline(r(0, 1))).toEqual({ tone: 'high', title: 'Needs work: no critical issues, 1 high-priority issue to fix' });
+    expect(summaryHeadline(r(0, 0))).toEqual({ tone: 'good', title: 'Needs work: no critical or high-priority issues' });
+  });
+});

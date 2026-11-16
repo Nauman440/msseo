@@ -23,3 +23,15 @@ export function buildSummary(report: Pick<ReportModel, 'overall' | 'topIssues'>)
     expert: `Overall ${report.overall.score}/100 (${report.overall.label}). Highest-priority failures: ${expert}.`,
   };
 }
+
+/**
+ * The report's headline and tone. Red only when there are critical issues; with none it
+ * says so (orange for high-priority issues, green when nothing critical or high is left).
+ */
+export function summaryHeadline(report: Pick<ReportModel, 'overall' | 'severityCounts'>): { tone: 'critical' | 'high' | 'good'; title: string } {
+  const { critical, high } = report.severityCounts;
+  const label = report.overall.label;
+  if (critical > 0) return { tone: 'critical', title: `${label}: ${critical} critical ${critical === 1 ? 'issue needs' : 'issues need'} attention` };
+  if (high > 0) return { tone: 'high', title: `${label}: no critical issues, ${high} high-priority ${high === 1 ? 'issue' : 'issues'} to fix` };
+  return { tone: 'good', title: `${label}: no critical or high-priority issues` };
+}

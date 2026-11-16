@@ -7,7 +7,7 @@ export { executeAudit, friendlyError, newAuditRecord, type ApiUsageEntry, type A
 export { providerConfig, type ProviderStatus } from './audit/env';
 export { buildReport, evaluateRules, ALL_RULES } from './audit/build-report';
 export type { AuditData } from './audit/types';
-export { buildSummary } from './report/summary';
+export { buildSummary, summaryHeadline } from './report/summary';
 export { reportToMarkdown } from './report/markdown';
 export { DEFAULT_OPENAI_MODEL } from './providers/openai';
 export { aiInput } from './audit/ai-recommendations';
@@ -18,3 +18,4 @@ export { issuesToCsv } from './report/csv';
 export { sitemapXml } from './report/sitemap';
 export { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema, type AppSettings, type SettingKey } from './settings';
 export { deliverReportEmail, emailConfig, reportEmail, type EmailEnv } from './report/email';
+export { sendEmail, type EmailMessage } from './providers/resend';

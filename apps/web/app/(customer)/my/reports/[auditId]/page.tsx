@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AuditProgress } from '@/components/report/AuditProgress';
-import { Banner } from '@/components/report/Banner';
+import { ReportBanner } from '@/components/report/Banner';
 import { DownloadPdfButton } from '@/components/report/DownloadPdfButton';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { canViewAudit } from '@/lib/access';
-import { getAuditView, reportSummary, typicalDurationSeconds } from '@/lib/reports';
+import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
 import { requireCustomer } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Your SEO report' };
@@ -50,9 +50,7 @@ export default async function CustomerReportPage({ params }: Props) {
         </div>
       </div>
       <div className="mx-auto max-w-page space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-        <Banner variant="alert" title={`${report.overall.label}: ${report.severityCounts.critical} critical ${report.severityCounts.critical === 1 ? 'issue needs' : 'issues need'} attention`}>
-          {reportSummary(report).client}
-        </Banner>
+        <ReportBanner report={report} mode="client" />
         <ReportOverview report={report} mode="client" />
         <SectionTitle n="01" title="Technical SEO checks" note="Only cards with issues are shown" />
         <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode="client" />

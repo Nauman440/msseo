@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getAuditView, getReport, parseMode, reportSummary, typicalDurationSeconds } from '@/lib/reports';
+import { getAuditView, getReport, parseMode, typicalDurationSeconds } from '@/lib/reports';
 import { AiPendingCard } from '@/components/report/AiPendingCard';
 import { AiRecommendationsCard } from '@/components/report/AiRecommendationsCard';
 import { AuditProgress } from '@/components/report/AuditProgress';
-import { Banner } from '@/components/report/Banner';
+import { Banner, ReportBanner } from '@/components/report/Banner';
 import { ReportHeader } from '@/components/report/ReportHeader';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { AfterFixes, CheckGrid, CrawlFiles, SectionTitle } from '@/components/report/ReportSections';
@@ -50,16 +50,13 @@ export default async function ReportPage({ params, searchParams }: Props) {
   }
   const report = view.report;
   const mode = parseMode((await searchParams).mode, report.audience);
-  const summary = reportSummary(report);
   const extras = rowExtras(report);
 
   return (
     <>
       <ReportHeader report={report} mode={mode} projectHref={await projectHref(report.auditId)} />
       <div className="mx-auto max-w-page space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-        <Banner variant="alert" title={`${report.overall.label}: ${report.severityCounts.critical} critical ${report.severityCounts.critical === 1 ? 'issue needs' : 'issues need'} attention`}>
-          {summary[mode]}
-        </Banner>
+        <ReportBanner report={report} mode={mode} />
         {report.notices?.map((n) => (
           <Banner key={n.expert} variant="soft" title="About this audit">
             {n[mode]}
