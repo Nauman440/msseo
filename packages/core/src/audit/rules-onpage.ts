@@ -1,4 +1,5 @@
 import type { OnPagePage } from '../providers/dataforseo';
+import { nearDuplicates } from './rules-links';
 import { countPages, plural, type RuleDef } from './types';
 
 const titleLen = (p: OnPagePage) => p.meta?.title_length ?? p.meta?.title?.length ?? 0;
@@ -88,13 +89,16 @@ export const onpageRules: RuleDef[] = [
       n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} very little text`, expert: `${plural(n, 'page')} < 300 words` } : { client: 'Pages have enough text', expert: 'All content pages ≥ 300 words' }),
   },
   {
-    id: '2.4.7', crawlOnly: true, module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'critical',
+    id: '2.4.7', module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'critical',
     title: { client: 'Pages copy each other', expert: 'Duplicate content' },
     explain: { client: 'When pages are nearly identical, Google may ignore most of them.', expert: 'Near-duplicate pages compete and get filtered.' },
     fix: { client: 'Rewrite these pages so each is unique.', expert: 'Differentiate or canonicalise duplicate pages.' },
     ice: { impact: 5, confidence: 4, effort: 4 },
-    evaluate: ({ ok }) => countPages(ok, (p) => p.duplicate_content === true, (n) =>
-      n ? { client: `${plural(n, 'page')} ${n === 1 ? 'copies' : 'copy'} another page`, expert: `${plural(n, 'page')} flagged duplicate_content` } : { client: 'No copied pages', expert: '0 duplicate-content pages' }),
+    evaluate: ({ ok, content }) => {
+      const dup = new Set([...ok.filter((p) => p.duplicate_content === true).map((p) => p.url), ...nearDuplicates(content)]);
+      return countPages((ok.length ? ok : content).map((p) => ({ url: p.url })), (p) => dup.has(p.url), (n) =>
+        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'copies' : 'copy'} another page`, expert: `${plural(n, 'page')} flagged duplicate_content` } : { client: 'No copied pages', expert: '0 duplicate-content pages' });
+    },
   },
   {
     id: '2.5.2', module: 2, category: 'onpage', card: 'images', scope: 'page', severity: 'medium',

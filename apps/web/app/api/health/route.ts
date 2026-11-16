@@ -1,10 +1,15 @@
 import { prisma } from '@seo/db';
+import { workerMode } from '@/lib/audit-runner';
 
 /**
- * GET /api/health — liveness check for Coolify/Docker. Public; reveals nothing beyond
- * whether the database answers. Always 200, so a database hiccup never restarts the app.
+ * GET /api/health — liveness check for Coolify/Docker. Public; reveals only whether the
+ * database answers and how audits run (in the worker, with how many workers connected,
+ * or inside the web app). Always 200, so a database or Redis hiccup never restarts the app.
  */
 export const dynamic = 'force-dynamic';
+
+const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+  Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 
 export async function GET() {
   let database: 'connected' | 'not configured' | 'error' = 'not configured';
@@ -16,5 +21,14 @@ export async function GET() {
       database = 'error';
     }
   }
-  return Response.json({ ok: true, database });
+  if (!workerMode()) return Response.json({ ok: true, database, audits: 'in-process' });
+
+  let workers: number | 'error';
+  try {
+    const { auditWorkerCount } = await import('@seo/db/queue');
+    workers = await withTimeout(auditWorkerCount(), 3_000);
+  } catch {
+    workers = 'error';
+  }
+  return Response.json({ ok: true, database, audits: 'worker', workers });
 }

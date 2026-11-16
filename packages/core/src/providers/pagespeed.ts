@@ -51,7 +51,57 @@ export type PageSpeedResult = {
   lab: { lcpMs?: number; cls?: number; tbtMs?: number; ttfbMs?: number };
   /** Lighthouse's estimated LCP/FCP saving from removing render-blocking requests; null if not reported. */
   renderBlockingMs: number | null;
+  /** Lighthouse 13 insights used by rules 1.8.3, 1.8.5, 1.8.7, 1.8.8 and 2.5.3 (null when not reported). */
+  insights?: PsiInsights;
 };
+
+export type PsiInsights = {
+  /** image-delivery-insight: images that could be smaller (compression, format or oversized). */
+  images: { url: string; totalBytes: number; wastedBytes: number; oversized: boolean; format: boolean }[] | null;
+  /** unsized-images: <img> without explicit width/height. */
+  unsizedImages: number | null;
+  unusedJsBytes: number | null;
+  unusedCssBytes: number | null;
+  /** Estimated LCP/FCP saving from removing unused JS and CSS. */
+  unusedMs: number | null;
+  /** cache-insight: bytes re-downloaded on repeat visits because of short cache lifetimes. */
+  cacheWastedBytes: number | null;
+  /** document-latency-insight checklist (falls back to uses-text-compression). */
+  compression: boolean | null;
+  /** font-display-insight: render delay from fonts without font-display. */
+  fontDisplayMs: number | null;
+  /** third-parties-insight: main-thread time per third-party entity, largest first. */
+  thirdParties: { entity: string; mainThreadMs: number }[] | null;
+};
+
+type Audit = { score?: number | null; numericValue?: number; metricSavings?: Record<string, number>; details?: Record<string, unknown> };
+const items = (a: Audit | undefined) => (Array.isArray(a?.details?.items) ? (a!.details!.items as Record<string, unknown>[]) : null);
+const sum = (list: Record<string, unknown>[] | null, key: string) => (list ? list.reduce((s, i) => s + (Number(i[key]) || 0), 0) : null);
+const maxSaving = (...list: (Audit | undefined)[]) => (list.some(Boolean) ? Math.max(0, ...list.map((a) => Math.max(a?.metricSavings?.LCP ?? 0, a?.metricSavings?.FCP ?? 0))) : null);
+
+export function readInsights(audits: Record<string, Audit>): PsiInsights {
+  const img = items(audits['image-delivery-insight']);
+  const reasons = (i: Record<string, unknown>) => {
+    const sub = (i.subItems as { items?: { reason?: string }[] } | undefined)?.items ?? [];
+    return sub.map((s) => s.reason ?? '').join(' ');
+  };
+  const checklist = audits['document-latency-insight']?.details?.items as { usesCompression?: { value?: boolean } } | undefined;
+  const compressionAudit = audits['uses-text-compression'];
+  const tp = items(audits['third-parties-insight']);
+  return {
+    images: img ? img.map((i) => ({ url: String(i.url ?? ''), totalBytes: Number(i.totalBytes) || 0, wastedBytes: Number(i.wastedBytes) || 0, oversized: /larger than it needs to be|responsive images/i.test(reasons(i)), format: /modern image format/i.test(reasons(i)) })) : null,
+    unsizedImages: items(audits['unsized-images'])?.length ?? null,
+    unusedJsBytes: sum(items(audits['unused-javascript']), 'wastedBytes'),
+    unusedCssBytes: sum(items(audits['unused-css-rules']), 'wastedBytes'),
+    unusedMs: maxSaving(audits['unused-javascript'], audits['unused-css-rules']),
+    cacheWastedBytes: sum(items(audits['cache-insight']), 'wastedBytes'),
+    compression: typeof checklist?.usesCompression?.value === 'boolean' ? checklist.usesCompression.value : compressionAudit ? compressionAudit.score === 1 : null,
+    fontDisplayMs: audits['font-display-insight'] ? (audits['font-display-insight'].numericValue ?? 0) : null,
+    thirdParties: tp
+      ? tp.map((i) => ({ entity: String(i.entity ?? ''), mainThreadMs: Math.round(Number(i.mainThreadTime) || sum((i.subItems as { items?: Record<string, unknown>[] })?.items ?? [], 'mainThreadTime') || 0) })).sort((a, b) => b.mainThreadMs - a.mainThreadMs)
+      : null,
+  };
+}
 
 export async function runPageSpeed(
   url: string,
@@ -99,5 +149,6 @@ export async function runPageSpeed(
       ttfbMs: audits['server-response-time']?.numericValue,
     },
     renderBlockingMs,
+    insights: readInsights(audits as Record<string, Audit>),
   };
 }

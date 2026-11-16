@@ -24,3 +24,8 @@ function auditQueue(): Queue<AuditJobData> {
 export async function enqueueAudit(auditId: string): Promise<void> {
   await auditQueue().add('audit', { auditId }, { jobId: auditId, removeOnComplete: 1000, removeOnFail: 1000 });
 }
+
+/** Workers currently connected to the audit queue (for /api/health). */
+export async function auditWorkerCount(): Promise<number> {
+  return auditQueue().getWorkersCount();
+}

@@ -13,7 +13,7 @@ const isHome = (c: PageContent) => new URL(c.url).pathname.replace(/\/$/, '') ==
 const sameUrl = (a: string, b: string) => a.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') === b.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 const bodyLinks = (c: PageContent) => c.links.filter((l) => l.internal && !l.inNav);
 
-function cdnOf(h: Record<string, string>): string | undefined {
+export function cdnOf(h: Record<string, string>): string | undefined {
   if (h['cf-ray']) return 'Cloudflare';
   if (h['x-vercel-id']) return 'Vercel';
   if (h['x-amz-cf-id']) return 'CloudFront';

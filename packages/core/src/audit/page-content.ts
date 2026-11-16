@@ -12,6 +12,10 @@ export type PageContent = {
   lang?: string;
   viewport: boolean;
   generator?: string;
+  /** <meta name="robots"> content, lowercased. */
+  robots?: string;
+  /** Absolute rel=canonical URL. */
+  canonical?: string;
   title?: string;
   description?: string;
   h1: string[];
@@ -69,6 +73,15 @@ function flattenJsonLd(value: unknown, out: Record<string, unknown>[]) {
   }
 }
 
+const absolute = (href: string | undefined, base: string) => {
+  if (!href) return undefined;
+  try {
+    return new URL(href, base).toString();
+  } catch {
+    return undefined;
+  }
+};
+
 export function parsePageContent(html: string, url: string, status = 200): PageContent {
   const root = parse(html, { comment: false, blockTextElements: { script: true, style: true, noscript: false, pre: true } });
   const host = new URL(url).hostname.replace(/^www\./, '');
@@ -119,6 +132,8 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     lang: root.querySelector('html')?.getAttribute('lang') ?? undefined,
     viewport: Boolean(root.querySelector('meta[name="viewport"]')),
     generator: root.querySelector('meta[name="generator"]')?.getAttribute('content') ?? undefined,
+    robots: root.querySelector('meta[name="robots"]')?.getAttribute('content')?.toLowerCase() ?? undefined,
+    canonical: absolute(root.querySelector('link[rel="canonical"]')?.getAttribute('href'), url),
     title: clean(root.querySelector('title')?.text) || undefined,
     description: root.querySelector('meta[name="description"]')?.getAttribute('content') ?? undefined,
     h1: root.querySelectorAll('h1').map((h) => clean(h.text)).filter(Boolean),

@@ -1,15 +1,18 @@
 import { CATEGORY_LABEL, SEVERITY_WEIGHT } from '../scoring/constants';
 import { categoryScores, icePriority, overallScore, scoreAfterFixes, scoreLabel, type ScoredRule } from '../scoring';
 import type { Audience, Category, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
+import { assetRules } from './rules-assets';
 import { contentRules } from './rules-content';
+import { linkRules } from './rules-links';
 import { onpageRules } from './rules-onpage';
 import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
 import { trustRules } from './rules-trust';
+import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...siteRules, ...speedRules, ...onpageRules, ...contentRules, ...trustRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 

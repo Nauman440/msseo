@@ -2,6 +2,8 @@ import type { OnPagePage, OnPageSummary } from '../providers/dataforseo';
 import type { Preflight } from '../providers/direct-fetch';
 import type { PageSpeedResult } from '../providers/pagespeed';
 import type { PageContent } from './page-content';
+import type { UrlVariantProbe } from './url-probes';
+import type { LinkCheck } from './link-check';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
 export type AuditMode = 'quick' | 'deep';
@@ -19,6 +21,10 @@ export type AuditData = {
   pages: OnPagePage[];
   /** Parsed HTML of the audited pages (read by us; see page-content.ts). */
   content?: PageContent[];
+  /** Trailing-slash / uppercase variants of a few pages (rule 1.6.4). */
+  probes?: UrlVariantProbe[];
+  /** Status of links found on the audited pages (rules 1.5.7, 1.12.5, 2.6.4). */
+  links?: LinkCheck[];
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];

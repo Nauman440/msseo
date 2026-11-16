@@ -6,7 +6,7 @@ import { BROWSER_UA, type CrawlProgress, type CrawlResult } from './deep-crawl';
 /**
  * Quick mode: live per-page checks (DataForSEO Instant Pages), run in parallel.
  * About 10–20 s for 10 pages instead of a 1–3 min queued crawl. No link graph, so
- * crawl-only rules (depth, orphans, near-duplicate content) are skipped.
+ * crawl-only rules (depth, orphans, inlink counts) are skipped.
  */
 
 const CONCURRENCY = 10;
@@ -101,7 +101,7 @@ export async function quickCrawl(
         }
       : {
           client: `This quick audit checked ${htmlCount} key pages. Run a deep crawl for full link analysis (click depth, orphan pages and copied content).`,
-          expert: `Quick audit: ${htmlCount} pages via Instant Pages (homepage links, then sitemap). Skipped crawl-only checks: 1.5.5, 1.12.1, 1.12.2, 2.4.7. Duplicate titles/descriptions compared within the sample.`,
+          expert: `Quick audit: ${htmlCount} pages via Instant Pages (homepage links, then sitemap). Skipped crawl-only checks: 1.5.5, 1.12.1, 1.12.2, 1.12.7, 2.6.3. Duplicate content, titles and descriptions compared within the sample.`,
         },
   ];
   return { summary: null, pages, cost, notices, detail: `${htmlCount} pages checked` };

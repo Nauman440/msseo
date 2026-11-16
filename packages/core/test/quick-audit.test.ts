@@ -62,7 +62,7 @@ describe('quick audit', () => {
       psi: null,
     };
     const quickIds = evaluateRules(data).map((r) => r.def.id);
-    for (const id of ['1.5.5', '1.12.1', '1.12.2', '2.4.7']) expect(quickIds).not.toContain(id);
+    for (const id of ['1.5.5', '1.12.1', '1.12.2', '1.12.7', '2.6.3']) expect(quickIds).not.toContain(id);
     expect(quickIds).toContain('2.1.1');
     expect(evaluateRules({ ...data, mode: 'deep' }).map((r) => r.def.id)).toContain('1.12.1');
   });

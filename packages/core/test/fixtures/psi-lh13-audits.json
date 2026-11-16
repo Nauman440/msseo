@@ -1,0 +1,1744 @@
+{
+ "image-delivery-insight": {
+  "score": 0.5,
+  "numericValue": 192472,
+  "metricSavings": {
+   "LCP": 0,
+   "FCP": 0
+  },
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "wastedBytes": 73786,
+        "reason": "Increasing the image compression factor could improve this image’s download size"
+       }
+      ]
+     },
+     "totalBytes": 461946,
+     "wastedBytes": 73786,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/atlanta-georgia-city-and-skyline-lightest-cr25wi001wg"
+    },
+    {
+     "wastedBytes": 58613,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-tech-truck-hero-cr25wi001wg",
+     "subItems": {
+      "items": [
+       {
+        "reason": "This image file is larger than it needs to be (1920x541) for its displayed dimensions (721x207). Use responsive images to reduce the image download size.",
+        "wastedBytes": 58613
+       }
+      ],
+      "type": "subitems"
+     },
+     "totalBytes": 68428
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "reason": "Increasing the image compression factor could improve this image’s download size",
+        "wastedBytes": 14539
+       },
+       {
+        "reason": "This image file is larger than it needs to be (400x98) for its displayed dimensions (236x58). Use responsive images to reduce the image download size.",
+        "wastedBytes": 13724
+       }
+      ],
+      "type": "subitems"
+     },
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/60-logo-full-color-cr26w001wi",
+     "totalBytes": 21072,
+     "wastedBytes": 18794
+    },
+    {
+     "totalBytes": 54070,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-service-technician-hero-cr21wi001wg",
+     "wastedBytes": 13664,
+     "subItems": {
+      "items": [
+       {
+        "reason": "This image file is larger than it needs to be (1102x310) for its displayed dimensions (1257x203). Use responsive images to reduce the image download size.",
+        "wastedBytes": 13664
+       }
+      ],
+      "type": "subitems"
+     }
+    },
+    {
+     "totalBytes": 10670,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-60-years-white-logo-cr26wi001wg",
+     "wastedBytes": 8167,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "wastedBytes": 6781,
+        "reason": "This image file is larger than it needs to be (400x103) for its displayed dimensions (241x62). Use responsive images to reduce the image download size."
+       }
+      ]
+     }
+    },
+    {
+     "totalBytes": 7679,
+     "wastedBytes": 7079,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "reason": "Using a modern image format (WebP, AVIF) or increasing the image compression could improve this image’s download size",
+        "wastedBytes": 7079
+       }
+      ]
+     },
+     "url": "https://s3.romw-cdn.co/media/1/2028/20273038/conversions/ALV-UjWY472zHSggufO3oMrVZpKYH5B177e4iECCoo6JkgacJD_rVyw=s64-c-rp-mo-br100-60px.png"
+    },
+    {
+     "url": "https://s3.romw-cdn.co/media/1/2091/20901560/conversions/ALV-UjXkthzXzFlYFEIiYUDxUBCv3d_jIP9q_eAd4x6JL5XD5TB5hms=s64-c-rp-mo-ba12-br100-60px.png",
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "wastedBytes": 6400,
+        "reason": "Using a modern image format (WebP, AVIF) or increasing the image compression could improve this image’s download size"
+       }
+      ]
+     },
+     "wastedBytes": 6400,
+     "totalBytes": 7000
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "reason": "Using a modern image format (WebP, AVIF) or increasing the image compression could improve this image’s download size",
+        "wastedBytes": 5969
+       }
+      ],
+      "type": "subitems"
+     },
+     "wastedBytes": 5969,
+     "url": "https://s3.romw-cdn.co/media/1/2091/20901568/conversions/ALV-UjVD8CzUOlDpAVkmawHm52I149nWLKJJEX5yg0WusXYLvTNJLY0=s64-c-rp-mo-ba12-br100-60px.png",
+     "totalBytes": 6569
+    }
+   ]
+  }
+ },
+ "unsized-images": {
+  "score": 0.5,
+  "metricSavings": {
+   "CLS": 0
+  },
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/air-conditioning-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/insulation-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/plumbing-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/electricity-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/water-treatment-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/insulation-icon-blue-cr25wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-60-years-white-logo-cr26wi001wg"
+    },
+    {
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/60-logo-full-color-cr26w001wi"
+    }
+   ]
+  }
+ },
+ "unused-javascript": {
+  "score": 0,
+  "numericValue": 150,
+  "metricSavings": {
+   "LCP": 150,
+   "FCP": 150
+  },
+  "details": {
+   "type": "opportunity",
+   "items": [
+    {
+     "totalBytes": 271602,
+     "url": "https://scheduler.servicetitan.com/_next/static/chunks/pages/_app-501f230676dcac02.js",
+     "wastedPercent": 64.86218606764976,
+     "wastedBytes": 176167
+    },
+    {
+     "wastedPercent": 53.033744561497954,
+     "wastedBytes": 155575,
+     "totalBytes": 293351,
+     "url": "https://webchat.birdeye.com/public/chatWindow.js"
+    },
+    {
+     "wastedPercent": 80.75269597310817,
+     "wastedBytes": 128916,
+     "url": "https://scheduler.servicetitan.com/_next/static/chunks/121-4c07183a1a1b5c7e.js",
+     "totalBytes": 159643
+    },
+    {
+     "url": "https://stpaymentspciprod.blob.core.windows.net/webfields/1.0.52/webfields.js",
+     "wastedBytes": 97307,
+     "totalBytes": 115996,
+     "wastedPercent": 83.8882375254319
+    },
+    {
+     "totalBytes": 539385,
+     "wastedPercent": 17.3219033549377,
+     "wastedBytes": 93432,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-global.lc-4ccefb5af8f7c484906448964f837da5-lc.min.js"
+    },
+    {
+     "wastedPercent": 67.3475865841033,
+     "wastedBytes": 80810,
+     "url": "https://scheduler.servicetitan.com/_next/static/chunks/45-f6a6eef0dbeaabc7.js",
+     "totalBytes": 119990
+    },
+    {
+     "wastedPercent": 39.28017349096905,
+     "totalBytes": 192764,
+     "url": "https://www.googletagmanager.com/gtag/js",
+     "wastedBytes": 75718
+    },
+    {
+     "wastedBytes": 69283,
+     "totalBytes": 161156,
+     "url": "https://www.googletagmanager.com/gtm.js",
+     "wastedPercent": 42.991062916075975
+    },
+    {
+     "wastedBytes": 64823,
+     "wastedPercent": 75.94080868771216,
+     "totalBytes": 85360,
+     "url": "https://scheduler.servicetitan.com/_next/static/chunks/411-c61139ecad5c87fa.js"
+    },
+    {
+     "totalBytes": 120342,
+     "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/otBannerSdk.js",
+     "wastedBytes": 63284,
+     "wastedPercent": 52.58707947605576
+    },
+    {
+     "wastedBytes": 63138,
+     "wastedPercent": 38.18135414740802,
+     "url": "https://www.googletagmanager.com/gtag/js",
+     "totalBytes": 165364
+    },
+    {
+     "totalBytes": 148818,
+     "wastedPercent": 27.608588297357745,
+     "wastedBytes": 41086,
+     "url": "https://connect.facebook.net/signals/config/2943369385854182"
+    },
+    {
+     "totalBytes": 145602,
+     "wastedPercent": 27.93522482422318,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/launch-3116f811f06d.min.js",
+     "wastedBytes": 40674
+    },
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site.lc-1794540895884-lc.min.js",
+     "totalBytes": 55732,
+     "wastedBytes": 35134,
+     "wastedPercent": 63.04146522976589
+    },
+    {
+     "totalBytes": 98563,
+     "wastedPercent": 35.080494976437954,
+     "url": "https://connect.facebook.net/en_US/fbevents.js",
+     "wastedBytes": 34576
+    },
+    {
+     "wastedBytes": 32946,
+     "url": "https://scheduler.servicetitan.com/_next/static/chunks/994-b567afc5a46af962.js",
+     "wastedPercent": 85.36112666350833,
+     "totalBytes": 38596
+    },
+    {
+     "wastedBytes": 25765,
+     "wastedPercent": 68.32596294530569,
+     "totalBytes": 37709,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-base.lc-6847cf0182e4814abe64f51c694f7f49-lc.min.js"
+    },
+    {
+     "wastedBytes": 23163,
+     "url": "https://embed.localimpact.com/js/embed/v2/jquery-3.7.1.min.js",
+     "wastedPercent": 75.84883242699813,
+     "totalBytes": 30539
+    },
+    {
+     "wastedBytes": 22942,
+     "totalBytes": 35688,
+     "url": "https://www.coolray.com/etc.clientlibs/clientlibs/granite/jquery.lc-7842899024219bcbdb5e72c946870b79-lc.min.js",
+     "wastedPercent": 64.28578478301635
+    }
+   ]
+  }
+ },
+ "unused-css-rules": {
+  "score": 0.5,
+  "numericValue": 0,
+  "metricSavings": {
+   "LCP": 0,
+   "FCP": 0
+  },
+  "details": {
+   "type": "opportunity",
+   "items": [
+    {
+     "wastedBytes": 173941,
+     "wastedPercent": 99.89068766035156,
+     "url": "https://scheduler.servicetitan.com/_next/static/css/7730eee3896c4590.css",
+     "totalBytes": 174131
+    },
+    {
+     "wastedBytes": 32799,
+     "totalBytes": 34647,
+     "wastedPercent": 94.66662637678094,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-global.lc-50e5423612c90a5afadaf1b097cf2f75-lc.min.css"
+    },
+    {
+     "wastedBytes": 24714,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site.lc-1794540895884-lc.min.css",
+     "wastedPercent": 96.70837010930951,
+     "totalBytes": 25555
+    },
+    {
+     "totalBytes": 21533,
+     "wastedPercent": 88.98600261928425,
+     "wastedBytes": 19161,
+     "url": "#onetrust-banner-sdk .onetrust-vendors-list-handler{cursor:pointer;color:#1f96db;font-size:inherit; … } …"
+    },
+    {
+     "totalBytes": 16865,
+     "wastedPercent": 83.90137451316168,
+     "url": "https://webchat.birdeye.com/public/chatWindowStyle.css",
+     "wastedBytes": 14150
+    }
+   ]
+  }
+ },
+ "cache-insight": {
+  "score": 0,
+  "numericValue": 1681648.94745,
+  "metricSavings": {
+   "LCP": 750,
+   "FCP": 750
+  },
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "totalBytes": 462457,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/atlanta-georgia-city-and-skyline-lightest-cr25wi001wg",
+     "wastedBytes": 293726.9943444445,
+     "cacheLifetimeMs": 22474000
+    },
+    {
+     "totalBytes": 186477,
+     "wastedBytes": 186477,
+     "cacheLifetimeMs": 0,
+     "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/Headset.svg"
+    },
+    {
+     "totalBytes": 173447,
+     "cacheLifetimeMs": 0,
+     "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/ThatHelped.svg",
+     "wastedBytes": 173447
+    },
+    {
+     "url": "https://connect.facebook.net/signals/config/2943369385854182",
+     "cacheLifetimeMs": 1200000,
+     "wastedBytes": 135337.26666666666,
+     "totalBytes": 153212
+    },
+    {
+     "wastedBytes": 117617.20000000001,
+     "totalBytes": 294043,
+     "cacheLifetimeMs": 86400000,
+     "url": "https://webchat.birdeye.com/public/chatWindow.js"
+    },
+    {
+     "wastedBytes": 116964,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/launch-3116f811f06d.min.js",
+     "totalBytes": 146205,
+     "cacheLifetimeMs": 3600000
+    },
+    {
+     "cacheLifetimeMs": 0,
+     "wastedBytes": 116447,
+     "url": "https://stpaymentspciprod.blob.core.windows.net/webfields/1.0.52/webfields.js",
+     "totalBytes": 116447
+    },
+    {
+     "wastedBytes": 90618.51666666666,
+     "url": "https://connect.facebook.net/en_US/fbevents.js",
+     "totalBytes": 102587,
+     "cacheLifetimeMs": 1200000
+    },
+    {
+     "cacheLifetimeMs": 554000,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-service-technician-hero-cr21wi001wg",
+     "totalBytes": 54582,
+     "wastedBytes": 50382.21833333333
+    },
+    {
+     "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/otBannerSdk.js",
+     "wastedBytes": 48543.200000000004,
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 121358
+    },
+    {
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-tech-truck-hero-cr25wi001wg",
+     "cacheLifetimeMs": 22474000,
+     "wastedBytes": 43785.58771111112,
+     "totalBytes": 68938
+    },
+    {
+     "url": "https://embed.localimpact.com/css/embed/v2/webfonts/ionicons.woff2",
+     "wastedBytes": 34845.24,
+     "cacheLifetimeMs": 14400000,
+     "totalBytes": 51243
+    },
+    {
+     "cacheLifetimeMs": 0,
+     "wastedBytes": 25182,
+     "url": "https://static.servicetitan.com/marketing-ads/dni.js",
+     "totalBytes": 25182
+    },
+    {
+     "wastedBytes": 24920,
+     "cacheLifetimeMs": 86400000,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-SemiBold.ttf",
+     "totalBytes": 62300
+    },
+    {
+     "wastedBytes": 23939.2,
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 59848,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-Regular.ttf"
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "wastedBytes": 22871.2,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-BoldItalic.ttf",
+     "totalBytes": 57178
+    },
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/icons/wg-icons.woff2",
+     "wastedBytes": 17390,
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 43475
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 37009,
+     "url": "https://embed.localimpact.com/js/embed/v2/swiper.min.js",
+     "wastedBytes": 14803.6
+    },
+    {
+     "wastedBytes": 13707.6874,
+     "totalBytes": 21582,
+     "cacheLifetimeMs": 22474000,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/60-logo-full-color-cr26w001wi"
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "wastedBytes": 12541.2,
+     "totalBytes": 31353,
+     "url": "https://embed.localimpact.com/js/embed/v2/jquery-3.7.1.min.js"
+    },
+    {
+     "totalBytes": 19706,
+     "cacheLifetimeMs": 22474000,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-logo-cr22wi001wg",
+     "wastedBytes": 12516.156422222224
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 26978,
+     "url": "https://webchat.birdeye.com/public/bubble.js",
+     "wastedBytes": 10791.2
+    },
+    {
+     "totalBytes": 9246,
+     "wastedBytes": 7974.675,
+     "cacheLifetimeMs": 1800000,
+     "url": "https://player.vimeo.com/api/player.js"
+    },
+    {
+     "url": "https://reputation.5starbusiness.com/embed/v6/410046/1/2535267838/2706a3fcb21f0dbe5c1a8bf2b2ad16b105a809218c7c6005",
+     "wastedBytes": 7317,
+     "cacheLifetimeMs": 0,
+     "totalBytes": 7317
+    },
+    {
+     "totalBytes": 7445,
+     "url": "https://embed.scheduler.servicetitan.com/scheduler-v1.js",
+     "wastedBytes": 7134.791666666667,
+     "cacheLifetimeMs": 300000
+    },
+    {
+     "cacheLifetimeMs": 22474000,
+     "totalBytes": 11180,
+     "wastedBytes": 7100.914888888889,
+     "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-60-years-white-logo-cr26wi001wg"
+    },
+    {
+     "totalBytes": 17407,
+     "url": "https://webchat.birdeye.com/public/chatWindowStyle.css",
+     "cacheLifetimeMs": 86400000,
+     "wastedBytes": 6962.8
+    },
+    {
+     "cacheLifetimeMs": 3600000,
+     "wastedBytes": 6112.8,
+     "url": "https://s.yimg.com/wi/ytc.js",
+     "totalBytes": 7641
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 14873,
+     "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js",
+     "wastedBytes": 5949.200000000001
+    },
+    {
+     "wastedBytes": 5400.400000000001,
+     "url": "https://embed.localimpact.com/js/embed/v2/romwIFrame.js",
+     "totalBytes": 13501,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 13194,
+     "url": "https://localimpact.com/js/v2/embed.js",
+     "wastedBytes": 5277.6
+    },
+    {
+     "url": "https://d1py4eyp5hehj0.cloudfront.net/upload/1157564/1787852965890/coolraywebchat.png",
+     "wastedBytes": 2924,
+     "totalBytes": 2924,
+     "cacheLifetimeMs": 0
+    },
+    {
+     "totalBytes": 2920,
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/electricity-icon-blue-cr25wi001wg",
+     "wastedBytes": 1969.1993333333332,
+     "cacheLifetimeMs": 15411000
+    },
+    {
+     "wastedBytes": 1939.2,
+     "cacheLifetimeMs": 86400000,
+     "url": "https://embed.localimpact.com/css/embed/v2/swiper.min.css",
+     "totalBytes": 4848
+    },
+    {
+     "totalBytes": 2632,
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/plumbing-icon-blue-cr25wi001wg",
+     "cacheLifetimeMs": 15411000,
+     "wastedBytes": 1774.9769333333334
+    },
+    {
+     "wastedBytes": 1595.67075,
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/insulation-icon-blue-cr25wi001wg",
+     "cacheLifetimeMs": 22415000,
+     "totalBytes": 2511
+    },
+    {
+     "totalBytes": 1840,
+     "cacheLifetimeMs": 3600000,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC08282be628ee45eeb9675c6db7759297-source.min.js",
+     "wastedBytes": 1472
+    },
+    {
+     "cacheLifetimeMs": 86400000,
+     "wastedBytes": 1385.6000000000001,
+     "totalBytes": 3464,
+     "url": "https://embed.localimpact.com/assets/global/images/source-logos/google/h120w120.png"
+    },
+    {
+     "cacheLifetimeMs": 3600000,
+     "wastedBytes": 1384.8000000000002,
+     "totalBytes": 1731,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC6d0c95be0d7b4f34be23651cd822d09e-source.min.js"
+    },
+    {
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RCa300400f1dec4645a14c57e0791ee392-source.min.js",
+     "wastedBytes": 1376,
+     "totalBytes": 1720,
+     "cacheLifetimeMs": 3600000
+    },
+    {
+     "url": "https://cdn.cookielaw.org/logos/static/powered_by_logo.svg",
+     "wastedBytes": 1309.6000000000001,
+     "totalBytes": 3274,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "totalBytes": 1256,
+     "wastedBytes": 1256,
+     "cacheLifetimeMs": 0,
+     "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/icon-search-20240718-070746.svg"
+    },
+    {
+     "wastedBytes": 1226.7032833333333,
+     "cacheLifetimeMs": 15411000,
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/air-conditioning-icon-blue-cr25wi001wg",
+     "totalBytes": 1819
+    },
+    {
+     "cacheLifetimeMs": 0,
+     "wastedBytes": 1180,
+     "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/Send.svg",
+     "totalBytes": 1180
+    },
+    {
+     "wastedBytes": 1074.4,
+     "totalBytes": 1343,
+     "cacheLifetimeMs": 3600000,
+     "url": "https://www.coolray.com/.rum/@adobe/helix-rum-js@%5E2/dist/micro.js"
+    },
+    {
+     "url": "https://embed.localimpact.com/css/embed/v2/base.css",
+     "wastedBytes": 1007.2,
+     "totalBytes": 2518,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "url": "https://embed.localimpact.com/css/embed/v2/normalize.css",
+     "totalBytes": 2446,
+     "wastedBytes": 978.4000000000001,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "wastedBytes": 968.8000000000001,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC1aaf4d78db134802be36652107ffd7e0-source.min.js",
+     "cacheLifetimeMs": 3600000,
+     "totalBytes": 1211
+    },
+    {
+     "wastedBytes": 904.3480500000001,
+     "cacheLifetimeMs": 15411000,
+     "totalBytes": 1341,
+     "url": "https://wg.scene7.com/is/content/wrenchgroup/water-treatment-icon-blue-cr25wi001wg"
+    },
+    {
+     "wastedBytes": 886.4000000000001,
+     "cacheLifetimeMs": 3600000,
+     "totalBytes": 1108,
+     "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RCbacea31bf2784bec87954b8928663f0c-source.min.js"
+    },
+    {
+     "wastedBytes": 859.7999999999998,
+     "cacheLifetimeMs": 604800000,
+     "url": "https://s3.romw-cdn.co/media/1/2028/20273038/conversions/ALV-UjWY472zHSggufO3oMrVZpKYH5B177e4iECCoo6JkgacJD_rVyw=s64-c-rp-mo-br100-60px.png",
+     "totalBytes": 8598
+    },
+    {
+     "totalBytes": 7915,
+     "url": "https://s3.romw-cdn.co/media/1/2091/20901560/conversions/ALV-UjXkthzXzFlYFEIiYUDxUBCv3d_jIP9q_eAd4x6JL5XD5TB5hms=s64-c-rp-mo-ba12-br100-60px.png",
+     "cacheLifetimeMs": 604800000,
+     "wastedBytes": 791.4999999999998
+    },
+    {
+     "wastedBytes": 748.7999999999998,
+     "cacheLifetimeMs": 604800000,
+     "url": "https://s3.romw-cdn.co/media/1/2091/20901568/conversions/ALV-UjVD8CzUOlDpAVkmawHm52I149nWLKJJEX5yg0WusXYLvTNJLY0=s64-c-rp-mo-ba12-br100-60px.png",
+     "totalBytes": 7488
+    },
+    {
+     "wastedBytes": 664,
+     "url": "https://embed.localimpact.com/css/embed/v2/slider.css",
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 1660
+    },
+    {
+     "totalBytes": 1518,
+     "cacheLifetimeMs": 86400000,
+     "wastedBytes": 607.2,
+     "url": "https://webchat.birdeye.com/public/bubbleStyle.css"
+    },
+    {
+     "wastedBytes": 525.2,
+     "url": "https://embed.localimpact.com/css/embed/v2/slider-left-aligned.css",
+     "totalBytes": 1313,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "wastedBytes": 508.8,
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 1272,
+     "url": "https://embed.localimpact.com/css/embed/v2/ionicons.min.css"
+    },
+    {
+     "totalBytes": 4993,
+     "wastedBytes": 499.2999999999999,
+     "cacheLifetimeMs": 604800000,
+     "url": "https://s3.romw-cdn.co/media/1/2028/20270116/conversions/ACg8ocIsfzgF93yNjC_nLpNM_89ZkrvDflSCA9WGaKZGUmgdnkD9bA=s64-c-rp-mo-ba2-br100-60px.png"
+    },
+    {
+     "totalBytes": 461,
+     "url": "https://www.facebook.com/tr/",
+     "wastedBytes": 461,
+     "cacheLifetimeMs": 0
+    },
+    {
+     "totalBytes": 460,
+     "cacheLifetimeMs": 0,
+     "url": "https://www.facebook.com/tr/",
+     "wastedBytes": 460
+    },
+    {
+     "totalBytes": 1143,
+     "url": "https://cdn.cookielaw.org/logos/static/ot_close.svg",
+     "wastedBytes": 457.20000000000005,
+     "cacheLifetimeMs": 86400000
+    },
+    {
+     "wastedBytes": 454.8,
+     "cacheLifetimeMs": 86400000,
+     "url": "https://embed.localimpact.com/css/embed/v2/carousel-v3.css",
+     "totalBytes": 1137
+    },
+    {
+     "totalBytes": 1136,
+     "cacheLifetimeMs": 86400000,
+     "url": "https://cdn.cookielaw.org/logos/d68e1f0c-a932-4d09-90ff-87972edec167/0196e982-2c35-7409-aa19-098e832a0c95/2211f403-3384-48c6-b70e-cf106ecc3168/Screenshot_2025-05-19_105711.png",
+     "wastedBytes": 454.40000000000003
+    },
+    {
+     "wastedBytes": 406,
+     "url": "https://embed.localimpact.com/css/embed/v2/carousel.css",
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 1015
+    },
+    {
+     "cacheLifetimeMs": 604800000,
+     "totalBytes": 3921,
+     "wastedBytes": 392.0999999999999,
+     "url": "https://s3.romw-cdn.co/media/1/2028/20274091/conversions/ACg8ocL907Yurg7J8ejkPnwgbuNHZD1dvc1h1tZe3TrZTBPzcUN2oQ=s64-c-rp-mo-br100-60px.png"
+    },
+    {
+     "wastedBytes": 338.2999999999999,
+     "cacheLifetimeMs": 604800000,
+     "url": "https://s3.romw-cdn.co/media/1/2091/20901562/conversions/ACg8ocLPb01cf2EXzyQ8a8QYzdx6RfuGyZMhKIBD8RmmuObQORC2NA=s64-c-rp-mo-br100-60px.png",
+     "totalBytes": 3383
+    },
+    {
+     "url": "https://embed.localimpact.com/css/embed/v2/carousel-v3-scroll.css",
+     "cacheLifetimeMs": 86400000,
+     "totalBytes": 809,
+     "wastedBytes": 323.6
+    }
+   ]
+  }
+ },
+ "document-latency-insight": {
+  "score": 1,
+  "numericValue": 0,
+  "metricSavings": {
+   "LCP": 0,
+   "FCP": 0
+  },
+  "details": {
+   "type": "checklist",
+   "items": {
+    "serverResponseIsFast": {
+     "value": true,
+     "label": "Server responds quickly (observed 5 ms)"
+    },
+    "noRedirects": {
+     "label": "Avoids redirects",
+     "value": true
+    },
+    "usesCompression": {
+     "label": "Applies text compression",
+     "value": true
+    }
+   }
+  }
+ },
+ "font-display-insight": {
+  "score": 0,
+  "numericValue": 400,
+  "metricSavings": {
+   "FCP": 400,
+   "INP": 0
+  },
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "wastedMs": 400,
+     "url": "https://cdn.icomoon.io/101518/birdeye-fonts/icomoon.woff2"
+    },
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-BoldItalic.ttf",
+     "wastedMs": 25
+    },
+    {
+     "wastedMs": 25,
+     "url": "https://embed.localimpact.com/css/embed/v2/webfonts/ionicons.woff2"
+    },
+    {
+     "wastedMs": 15,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-SemiBold.ttf"
+    },
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/fonts/open-sans/OpenSans-Regular.ttf",
+     "wastedMs": 10
+    },
+    {
+     "wastedMs": 10,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site/resources/icons/wg-icons.woff2"
+    }
+   ]
+  }
+ },
+ "third-parties-insight": {
+  "score": 1,
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "transferSize": 521391,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "mainThreadTime": 220.58399939537048,
+        "url": "https://www.googletagmanager.com/gtag/js",
+        "transferSize": 193453
+       },
+       {
+        "transferSize": 166051,
+        "url": "https://www.googletagmanager.com/gtag/js",
+        "mainThreadTime": 204.739000082016
+       },
+       {
+        "mainThreadTime": 147.0420000553131,
+        "transferSize": 161887,
+        "url": "https://www.googletagmanager.com/gtm.js"
+       }
+      ]
+     },
+     "entity": "Google Tag Manager",
+     "mainThreadTime": 572.3649995326996
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "mainThreadTime": 118.46100008487701,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/framework-1d8a3f4c794524dc.js",
+        "transferSize": 45970
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/pages/_app-501f230676dcac02.js",
+        "transferSize": 272562,
+        "mainThreadTime": 83.52400004863739
+       },
+       {
+        "transferSize": 160708,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/121-4c07183a1a1b5c7e.js",
+        "mainThreadTime": 47.34700000286102
+       },
+       {
+        "mainThreadTime": 35.08799993991852,
+        "transferSize": 37759,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/main-bb628318ae555c9a.js"
+       },
+       {
+        "transferSize": 120940,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/45-f6a6eef0dbeaabc7.js",
+        "mainThreadTime": 23.923999905586243
+       },
+       {
+        "transferSize": 175082,
+        "url": "https://scheduler.servicetitan.com/_next/static/css/7730eee3896c4590.css",
+        "mainThreadTime": 18.87999999523163
+       },
+       {
+        "transferSize": 83779,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/63a52f3a-79b9f1a780f41c6e.js",
+        "mainThreadTime": 14.121999979019165
+       },
+       {
+        "transferSize": 86310,
+        "mainThreadTime": 11.966000080108643,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/411-c61139ecad5c87fa.js"
+       },
+       {
+        "url": "https://static.servicetitan.com/marketing-ads/dni.js",
+        "transferSize": 25182,
+        "mainThreadTime": 9.389000058174133
+       },
+       {
+        "mainThreadTime": 7.832000136375427,
+        "transferSize": 39540,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/994-b567afc5a46af962.js"
+       },
+       {
+        "transferSize": 38885,
+        "mainThreadTime": 6.803000092506409,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/375-94eaec8c52b0944f.js"
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/781-f611331b879dae4d.js",
+        "transferSize": 24733,
+        "mainThreadTime": 5.11300003528595
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/540-37e2417f13efd87b.js",
+        "mainThreadTime": 4.583999991416931,
+        "transferSize": 19484
+       },
+       {
+        "transferSize": 24261,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/682-05b986ab6f87407b.js",
+        "mainThreadTime": 4.49399995803833
+       },
+       {
+        "mainThreadTime": 4.482999920845032,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/98309536-925028bbd952f8a2.js",
+        "transferSize": 19844
+       },
+       {
+        "url": "https://embed.scheduler.servicetitan.com/scheduler-v1.js",
+        "mainThreadTime": 4.403000116348267,
+        "transferSize": 7445
+       },
+       {
+        "transferSize": 19131,
+        "mainThreadTime": 4.325999975204468,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/pages/index-030c29aa7aaa0c3b.js"
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/358-6411e90ab6630119.js",
+        "mainThreadTime": 2.64900004863739,
+        "transferSize": 9880
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/",
+        "transferSize": 6791,
+        "mainThreadTime": 2.2660001516342163
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/webpack-f73cabc13e665ff3.js",
+        "mainThreadTime": 1.6400001049041748,
+        "transferSize": 3597
+       },
+       {
+        "mainThreadTime": 1.6060000658035278,
+        "transferSize": 10828,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/568-c9de777f782f101a.js"
+       },
+       {
+        "mainThreadTime": 1.275999903678894,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/938-1518067679a4427c.js",
+        "transferSize": 8859
+       },
+       {
+        "transferSize": 3376,
+        "mainThreadTime": 1.2369999885559082,
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/139-f65f96b35c9d6e76.js"
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/_next/static/chunks/39-4e0f760a8218d23d.js",
+        "mainThreadTime": 0.9769999980926514,
+        "transferSize": 5137
+       },
+       {
+        "transferSize": 1852,
+        "url": "https://scheduler.servicetitan.com/_next/static/yEiMaLbvWtMSPzxGV_RFZ/_buildManifest.js",
+        "mainThreadTime": 0.6310000419616699
+       },
+       {
+        "mainThreadTime": 0.315000057220459,
+        "url": "https://scheduler.servicetitan.com/_next/static/css/51d0ac5c28acdaab.css",
+        "transferSize": 3814
+       },
+       {
+        "transferSize": 903,
+        "mainThreadTime": 0.2850000858306885,
+        "url": "https://scheduler.servicetitan.com/_next/static/yEiMaLbvWtMSPzxGV_RFZ/_ssgManifest.js"
+       },
+       {
+        "transferSize": 166,
+        "mainThreadTime": 0.08399999141693115,
+        "url": "https://mads-dni-go.servicetitan.com/api/dni"
+       },
+       {
+        "url": "https://scheduler.servicetitan.com/api/graphql",
+        "mainThreadTime": 0,
+        "transferSize": 44638
+       },
+       {
+        "transferSize": 1016,
+        "url": "https://api.scheduler.servicetitan.com/graphql/graphql",
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://scheduler.servicetitan.com/api/perf",
+        "transferSize": 758
+       }
+      ],
+      "type": "subitems"
+     },
+     "mainThreadTime": 417.7050007581711,
+     "transferSize": 1303230,
+     "entity": "servicetitan.com"
+    },
+    {
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "mainThreadTime": 216.52600061893463,
+        "url": "https://webchat.birdeye.com/public/chatWindow.js",
+        "transferSize": 294043
+       },
+       {
+        "url": "https://webchat.birdeye.com/getChatWindowContent",
+        "mainThreadTime": 74.28599977493286,
+        "transferSize": 38725
+       },
+       {
+        "transferSize": 26978,
+        "url": "https://webchat.birdeye.com/public/bubble.js",
+        "mainThreadTime": 26.812000155448914
+       },
+       {
+        "transferSize": 1307,
+        "url": "https://webchat.birdeye.com/getBubbleContent",
+        "mainThreadTime": 2.3719998598098755
+       },
+       {
+        "mainThreadTime": 1.0210000276565552,
+        "transferSize": 17407,
+        "url": "https://webchat.birdeye.com/public/chatWindowStyle.css"
+       },
+       {
+        "url": "https://webchat.birdeye.com/public/bubbleStyle.css",
+        "transferSize": 1518,
+        "mainThreadTime": 0.125
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://webchat.birdeye.com/webchat/get/business-hours",
+        "transferSize": 406
+       },
+       {
+        "url": "https://webchat.birdeye.com/webchat/event",
+        "mainThreadTime": 0,
+        "transferSize": 380
+       }
+      ]
+     },
+     "mainThreadTime": 321.14200043678284,
+     "entity": "birdeye.com",
+     "transferSize": 380764
+    },
+    {
+     "entity": "Facebook",
+     "subItems": {
+      "items": [
+       {
+        "mainThreadTime": 189.671000123024,
+        "url": "https://connect.facebook.net/signals/config/2943369385854182",
+        "transferSize": 153212
+       },
+       {
+        "url": "https://connect.facebook.net/en_US/fbevents.js",
+        "transferSize": 102587,
+        "mainThreadTime": 72.89399981498718
+       },
+       {
+        "transferSize": 461,
+        "url": "https://www.facebook.com/tr/",
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://www.facebook.com/tr/",
+        "transferSize": 460
+       }
+      ],
+      "type": "subitems"
+     },
+     "mainThreadTime": 262.56499993801117,
+     "transferSize": 256720
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "transferSize": 146205,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/launch-3116f811f06d.min.js",
+        "mainThreadTime": 174.76600003242493
+       },
+       {
+        "mainThreadTime": 3.319000005722046,
+        "url": "https://wrenchgroup.demdex.net/dest5.html",
+        "transferSize": 0
+       },
+       {
+        "mainThreadTime": 0.6350001096725464,
+        "transferSize": 1720,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RCa300400f1dec4645a14c57e0791ee392-source.min.js"
+       },
+       {
+        "mainThreadTime": 0.5499999523162842,
+        "transferSize": 1840,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC08282be628ee45eeb9675c6db7759297-source.min.js"
+       },
+       {
+        "mainThreadTime": 0.4539998769760132,
+        "transferSize": 1211,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC1aaf4d78db134802be36652107ffd7e0-source.min.js"
+       },
+       {
+        "mainThreadTime": 0.4259999990463257,
+        "url": "https://wrenchgroup.demdex.net/dest5.html",
+        "transferSize": 3399
+       },
+       {
+        "transferSize": 1108,
+        "mainThreadTime": 0.39800000190734863,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RCbacea31bf2784bec87954b8928663f0c-source.min.js"
+       },
+       {
+        "mainThreadTime": 0.3549998998641968,
+        "url": "https://assets.adobedtm.com/33a48fe0d360/60a2dcc81eaa/14a46bc7308f/RC6d0c95be0d7b4f34be23651cd822d09e-source.min.js",
+        "transferSize": 1731
+       },
+       {
+        "mainThreadTime": 0.21800005435943604,
+        "transferSize": 1139,
+        "url": "https://dpm.demdex.net/id"
+       },
+       {
+        "url": "https://adobedc.demdex.net/ee/v1/interact",
+        "transferSize": 1369,
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 950,
+        "url": "https://dpm.demdex.net/ibs:dpid=411&dpuuid=avrTuQAAADDdDA-z"
+       }
+      ],
+      "type": "subitems"
+     },
+     "transferSize": 160672,
+     "entity": "Adobe Tag Manager",
+     "mainThreadTime": 181.12099993228912
+    },
+    {
+     "mainThreadTime": 108.34200084209442,
+     "entity": "Optanon",
+     "transferSize": 184471,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "mainThreadTime": 91.82900071144104,
+        "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/otBannerSdk.js",
+        "transferSize": 121358
+       },
+       {
+        "mainThreadTime": 16.20799994468689,
+        "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js",
+        "transferSize": 14873
+       },
+       {
+        "mainThreadTime": 0.20400011539459229,
+        "url": "https://cdn.cookielaw.org/consent/0196171b-9ed8-77fa-9576-921b2545b7f1/0196171b-9ed8-77fa-9576-921b2545b7f1.json",
+        "transferSize": 2708
+       },
+       {
+        "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location",
+        "mainThreadTime": 0.10100007057189941,
+        "transferSize": 427
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 15545,
+        "url": "https://cdn.cookielaw.org/consent/0196171b-9ed8-77fa-9576-921b2545b7f1/019616fc-5571-77bb-9843-6b840ecbdc30/en.json"
+       },
+       {
+        "transferSize": 14142,
+        "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/assets/v2/otPcPanel.json",
+        "mainThreadTime": 0
+       },
+       {
+        "transferSize": 5094,
+        "mainThreadTime": 0,
+        "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/assets/otCommonStyles.css"
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://cdn.cookielaw.org/scripttemplates/202504.1.0/assets/otFloatingRoundedCorner.json",
+        "transferSize": 3631
+       },
+       {
+        "transferSize": 3274,
+        "mainThreadTime": 0,
+        "url": "https://cdn.cookielaw.org/logos/static/powered_by_logo.svg"
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 1143,
+        "url": "https://cdn.cookielaw.org/logos/static/ot_close.svg"
+       },
+       {
+        "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg",
+        "transferSize": 1140,
+        "mainThreadTime": 0
+       },
+       {
+        "transferSize": 1136,
+        "url": "https://cdn.cookielaw.org/logos/d68e1f0c-a932-4d09-90ff-87972edec167/0196e982-2c35-7409-aa19-098e832a0c95/2211f403-3384-48c6-b70e-cf106ecc3168/Screenshot_2025-05-19_105711.png",
+        "mainThreadTime": 0
+       }
+      ]
+     }
+    },
+    {
+     "mainThreadTime": 85.18099999427795,
+     "entity": "localimpact.com",
+     "subItems": {
+      "items": [
+       {
+        "transferSize": 4287,
+        "mainThreadTime": 22.008000373840332,
+        "url": "https://embed.localimpact.com/embed/v2/guZIK0TtFeas7ZUSNPzv4JtYIwoEsZJA7UzXV9ToneY7kdE0rA"
+       },
+       {
+        "transferSize": 31353,
+        "url": "https://embed.localimpact.com/js/embed/v2/jquery-3.7.1.min.js",
+        "mainThreadTime": 18.431999802589417
+       },
+       {
+        "mainThreadTime": 18.024999737739563,
+        "url": "https://embed.localimpact.com/js/embed/v2/swiper.min.js",
+        "transferSize": 37009
+       },
+       {
+        "mainThreadTime": 15.124000072479248,
+        "transferSize": 13194,
+        "url": "https://localimpact.com/js/v2/embed.js"
+       },
+       {
+        "url": "https://embed.localimpact.com/js/embed/v2/romwIFrame.js",
+        "transferSize": 13501,
+        "mainThreadTime": 10.90500009059906
+       },
+       {
+        "transferSize": 4848,
+        "url": "https://embed.localimpact.com/css/embed/v2/swiper.min.css",
+        "mainThreadTime": 0.15900003910064697
+       },
+       {
+        "transferSize": 2446,
+        "mainThreadTime": 0.156000018119812,
+        "url": "https://embed.localimpact.com/css/embed/v2/normalize.css"
+       },
+       {
+        "transferSize": 2518,
+        "mainThreadTime": 0.125,
+        "url": "https://embed.localimpact.com/css/embed/v2/base.css"
+       },
+       {
+        "transferSize": 1272,
+        "mainThreadTime": 0.0979999303817749,
+        "url": "https://embed.localimpact.com/css/embed/v2/ionicons.min.css"
+       },
+       {
+        "transferSize": 1660,
+        "mainThreadTime": 0.059999942779541016,
+        "url": "https://embed.localimpact.com/css/embed/v2/slider.css"
+       },
+       {
+        "mainThreadTime": 0.046000003814697266,
+        "url": "https://embed.localimpact.com/css/embed/v2/slider-left-aligned.css",
+        "transferSize": 1313
+       },
+       {
+        "mainThreadTime": 0.019999980926513672,
+        "transferSize": 1137,
+        "url": "https://embed.localimpact.com/css/embed/v2/carousel-v3.css"
+       },
+       {
+        "transferSize": 1015,
+        "url": "https://embed.localimpact.com/css/embed/v2/carousel.css",
+        "mainThreadTime": 0.016000032424926758
+       },
+       {
+        "mainThreadTime": 0.006999969482421875,
+        "url": "https://embed.localimpact.com/css/embed/v2/carousel-v3-scroll.css",
+        "transferSize": 809
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 51243,
+        "url": "https://embed.localimpact.com/css/embed/v2/webfonts/ionicons.woff2"
+       },
+       {
+        "transferSize": 3464,
+        "url": "https://embed.localimpact.com/assets/global/images/source-logos/google/h120w120.png",
+        "mainThreadTime": 0
+       }
+      ],
+      "type": "subitems"
+     },
+     "transferSize": 171069
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "url": "https://stpaymentspciprod.blob.core.windows.net/webfields/1.0.52/webfields.js",
+        "transferSize": 116447,
+        "mainThreadTime": 23.914999961853027
+       }
+      ],
+      "type": "subitems"
+     },
+     "mainThreadTime": 23.914999961853027,
+     "entity": "Azure Web Services",
+     "transferSize": 116447
+    },
+    {
+     "mainThreadTime": 18.360999941825867,
+     "entity": "5starbusiness.com",
+     "subItems": {
+      "items": [
+       {
+        "mainThreadTime": 18.360999941825867,
+        "url": "https://reputation.5starbusiness.com/embed/v6/410046/1/2535267838/2706a3fcb21f0dbe5c1a8bf2b2ad16b105a809218c7c6005",
+        "transferSize": 7317
+       }
+      ],
+      "type": "subitems"
+     },
+     "transferSize": 7317
+    },
+    {
+     "transferSize": 18770,
+     "mainThreadTime": 14.482999801635742,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "url": "https://bat.bing.com/bat.js",
+        "transferSize": 17177,
+        "mainThreadTime": 13.670999884605408
+       },
+       {
+        "mainThreadTime": 0.8119999170303345,
+        "transferSize": 869,
+        "url": "https://bat.bing.com/p/action/5524819.js"
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 724,
+        "url": "https://bat.bing.com/action/0"
+       }
+      ]
+     },
+     "entity": "Bing Ads"
+    },
+    {
+     "entity": "Yahoo!",
+     "mainThreadTime": 7.894000172615051,
+     "transferSize": 9394,
+     "subItems": {
+      "items": [
+       {
+        "url": "https://s.yimg.com/wi/ytc.js",
+        "mainThreadTime": 7.734000086784363,
+        "transferSize": 7641
+       },
+       {
+        "transferSize": 786,
+        "url": "https://s.yimg.com/wi/config/10194011.json",
+        "mainThreadTime": 0.16000008583068848
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 967,
+        "url": "https://sp.analytics.yahoo.com/sp.pl"
+       }
+      ],
+      "type": "subitems"
+     }
+    },
+    {
+     "entity": "Vimeo",
+     "mainThreadTime": 4.435999870300293,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "mainThreadTime": 4.435999870300293,
+        "url": "https://player.vimeo.com/api/player.js",
+        "transferSize": 9246
+       }
+      ]
+     },
+     "transferSize": 9246
+    },
+    {
+     "subItems": {
+      "items": [
+       {
+        "transferSize": 3957,
+        "url": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/864071348/",
+        "mainThreadTime": 2.633000135421753
+       },
+       {
+        "transferSize": 535,
+        "mainThreadTime": 0,
+        "url": "https://ad.doubleclick.net/ccm/s/collect"
+       }
+      ],
+      "type": "subitems"
+     },
+     "transferSize": 4492,
+     "entity": "Google/Doubleclick Ads",
+     "mainThreadTime": 2.633000135421753
+    },
+    {
+     "entity": "icomoon.io",
+     "transferSize": 29747,
+     "mainThreadTime": 1.3009999990463257,
+     "subItems": {
+      "items": [
+       {
+        "transferSize": 8364,
+        "url": "https://cdn.icomoon.io/101518/birdeye-fonts/style-cf.css",
+        "mainThreadTime": 1.3009999990463257
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 21383,
+        "url": "https://cdn.icomoon.io/101518/birdeye-fonts/icomoon.woff2"
+       }
+      ],
+      "type": "subitems"
+     }
+    },
+    {
+     "entity": "Google Fonts",
+     "mainThreadTime": 0.9140001535415649,
+     "subItems": {
+      "items": [
+       {
+        "mainThreadTime": 0.5480000972747803,
+        "url": "https://fonts.googleapis.com/css",
+        "transferSize": 1720
+       },
+       {
+        "mainThreadTime": 0.20099997520446777,
+        "url": "https://fonts.googleapis.com/css2",
+        "transferSize": 1298
+       },
+       {
+        "url": "https://fonts.googleapis.com/css",
+        "mainThreadTime": 0.1650000810623169,
+        "transferSize": 1289
+       },
+       {
+        "url": "https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecnFHGPc.woff2",
+        "transferSize": 8710,
+        "mainThreadTime": 0
+       },
+       {
+        "url": "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7Z1xlFd2JQEk.woff2",
+        "mainThreadTime": 0,
+        "transferSize": 8658
+       },
+       {
+        "url": "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFd2JQEk.woff2",
+        "transferSize": 8551,
+        "mainThreadTime": 0
+       }
+      ],
+      "type": "subitems"
+     },
+     "transferSize": 30226
+    },
+    {
+     "mainThreadTime": 0.11300003528594971,
+     "transferSize": 390573,
+     "entity": "cloudfront.net",
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "mainThreadTime": 0.11300003528594971,
+        "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/media/notification-sound.mp3",
+        "transferSize": 25289
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 186477,
+        "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/Headset.svg"
+       },
+       {
+        "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/ThatHelped.svg",
+        "transferSize": 173447,
+        "mainThreadTime": 0
+       },
+       {
+        "url": "https://d1py4eyp5hehj0.cloudfront.net/upload/1157564/1787852965890/coolraywebchat.png",
+        "transferSize": 2924,
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/icon-search-20240718-070746.svg",
+        "transferSize": 1256
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 1180,
+        "url": "https://d3cnqzq0ivprch.cloudfront.net/prod/css/images/email/Send.svg"
+       }
+      ]
+     }
+    },
+    {
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "transferSize": 462457,
+        "mainThreadTime": 0,
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/atlanta-georgia-city-and-skyline-lightest-cr25wi001wg"
+       },
+       {
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-tech-truck-hero-cr25wi001wg",
+        "mainThreadTime": 0,
+        "transferSize": 68938
+       },
+       {
+        "transferSize": 54582,
+        "mainThreadTime": 0,
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-service-technician-hero-cr21wi001wg"
+       },
+       {
+        "transferSize": 21582,
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/60-logo-full-color-cr26w001wi",
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-logo-cr22wi001wg",
+        "transferSize": 19706
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://wg.scene7.com/is/image/wrenchgroup/coolray-60-years-white-logo-cr26wi001wg",
+        "transferSize": 11180
+       },
+       {
+        "url": "https://wg.scene7.com/is/content/wrenchgroup/electricity-icon-blue-cr25wi001wg",
+        "transferSize": 2920,
+        "mainThreadTime": 0
+       },
+       {
+        "url": "https://wg.scene7.com/is/content/wrenchgroup/plumbing-icon-blue-cr25wi001wg",
+        "transferSize": 2632,
+        "mainThreadTime": 0
+       },
+       {
+        "transferSize": 2511,
+        "mainThreadTime": 0,
+        "url": "https://wg.scene7.com/is/content/wrenchgroup/insulation-icon-blue-cr25wi001wg"
+       },
+       {
+        "url": "https://wg.scene7.com/is/content/wrenchgroup/air-conditioning-icon-blue-cr25wi001wg",
+        "mainThreadTime": 0,
+        "transferSize": 1819
+       },
+       {
+        "transferSize": 1341,
+        "url": "https://wg.scene7.com/is/content/wrenchgroup/water-treatment-icon-blue-cr25wi001wg",
+        "mainThreadTime": 0
+       }
+      ]
+     },
+     "mainThreadTime": 0,
+     "transferSize": 649668,
+     "entity": "Adobe Scene7"
+    },
+    {
+     "mainThreadTime": 0,
+     "transferSize": 944,
+     "entity": "run.app",
+     "subItems": {
+      "items": [
+       {
+        "transferSize": 944,
+        "mainThreadTime": 0,
+        "url": "https://mpc-prod-27-s6uit34pua-uk.a.run.app/events"
+       }
+      ],
+      "type": "subitems"
+     }
+    },
+    {
+     "transferSize": 2302,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "transferSize": 610,
+        "mainThreadTime": 0,
+        "url": "https://www.google.com/pagead/1p-user-list/864071348/"
+       },
+       {
+        "url": "https://www.google.com/rmkt/collect/864071348/",
+        "mainThreadTime": 0,
+        "transferSize": 582
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://www.google.com/ccm/collect",
+        "transferSize": 555
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 555,
+        "url": "https://www.google.com/ccm/collect"
+       }
+      ]
+     },
+     "mainThreadTime": 0,
+     "entity": "Other Google APIs/SDKs"
+    },
+    {
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "url": "https://analytics.google.com/g/collect",
+        "transferSize": 799,
+        "mainThreadTime": 0
+       }
+      ]
+     },
+     "transferSize": 799,
+     "mainThreadTime": 0,
+     "entity": "Google Analytics"
+    },
+    {
+     "entity": "google.com.pk",
+     "transferSize": 610,
+     "mainThreadTime": 0,
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "transferSize": 610,
+        "mainThreadTime": 0,
+        "url": "https://www.google.com.pk/pagead/1p-user-list/864071348/"
+       }
+      ]
+     }
+    },
+    {
+     "subItems": {
+      "type": "subitems",
+      "items": [
+       {
+        "transferSize": 8598,
+        "url": "https://s3.romw-cdn.co/media/1/2028/20273038/conversions/ALV-UjWY472zHSggufO3oMrVZpKYH5B177e4iECCoo6JkgacJD_rVyw=s64-c-rp-mo-br100-60px.png",
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "transferSize": 7915,
+        "url": "https://s3.romw-cdn.co/media/1/2091/20901560/conversions/ALV-UjXkthzXzFlYFEIiYUDxUBCv3d_jIP9q_eAd4x6JL5XD5TB5hms=s64-c-rp-mo-ba12-br100-60px.png"
+       },
+       {
+        "url": "https://s3.romw-cdn.co/media/1/2091/20901568/conversions/ALV-UjVD8CzUOlDpAVkmawHm52I149nWLKJJEX5yg0WusXYLvTNJLY0=s64-c-rp-mo-ba12-br100-60px.png",
+        "mainThreadTime": 0,
+        "transferSize": 7488
+       },
+       {
+        "url": "https://s3.romw-cdn.co/media/1/2028/20270116/conversions/ACg8ocIsfzgF93yNjC_nLpNM_89ZkrvDflSCA9WGaKZGUmgdnkD9bA=s64-c-rp-mo-ba2-br100-60px.png",
+        "transferSize": 4993,
+        "mainThreadTime": 0
+       },
+       {
+        "transferSize": 3921,
+        "url": "https://s3.romw-cdn.co/media/1/2028/20274091/conversions/ACg8ocL907Yurg7J8ejkPnwgbuNHZD1dvc1h1tZe3TrZTBPzcUN2oQ=s64-c-rp-mo-br100-60px.png",
+        "mainThreadTime": 0
+       },
+       {
+        "mainThreadTime": 0,
+        "url": "https://s3.romw-cdn.co/media/1/2091/20901562/conversions/ACg8ocLPb01cf2EXzyQ8a8QYzdx6RfuGyZMhKIBD8RmmuObQORC2NA=s64-c-rp-mo-br100-60px.png",
+        "transferSize": 3383
+       }
+      ]
+     },
+     "entity": "romw-cdn.co",
+     "mainThreadTime": 0,
+     "transferSize": 36298
+    }
+   ]
+  }
+ },
+ "render-blocking-insight": {
+  "score": 0,
+  "numericValue": 300,
+  "metricSavings": {
+   "LCP": 300,
+   "FCP": 300
+  },
+  "details": {
+   "type": "table",
+   "items": [
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-global.lc-50e5423612c90a5afadaf1b097cf2f75-lc.min.css",
+     "totalBytes": 35296,
+     "wastedMs": 1403
+    },
+    {
+     "wastedMs": 159,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-base.lc-9b5b2b25510addbcbf1cd2d70a3db426-lc.min.css",
+     "totalBytes": 1686
+    },
+    {
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-site.lc-1794540895884-lc.min.css",
+     "wastedMs": 1092,
+     "totalBytes": 26204
+    },
+    {
+     "totalBytes": 6981,
+     "url": "https://www.coolray.com/etc.clientlibs/wrenchgroup/clientlibs/clientlib-themes/theme-coolray.lc-4b614b20df48f99dfa8b6ae2e8348936-lc.min.css",
+     "wastedMs": 625
+    }
+   ]
+  }
+ }
+}

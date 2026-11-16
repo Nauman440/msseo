@@ -9,6 +9,8 @@ import { generateAiRecommendations } from './ai-recommendations';
 import { buildReport } from './build-report';
 import { deepCrawl, type CrawlResult } from './deep-crawl';
 import { fetchPageContents, type PageContent } from './page-content';
+import { probeUrlVariants, type UrlVariantProbe } from './url-probes';
+import { checkLinks, type LinkCheck } from './link-check';
 import { pickPages, quickCrawl } from './quick-crawl';
 import type { AuditData } from './types';
 
@@ -88,19 +90,25 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
   let preflight: Preflight;
   let crawl: CrawlResult;
   let content: PageContent[];
+  let probes: UrlVariantProbe[];
+  let links: LinkCheck[];
   if (mode === 'quick') {
     // Our own HTML read of the same pages runs alongside the live DataForSEO checks.
     const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
+    const probesP = contentP.then((c) => probeUrlVariants(c, env.log));
+    const linksP = contentP.then((c) => checkLinks(c, new Map(c.map((p) => [p.url, p.status])), env.log));
     const crawlP = quickCrawl(client, found, input, crawlProgress);
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
-    [crawl, content] = await Promise.all([crawlP, contentP]);
+    [crawl, content, probes, links] = await Promise.all([crawlP, contentP, probesP, linksP]);
   } else {
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
     crawl = await deepCrawl(client, preflight, { ...input, timeoutMs: env.timeoutMs, pollMs: env.pollMs }, crawlProgress);
     const okUrls = crawl.pages.filter((p) => p.resource_type === 'html' && p.status_code === 200).map((p) => p.url);
     content = await fetchPageContents(okUrls.slice(0, input.pageLimit), env.log);
+    const known = new Map(crawl.pages.map((p) => [p.url, p.status_code]));
+    [probes, links] = await Promise.all([probeUrlVariants(content, env.log), checkLinks(content, known, env.log)]);
   }
   const htmlCount = crawl.pages.filter((p) => p.resource_type === 'html').length;
   onProgress({ step: 'crawl', state: htmlCount ? 'done' : 'failed', detail: crawl.detail, progress: at('crawl', 1) });
@@ -125,6 +133,8 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     summary: crawl.summary,
     pages: crawl.pages,
     content,
+    probes,
+    links,
     psi,
     notices: crawl.notices,
   };
