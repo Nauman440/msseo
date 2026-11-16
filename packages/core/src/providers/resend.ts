@@ -13,6 +13,8 @@ export type EmailMessage = {
   text: string;
   attachments?: { filename: string; content: Uint8Array }[];
   idempotencyKey?: string;
+  /** Where replies go (EMAIL_REPLY_TO), e.g. the team inbox; comma-separated allowed. */
+  replyTo?: string;
 };
 
 const base64 = (bytes: Uint8Array) => {
@@ -36,6 +38,7 @@ export async function sendEmail(apiKey: string, m: EmailMessage, log?: HttpLog):
       subject: m.subject,
       html: m.html,
       text: m.text,
+      ...(m.replyTo ? { reply_to: m.replyTo.split(',').map((s) => s.trim()).filter(Boolean) } : {}),
       ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ filename: a.filename, content: base64(a.content) })) } : {}),
     },
     timeoutMs: 30_000,

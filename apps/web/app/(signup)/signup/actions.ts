@@ -4,11 +4,12 @@ import { AuthError, CredentialsSignin } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { newAuditSchema } from '@seo/core';
-import { CONNECTIONS, createAccount, domainOf, getAccountByUserId, isPlan, updateAccount, type Connection } from '@/lib/accounts';
+import { CONNECTIONS, createAccount, domainOf, getAccountByUserId, isPlan, PLANS, TRIAL_DAYS, updateAccount, type Connection } from '@/lib/accounts';
 import { startAudit } from '@/lib/audit-runner';
 import { signIn } from '@/lib/auth';
 import { authEnabled, getSessionUser } from '@/lib/session';
 import { FINISHED, freeAuditSummary, stepPath, websiteOrigin } from '@/lib/signup';
+import { emailLayout, notifyTeam, sendMail } from '@/lib/mailer';
 import { createUser, UserExistsError } from '@/lib/users';
 
 /** Step 8 signup: one action per onboarding step. Errors come back to the form. */
@@ -58,6 +59,19 @@ export async function createAccountAction(_prev: SignupState, form: FormData): P
     website: audit ? `https://${audit.domain}/` : null,
     sourceAuditId: audit?.id ?? null,
   });
+  const base = (process.env.APP_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || '').replace(/\/$/, '');
+  await sendMail(
+    parsed.data.email,
+    `Welcome to MS SCORE: your ${TRIAL_DAYS}-day trial has started`,
+    emailLayout({
+      heading: `Welcome, ${parsed.data.name.split(' ')[0]}`,
+      paragraphs: [
+        `Your ${PLANS[plan].name} trial for ${parsed.data.businessName} has started. It runs for ${TRIAL_DAYS} days and there is nothing to pay today.`,
+        'Finish the short setup (your website, area and services) so we can focus on the searches that bring you customers. Our team will then contact you about the first fixes.',
+      ],
+      button: base ? { label: 'Continue setup', href: `${base}/signup/website` } : undefined,
+    }),
+  );
 
   try {
     await signIn('credentials', { email: parsed.data.email, password: parsed.data.password, redirectTo: stepPath(2) });
@@ -119,6 +133,19 @@ export async function finishSignupAction(_prev: SignupState, form: FormData): Pr
   await updateAccount(user.id!, { connections, consentChanges: consent, consentAt: consent ? now : null, onboardingStep: FINISHED, onboardedAt: now });
 
   const free = await freeAuditSummary(account.sourceAuditId);
+  const answers = [
+    `Business: ${account.businessName} (${user.name}, ${user.email ?? ''}${account.phone ? `, ${account.phone}` : ''})`,
+    `Plan: ${PLANS[account.plan].name}, trial until ${account.trialEndsAt.slice(0, 10)}`,
+    `Website: ${account.website ?? '-'}`,
+    `Area: ${[account.country, ...account.areas].filter(Boolean).join(', ') || '-'}${account.otherCountries ? ' (+ other countries)' : ''}, language ${account.language ?? '-'}`,
+    `Services: ${account.services.join(', ') || '-'}; competitors: ${account.competitors.join(', ') || '-'}`,
+    `Can connect: ${connections.join(', ') || 'nothing yet'}; may prepare changes: ${consent ? 'yes' : 'no'}`,
+  ];
+  const base = (process.env.APP_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || '').replace(/\/$/, '');
+  await notifyTeam(
+    `New trial: ${account.businessName} (${PLANS[account.plan].name})`,
+    emailLayout({ heading: 'A new customer finished sign-up', paragraphs: answers, button: base ? { label: 'Open Customers', href: `${base}/settings/customers` } : undefined }),
+  );
   if (account.website && (!free || free.domain !== domainOf(account.website))) {
     const input = newAuditSchema.parse({ url: account.website, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
     await startAudit(input, user.id).catch(() => undefined); // the dashboard offers "Run audit" if this fails

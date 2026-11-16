@@ -17,17 +17,19 @@ export type EmailEnv = {
   /** Shared with the web app; signs the print-page token. */
   encryptionKey: string;
   renderPdf: (url: string) => Promise<Uint8Array>;
+  replyTo?: string;
   log?: HttpLog;
 };
 
 /** Email settings from the environment; null (with what is missing) when email cannot be sent. */
-export function emailConfig(env: NodeJS.ProcessEnv = process.env, appUrlFallback?: string): { ok: true; resendApiKey: string; from: string; appUrl: string; encryptionKey: string } | { ok: false; missing: string[] } {
+export function emailConfig(env: NodeJS.ProcessEnv = process.env, appUrlFallback?: string): { ok: true; resendApiKey: string; from: string; appUrl: string; encryptionKey: string; replyTo?: string } | { ok: false; missing: string[] } {
   const resendApiKey = env.RESEND_API_KEY?.trim();
   const from = env.EMAIL_FROM?.trim();
   const appUrl = (env.APP_URL?.trim() || appUrlFallback || '').replace(/\/$/, '');
   const encryptionKey = env.ENCRYPTION_KEY?.trim();
   const missing = [!resendApiKey && 'RESEND_API_KEY', !from && 'EMAIL_FROM', !appUrl && 'APP_URL', !encryptionKey && 'ENCRYPTION_KEY'].filter((x): x is string => Boolean(x));
-  return missing.length ? { ok: false, missing } : { ok: true, resendApiKey: resendApiKey!, from: from!, appUrl, encryptionKey: encryptionKey! };
+  const replyTo = env.EMAIL_REPLY_TO?.trim() || undefined;
+  return missing.length ? { ok: false, missing } : { ok: true, resendApiKey: resendApiKey!, from: from!, appUrl, encryptionKey: encryptionKey!, ...(replyTo ? { replyTo } : {}) };
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -79,6 +81,7 @@ export async function deliverReportEmail(record: AuditRecord, env: EmailEnv): Pr
     {
       from: env.from,
       to,
+      replyTo: env.replyTo,
       subject,
       html,
       text,

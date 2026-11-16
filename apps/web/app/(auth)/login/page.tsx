@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: Props) {
   return (
     <>
       <h1 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Sign in</h1>
-      <p className="mb-6 mt-1.5 text-sm text-ink-2">The MS SCORE audit tool is for the Morosoft team.</p>
+      <p className="mb-6 mt-1.5 text-sm text-ink-2">Sign in to your MS SCORE account.</p>
       {firstRun ? (
         <p className="rounded-control bg-primary-soft px-3.5 py-3 text-sm text-primary-heading">
           No accounts exist yet.{' '}
@@ -42,7 +42,11 @@ export default async function LoginPage({ searchParams }: Props) {
           ]}
         />
       )}
-      <p className="mt-6 text-[13px] text-ink-3">Forgot your password? Ask an admin to set a new one.</p>
+      <p className="mt-6 text-[13px] text-ink-3">
+        <Link href="/forgot-password" className="font-semibold text-primary-text underline">
+          Forgot your password?
+        </Link>
+      </p>
     </>
   );
 }

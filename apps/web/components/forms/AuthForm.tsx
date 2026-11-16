@@ -18,7 +18,7 @@ function Submit({ label }: { label: string }) {
   );
 }
 
-/** Small form shell for sign-in style pages (login, first-admin setup). */
+/** Small form shell for sign-in style pages (login, first-admin setup, password reset). */
 export function AuthForm({
   action,
   fields,
@@ -39,6 +39,11 @@ export function AuthForm({
       {state.error && (
         <p role="alert" className="rounded-control bg-warn-bg px-3.5 py-2.5 text-sm font-semibold text-fail-text">
           {state.error}
+        </p>
+      )}
+      {state.ok && (
+        <p role="status" className="rounded-control bg-pass-bg px-3.5 py-2.5 text-sm font-semibold text-pass-text">
+          {state.ok}
         </p>
       )}
       {fields.map((f) => (
