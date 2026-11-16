@@ -6,6 +6,7 @@ import type { UrlVariantProbe } from './url-probes';
 import type { LinkCheck } from './link-check';
 import type { LighthouseRun } from './lighthouse';
 import type { Template } from './templates';
+import type { GscData } from './gsc-collect';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
 export type AuditMode = 'quick' | 'deep';
@@ -30,6 +31,8 @@ export type AuditData = {
   /** Page templates (spec §7) and the Lighthouse runs on their representatives. */
   templates?: Template[];
   lighthouse?: LighthouseRun[];
+  /** Search Console data; undefined when no property was selected (all GSC rules are then skipped). */
+  gsc?: GscData;
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];
@@ -69,7 +72,9 @@ export type CardId =
   | 'stack'
   | 'intl'
   | 'trust'
-  | 'aeo';
+  | 'aeo'
+  | 'gsc-index'
+  | 'gsc-perf';
 
 export type Evaluation = {
   status: RuleStatus;

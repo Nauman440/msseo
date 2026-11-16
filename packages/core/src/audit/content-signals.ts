@@ -1,3 +1,4 @@
+import type { GscData } from './gsc-collect';
 import type { PageContent } from './page-content';
 
 /* Text signals shared by the content, trust and AI-readiness rules. */
@@ -77,3 +78,27 @@ export function schemaValues(c: PageContent, field: string): string[] {
 }
 
 export const hasSchema = (c: PageContent, ...types: string[]) => c.schemaTypes.some((t) => types.includes(t));
+
+/**
+ * Main-term source for 2.1.4 / 2.2.4: the page's top Search Console query by clicks when
+ * GSC data is present (spec §6.3), otherwise mainTerm() from the URL/H1.
+ */
+export function termResolver(gsc: GscData | undefined): { term: (c: PageContent) => string[]; source: 'gsc' | 'url' } {
+  if (!gsc?.pageQueries.length) return { term: mainTerm, source: 'url' };
+  const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
+  const top = new Map<string, { query: string; clicks: number }>();
+  for (const r of gsc.pageQueries) {
+    const [page, query] = r.keys;
+    if (!page || !query || r.clicks <= 0) continue;
+    const key = norm(page);
+    if ((top.get(key)?.clicks ?? 0) < r.clicks) top.set(key, { query, clicks: r.clicks });
+  }
+  return {
+    term: (c) => {
+      const q = top.get(norm(c.url));
+      const t = q ? tokens(q.query).slice(0, 3) : [];
+      return t.length ? t : mainTerm(c);
+    },
+    source: 'gsc',
+  };
+}

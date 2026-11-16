@@ -2,6 +2,7 @@ import type { Audience, CheckCard, RuleStatus } from '@seo/core';
 import { Card } from '@/components/ui/Card';
 import { IssueBadge } from '@/components/ui/Pills';
 import { HBarList } from './HBarList';
+import { QuickWinsScatter } from './QuickWinsScatter';
 import { StackedBar } from './StackedBar';
 import { StatusRow } from './StatusRow';
 
@@ -34,6 +35,7 @@ export function CheckCardView({ card, mode }: { card: CheckCard; mode: Audience 
           <HBarList rows={card.chart.rows} />
         </div>
       )}
+      {card.chart?.kind === 'scatter' && mode === 'expert' && <QuickWinsScatter {...card.chart} />}
       <ul>
         {rows.map((row) => (
           <StatusRow key={row.ruleId} row={row} mode={mode} />

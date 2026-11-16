@@ -69,3 +69,12 @@ export async function changePasswordAction(_prev: ActionState, form: FormData): 
   await updateUser(me.id, { password: parsed.data.password });
   return { ok: 'Your password has been changed.' };
 }
+
+/** Admin: remove the Search Console connection (audits then skip GSC checks). */
+export async function disconnectGscAction(): Promise<ActionState> {
+  await requireAdmin();
+  const { deleteGscConnection } = await import('@seo/db');
+  await deleteGscConnection();
+  revalidatePath('/settings/search-console');
+  return { ok: 'Search Console disconnected.' };
+}

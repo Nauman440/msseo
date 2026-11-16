@@ -38,7 +38,8 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
     { label: 'Audit type', value: report.auditMode === 'quick' ? 'Quick (key pages)' : 'Deep crawl' },
     { label: 'Crawled', value: formatDate(report.crawledAt) },
     ...(report.durationSeconds !== undefined ? [{ label: 'Audit time', value: formatDuration(report.durationSeconds) }] : []),
-    { label: 'Search Console', value: report.gscProperty ?? 'Not used' },
+    // §1 / Phase 3: without a property, nothing in the report mentions Search Console.
+    ...(report.gscProperty ? [{ label: 'Search Console', value: report.gscProperty }] : []),
   ];
 
   return (

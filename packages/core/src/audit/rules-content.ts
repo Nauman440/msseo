@@ -1,4 +1,4 @@
-import { containsAll, hasSchema, mainTerm, readability, termDensity } from './content-signals';
+import { containsAll, hasSchema, mainTerm, readability, termDensity, termResolver } from './content-signals';
 import type { PageContent } from './page-content';
 import { countPages, plural, type RuleDef } from './types';
 
@@ -21,9 +21,12 @@ export const contentRules: RuleDef[] = [
     explain: { client: 'People scan the first words of a search result. Put what the page is about first.', expert: 'Front-loaded keywords match intent faster and survive SERP truncation. Phase 1 infers the term from the URL slug or H1.' },
     fix: { client: 'Start each title with the service or topic of the page.', expert: 'Move the primary term into the first 30 characters of the <title>.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
-    evaluate: ({ content }) =>
-      countPages(withTerm(content).filter((c) => c.title), (c) => !(c.title ?? '').slice(0, 30).toLowerCase().includes(mainTerm(c)[0]!), (n) =>
-        n ? { client: `${plural(n, 'title')} put the main topic too late`, expert: `${n} titles lack the slug/H1 term in the first 30 chars` } : { client: 'Titles lead with the topic', expert: 'Primary term in the first 30 chars of every title' }, 'warn'),
+    evaluate: ({ content, data }) => {
+      const { term, source } = termResolver(data.gsc);
+      const from = source === 'gsc' ? 'top Search Console query' : 'slug/H1 term';
+      return countPages(content.filter((c) => c.title && term(c).length), (c) => !(c.title ?? '').slice(0, 30).toLowerCase().includes(term(c)[0]!), (n) =>
+        n ? { client: `${plural(n, 'title')} put the main topic too late`, expert: `${n} titles lack the ${from} in the first 30 chars` } : { client: 'Titles lead with the topic', expert: `${source === 'gsc' ? 'Top query' : 'Primary term'} in the first 30 chars of every title` }, 'warn');
+    },
   },
   {
     id: '2.2.4', module: 2, category: 'onpage', card: 'meta', scope: 'page', severity: 'low',
@@ -31,9 +34,11 @@ export const contentRules: RuleDef[] = [
     explain: { client: 'Google highlights the words people searched for in the snippet, which draws the eye.', expert: 'Query terms are bolded in snippets, lifting CTR.' },
     fix: { client: 'Mention the main service in each page’s snippet text.', expert: 'Include the primary term in the meta description.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
-    evaluate: ({ content }) =>
-      countPages(withTerm(content).filter((c) => c.description), (c) => !containsAll(c.description ?? '', mainTerm(c)), (n) =>
-        n ? { client: `${plural(n, 'snippet')} ${n === 1 ? 'does' : 'do'} not mention the page topic`, expert: `${n} meta descriptions lack the primary term` } : { client: 'Snippets mention the page topic', expert: 'Primary term in every meta description' }, 'warn'),
+    evaluate: ({ content, data }) => {
+      const { term, source } = termResolver(data.gsc);
+      return countPages(content.filter((c) => c.description && term(c).length), (c) => !containsAll(c.description ?? '', term(c)), (n) =>
+        n ? { client: `${plural(n, 'snippet')} ${n === 1 ? 'does' : 'do'} not mention the page topic`, expert: `${n} meta descriptions lack the ${source === 'gsc' ? 'top Search Console query' : 'primary term'}` } : { client: 'Snippets mention the page topic', expert: 'Primary term in every meta description' }, 'warn');
+    },
   },
   {
     id: '2.3.2', module: 2, category: 'onpage', card: 'headings', scope: 'page', severity: 'low',

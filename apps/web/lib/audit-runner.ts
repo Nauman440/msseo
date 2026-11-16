@@ -1,5 +1,6 @@
 import 'server-only';
 import { executeAudit, type NewAuditInput } from '@seo/core';
+import { gscAuditAccess } from '@seo/db';
 import { enqueueAudit } from '@seo/db/queue';
 import { createAudit, getAudit, saveAudit, usingDatabase, type AuditRecord } from './audit-store';
 import { providerConfig } from './providers-config';
@@ -25,7 +26,7 @@ export async function startAudit(input: NewAuditInput, createdById?: string | nu
     return record;
   }
   running.add(record.id);
-  void executeAudit(record, env, saveAudit).finally(() => running.delete(record.id));
+  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined }, saveAudit).finally(() => running.delete(record.id));
   return record;
 }
 

@@ -7,6 +7,8 @@ export type RequestOptions = {
   method?: 'GET' | 'POST' | 'HEAD';
   headers?: Record<string, string>;
   body?: unknown;
+  /** Pre-encoded body sent as is (e.g. form-urlencoded); set the content-type header yourself. */
+  rawBody?: string;
   timeoutMs?: number;
   retries?: number;
   log?: HttpLog;
@@ -39,7 +41,7 @@ export async function request(url: string, opts: RequestOptions): Promise<Respon
           ...(opts.body !== undefined ? { 'content-type': 'application/json' } : {}),
           ...opts.headers,
         },
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        body: opts.rawBody ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
         redirect: opts.manualRedirect ? 'manual' : 'follow',
         signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
       });

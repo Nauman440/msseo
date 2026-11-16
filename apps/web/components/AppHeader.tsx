@@ -56,9 +56,14 @@ export function AppHeader({ user }: { user: SessionUser }) {
                 Your account
               </Link>
               {user.role === 'admin' && (
-                <Link href="/settings/users" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
-                  Team members
-                </Link>
+                <>
+                  <Link href="/settings/users" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
+                    Team members
+                  </Link>
+                  <Link href="/settings/search-console" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
+                    Search Console
+                  </Link>
+                </>
               )}
               {!user.local && (
                 <form action={signOutAction}>

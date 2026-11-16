@@ -5,7 +5,7 @@ import { countPages, pathOf, plural, type AuditContext, type RuleDef } from './t
 
 const TRAP = /[?&](date|day|month|year|calendar|time|ical|outlook-ical|replytocom|sort|order|orderby|filter_[a-z_]+|price_min|price_max)=|[?&]s=|\/search(\/|\?|$)|\/calendar\/|\/events?\/\d{4}-\d{2}/i;
 const JUNK = /[?&](replytocom|attachment_id|p|page_id|s)=|\/(tag|tags|author|attachment|feed|trackback|wp-json)\/|\/page\/\d+\/?$|[?&](page|paged|pg)=\d+/i;
-const INDEXED_JUNK = /\/(tag|tags|author|category|archives?|search)\/|[?&]s=|\/\d{4}\/\d{2}\/?$/i;
+export const INDEXED_JUNK = /\/(tag|tags|author|category|archives?|search)\/|[?&]s=|\/\d{4}\/\d{2}\/?$/i;
 const PAGINATED = /\/page\/(\d+)\/?$|[?&](?:page|paged|pg)=(\d+)/i;
 const SESSION = /[?&](sid|sessionid|session_id|phpsessid|jsessionid|aspsessionid|cfid|cftoken|utm_[a-z]+|gclid|fbclid)=/i;
 const SOFT_404 = /\b(page not found|not found|404|no longer (available|exists)|page (you requested |)(does not|doesn['’]t|could not|cannot|can['’]t) (exist|be found))\b/i;

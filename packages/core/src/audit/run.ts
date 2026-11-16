@@ -4,7 +4,7 @@ import { runPreflight, type Discovery, type Preflight } from '../providers/direc
 import type { HttpLog } from '../providers/http';
 import { createOpenAiClient } from '../providers/openai';
 import { runPageSpeed, type PageSpeedResult } from '../providers/pagespeed';
-import type { AiRecommendations, ReportModel } from '../types';
+import type { AiRecommendations, AudienceText, ReportModel } from '../types';
 import { generateAiRecommendations } from './ai-recommendations';
 import { buildReport } from './build-report';
 import { deepCrawl, type CrawlResult } from './deep-crawl';
@@ -13,6 +13,7 @@ import { probeUrlVariants, type UrlVariantProbe } from './url-probes';
 import { checkLinks, type LinkCheck } from './link-check';
 import { MAX_TEMPLATES, runTemplateLighthouse, type LighthouseRun } from './lighthouse';
 import { buildTemplates, inlinksFromContent, type Template } from './templates';
+import { collectGsc, type GscData } from './gsc-collect';
 import { pickPages, quickCrawl } from './quick-crawl';
 import type { AuditData } from './types';
 
@@ -22,6 +23,7 @@ export const AUDIT_STEPS = [
   { id: 'crawl', label: 'Checking pages' },
   { id: 'fetch', label: 'Collecting page data' },
   { id: 'lighthouse', label: 'Measuring speed for each page type' },
+  { id: 'gsc', label: 'Reading Search Console' },
   { id: 'report', label: 'Scoring and building the report' },
   { id: 'ai', label: 'Writing AI recommendations' },
 ] as const;
@@ -32,6 +34,8 @@ export type StepState = 'queued' | 'running' | 'done' | 'skipped' | 'failed';
 export type AuditEnv = {
   dataforseo: { login: string; password: string; baseUrl: string };
   pagespeedKey?: string;
+  /** Search Console access (agency connection); absent when not connected. */
+  gsc?: { accessToken: () => Promise<string> };
   /** Enables the optional AI recommendations step. */
   openai?: { apiKey: string; model?: string };
   brand: string;
@@ -57,7 +61,7 @@ export type AuditOutcome = {
 };
 
 const WEIGHT: Record<StepId, [number, number]> = {
-  preflight: [0, 10], crawl: [10, 80], fetch: [80, 82], lighthouse: [82, 95], report: [95, 100], ai: [100, 100],
+  preflight: [0, 10], crawl: [10, 80], fetch: [80, 82], lighthouse: [82, 92], gsc: [92, 95], report: [95, 100], ai: [100, 100],
 };
 const at = (step: StepId, fraction: number) => Math.round(WEIGHT[step][0] + (WEIGHT[step][1] - WEIGHT[step][0]) * fraction);
 
@@ -113,6 +117,27 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
   const measuring = (t: Template[]) => {
     if (env.pagespeedKey) onProgress({ step: 'lighthouse', state: 'running', detail: `${Math.min(t.length, MAX_TEMPLATES)} page types`, progress: at('lighthouse', 0) });
   };
+
+  // Search Console (optional, spec §5.5): analytics start now; URL Inspection waits for the page list.
+  let inspectList: (urls: string[]) => void = () => undefined;
+  const inspectUrls = new Promise<string[]>((resolve) => (inspectList = resolve));
+  const gscNotices: AudienceText[] = [];
+  const property = input.gscProperty;
+  if (property && env.gsc) onProgress({ step: 'gsc', state: 'running', detail: property, progress: at('gsc', 0) });
+  const gscP: Promise<GscData | undefined> =
+    property && env.gsc
+      ? env.gsc
+          .accessToken()
+          .then((token) => collectGsc({ token, property, rangeDays: input.gscRangeDays, inspectUrls, log: env.log }))
+          .catch((err: unknown) => {
+            gscNotices.push({ client: 'Search Console data could not be read, so those checks were skipped.', expert: `Search Console failed: ${err instanceof Error ? err.message : String(err)}. GSC checks skipped.` });
+            return undefined;
+          })
+      : Promise.resolve(undefined);
+  if (property && !env.gsc) {
+    gscNotices.push({ client: 'Search Console was selected but is not connected, so those checks were skipped.', expert: 'GSC property selected but no Search Console connection (Settings → Search Console). GSC checks skipped.' });
+  }
+
   if (mode === 'quick') {
     // Our own HTML read of the same pages runs alongside the live DataForSEO checks.
     const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
@@ -123,6 +148,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     const crawlP = quickCrawl(client, found, input, crawlProgress);
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
+    void templatesP.then((t) => inspectList(inspectOrder(t, [])), () => inspectList([]));
     [crawl, content, probes, links, templates] = await Promise.all([crawlP, contentP, probesP, linksP, templatesP]);
     measuring(templates);
     lighthouse = await lighthouseP;
@@ -134,6 +160,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     content = await fetchPageContents(okUrls.slice(0, input.pageLimit), env.log);
     const known = new Map(crawl.pages.map((p) => [p.url, p.status_code]));
     templates = templatesOf(content, new Map(crawl.pages.map((p) => [p.url, p.meta?.inbound_links_count ?? 0])));
+    inspectList(inspectOrder(templates, okUrls));
     measuring(templates);
     [probes, links, lighthouse] = await Promise.all([probeUrlVariants(content, env.log), checkLinks(content, known, env.log), measure(templates, false)]);
   }
@@ -154,6 +181,16 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
       : { step: 'lighthouse', state: 'skipped', detail: 'No PageSpeed key', progress: at('lighthouse', 1) },
   );
 
+  const gsc = await gscP;
+  if (gsc?.errors.length) {
+    gscNotices.push({ client: 'Some Search Console data could not be read; those checks may be incomplete.', expert: `Search Console partial: ${gsc.errors.slice(0, 3).join(' · ')}` });
+  }
+  onProgress(
+    gsc
+      ? { step: 'gsc', state: 'done', detail: `${gsc.queries.length.toLocaleString('en-US')} queries · ${gsc.inspections.length} URLs inspected`, progress: at('gsc', 1) }
+      : { step: 'gsc', state: property ? 'failed' : 'skipped', detail: property ? 'Search Console unavailable' : 'No property selected', progress: at('gsc', 1) },
+  );
+
   onProgress({ step: 'report', state: 'running', progress: at('report', 0) });
   const data: AuditData = {
     url: input.url,
@@ -170,7 +207,8 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     templates,
     lighthouse,
     psi,
-    notices: crawl.notices,
+    gsc,
+    notices: [...(crawl.notices ?? []), ...gscNotices],
   };
   const report = buildReport(data, { auditId, audience: input.audience, brand: env.brand });
   onProgress({ step: 'report', state: 'done', progress: 100 });
@@ -207,4 +245,10 @@ function aiErrorText(err: unknown): string {
   if (/401|incorrect api key|invalid_api_key/i.test(msg)) return 'OpenAI rejected the API key';
   if (/429|quota|rate/i.test(msg)) return 'OpenAI quota or rate limit reached';
   return `OpenAI failed: ${msg.slice(0, 160)}`;
+}
+
+/** URL Inspection sample (spec §5.5): template representatives, then key pages, then the rest. */
+function inspectOrder(templates: Template[], rest: string[]): string[] {
+  const key = templates.filter((t) => ['home', 'service', 'location', 'service_location'].includes(t.type)).flatMap((t) => t.urls);
+  return [...new Set([...templates.map((t) => t.representative), ...key, ...templates.flatMap((t) => t.urls), ...rest])];
 }

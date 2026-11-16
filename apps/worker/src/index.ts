@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { executeAudit, providerConfig } from '@seo/core';
-import { getAuditRecord, prisma, saveAuditRecord } from '@seo/db';
+import { getAuditRecord, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, redisConnection, type AuditJobData } from '@seo/db/queue';
 
 /**
@@ -19,6 +19,8 @@ if (!redisUrl || !process.env.DATABASE_URL) {
 
 const connection = redisConnection(redisUrl);
 const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 2);
+const gsc = gscSetup();
+if (!gsc.ready) log.warn({ missing: gsc.missing }, 'Search Console checks disabled in the worker');
 
 const worker = new Worker<AuditJobData>(
   AUDIT_QUEUE,
@@ -32,7 +34,7 @@ const worker = new Worker<AuditJobData>(
     }
     log.info({ auditId: record.id, url: record.input.url, mode: record.input.auditMode, attempt: job.attemptsMade + 1 }, 'audit started');
     const http = (e: { provider: string; url: string; status?: number; ms: number; attempt: number; error?: string }) => log.debug(e, 'http');
-    await executeAudit(record, { ...env, log: http }, saveAuditRecord);
+    await executeAudit(record, { ...env, gsc: gscAuditAccess(), log: http }, saveAuditRecord);
     log.info({ auditId: record.id, status: record.status, score: record.report?.overall.score, error: record.error }, 'audit finished');
   },
   // Audits take a minute or two; renew the lock often enough that a busy process is not

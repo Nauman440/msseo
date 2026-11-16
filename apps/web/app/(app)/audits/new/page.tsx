@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { parseMode } from '@/lib/reports';
 import { providerConfig } from '@/lib/providers-config';
 import { NewAuditForm } from '@/components/forms/NewAuditForm';
+import { availableGscProperties } from '@/lib/gsc';
 
 export const metadata: Metadata = { title: 'New audit' };
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,7 @@ type Props = { searchParams: Promise<{ url?: string; audience?: string }> };
 export default async function NewAuditPage({ searchParams }: Props) {
   const params = await searchParams;
   const { status } = providerConfig();
+  const gsc = await availableGscProperties();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
@@ -24,6 +26,8 @@ export default async function NewAuditPage({ searchParams }: Props) {
         pagespeedReady={status.pagespeed}
         emailReady={status.email}
         aiReady={status.openai}
+        gscProperties={gsc.properties}
+        gscConnected={gsc.connected}
       />
     </div>
   );

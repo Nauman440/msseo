@@ -69,7 +69,9 @@ export type CheckRow = {
 
 export type CheckChart =
   | { kind: 'stacked'; segments: Segment[] }
-  | { kind: 'hbar'; rows: Segment[] };
+  | { kind: 'hbar'; rows: Segment[] }
+  /** Quick wins (2.9.4): queries by average position × impressions; `band` = highlighted position range. */
+  | { kind: 'scatter'; xLabel: string; yLabel: string; band: [number, number]; points: { x: number; y: number; label: string }[] };
 
 export type CheckCard = {
   id: string;

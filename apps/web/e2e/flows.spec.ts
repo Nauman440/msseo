@@ -88,3 +88,26 @@ test('landing page is public, indexable and sends the URL into the audit tool', 
   await expect(page).toHaveURL(/\/audits\/new\?url=clientsite\.com/);
   await expect(page.getByLabel('Website URL')).toHaveValue('clientsite.com');
 });
+
+test('reports without a Search Console property never mention it', async ({ page }) => {
+  for (const mode of ['client', 'expert']) {
+    await page.goto(`/audits/demo?mode=${mode}`);
+    await expect(page.locator('main')).not.toContainText('Search Console');
+  }
+});
+
+test('Search Console settings list what the server still needs', async ({ page }) => {
+  await page.goto('/settings/search-console');
+  await expect(page.getByRole('heading', { name: 'Search Console', level: 2 })).toBeVisible();
+  await expect(page.getByText('Server settings needed')).toBeVisible();
+  await expect(page.getByText('GOOGLE_CLIENT_ID', { exact: true })).toBeVisible();
+  await expect(page.getByText('/api/gsc/callback')).toBeVisible();
+});
+
+test('new-audit form falls back to no Search Console property', async ({ page }) => {
+  await page.goto('/audits/new');
+  const gsc = page.getByLabel('Search Console property');
+  await expect(gsc).toHaveValue('');
+  await expect(page.getByLabel('Search Console date range')).toHaveCount(0);
+  await expect(page.getByText('Search Console is not connected')).toBeVisible();
+});

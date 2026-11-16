@@ -102,6 +102,9 @@ function PdfCheckGrid({ cards, mode }: { cards: CheckCard[]; mode: Audience }) {
   );
 }
 
+/** The Search Console section appears only when the audit used a property (spec §5.5). */
+const hasGsc = (report: ReportModel) => Boolean(report.gscProperty) && report.cards.some((c) => c.section === 'gsc');
+
 export function PdfChecks({ report, mode }: { report: ReportModel; mode: Audience }) {
   return (
     <>
@@ -117,8 +120,14 @@ export function PdfChecks({ report, mode }: { report: ReportModel; mode: Audienc
           </div>
         ) : null}
       </section>
+      {hasGsc(report) && (
+        <section className="pdf-section">
+          <PdfHeading n="04" title="Search Console" intro={`Indexing, clicks and queries from Google for ${report.gscProperty}.`} />
+          <PdfCheckGrid cards={report.cards.filter((c) => c.section === 'gsc')} mode={mode} />
+        </section>
+      )}
       <section className="pdf-section">
-        <PdfHeading n="04" title="On-page SEO" intro="How well each page tells search engines and visitors what it is about." />
+        <PdfHeading n={hasGsc(report) ? '05' : '04'} title="On-page SEO" intro="How well each page tells search engines and visitors what it is about." />
         {report.cards.some((c) => c.section === 'onpage') ? (
           <PdfCheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode={mode} />
         ) : (
@@ -132,7 +141,7 @@ export function PdfChecks({ report, mode }: { report: ReportModel; mode: Audienc
 export function PdfNextSteps({ report }: { report: ReportModel }) {
   return (
     <section className="pdf-section">
-      <PdfHeading n="05" title="Where fixes take the site" />
+      <PdfHeading n={hasGsc(report) ? '06' : '05'} title="Where fixes take the site" />
       <Card className="pdf-avoid">
         <div className="grid grid-cols-[auto_1fr] items-center gap-10">
           <ScoreAfterFixes today={report.overall.score} after={report.overall.afterFixes} />

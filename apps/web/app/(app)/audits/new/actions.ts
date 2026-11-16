@@ -1,11 +1,12 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { newAuditSchema } from '@seo/core';
+import { matchGscProperties, newAuditSchema } from '@seo/core';
 import { ConfigError, startAudit } from '@/lib/audit-runner';
+import { availableGscProperties } from '@/lib/gsc';
 import { requireUser } from '@/lib/session';
 
-export type NewAuditState = { error?: string; fieldErrors?: Partial<Record<'url' | 'pageLimit' | 'notifyEmail', string>> };
+export type NewAuditState = { error?: string; fieldErrors?: Partial<Record<'url' | 'pageLimit' | 'notifyEmail' | 'gscProperty', string>> };
 
 export async function createAuditAction(_prev: NewAuditState, form: FormData): Promise<NewAuditState> {
   const parsed = newAuditSchema.safeParse({
@@ -16,11 +17,20 @@ export async function createAuditAction(_prev: NewAuditState, form: FormData): P
     jsRendering: form.get('js') === 'on',
     aiRecommendations: form.get('ai') === 'on',
     gscProperty: (form.get('gsc') as string) || null,
+    gscRangeDays: form.get('gscRange') ?? undefined,
     notifyEmail: form.get('notifyEmail') ?? '',
   });
   if (!parsed.success) {
     const f = parsed.error.flatten().fieldErrors;
     return { fieldErrors: { url: f.url?.[0], pageLimit: f.pageLimit?.[0], notifyEmail: f.notifyEmail?.[0] } };
+  }
+
+  // The property must be one the connected account can read and must cover this domain.
+  if (parsed.data.gscProperty) {
+    const { properties } = await availableGscProperties();
+    if (!matchGscProperties(properties, parsed.data.url).includes(parsed.data.gscProperty)) {
+      return { fieldErrors: { gscProperty: 'This Search Console property is not available for this website.' } };
+    }
   }
 
   let id: string;

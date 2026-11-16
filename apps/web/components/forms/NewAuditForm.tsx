@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { DEFAULT_PAGE_LIMIT, PAGE_LIMIT_OPTIONS, type Audience } from '@seo/core';
+import { DEFAULT_PAGE_LIMIT, PAGE_LIMIT_OPTIONS, matchGscProperties, normaliseUrl, type Audience } from '@seo/core';
 import { createAuditAction, type NewAuditState } from '@/app/(app)/audits/new/actions';
 import { Choice, Field } from './Field';
 
@@ -30,6 +30,8 @@ export function NewAuditForm({
   pagespeedReady,
   emailReady,
   aiReady,
+  gscProperties = [],
+  gscConnected = false,
 }: {
   defaultUrl: string;
   audience: Audience;
@@ -37,9 +39,25 @@ export function NewAuditForm({
   pagespeedReady: boolean;
   emailReady: boolean;
   aiReady: boolean;
+  /** All properties of the connected Google account; filtered here to the typed domain. */
+  gscProperties?: string[];
+  gscConnected?: boolean;
 }) {
   const [state, action] = useActionState<NewAuditState, FormData>(createAuditAction, {});
   const err = state.fieldErrors ?? {};
+  const [url, setUrl] = useState(defaultUrl);
+  const normalised = normaliseUrl(url);
+  const matches = useMemo(() => (normalised ? matchGscProperties(gscProperties, normalised) : []), [normalised, gscProperties]);
+  // null = follow the default (first match); '' = the user chose "None".
+  const [gsc, setGsc] = useState<string | null>(null);
+  const selectedGsc = gsc === '' || (gsc !== null && matches.includes(gsc)) ? gsc : (matches[0] ?? '');
+  const gscHint = !gscConnected
+    ? 'Search Console is not connected (an admin can connect it in Settings). These checks are skipped.'
+    : matches.length
+      ? 'Adds indexing, clicks and query checks from Google.'
+      : normalised
+        ? 'No property in the connected Google account matches this domain.'
+        : 'Enter the website URL to see matching properties.';
 
   return (
     <form action={action} noValidate className="mt-8 space-y-6 rounded-card border border-border bg-surface p-6 shadow-card sm:p-8">
@@ -50,7 +68,7 @@ export function NewAuditForm({
       )}
 
       <Field id="url" label="Website URL" error={err.url}>
-        <input id="url" name="url" type="text" inputMode="url" required defaultValue={defaultUrl} placeholder="example.com" aria-invalid={!!err.url} aria-describedby={err.url ? 'url-error' : undefined} className={INPUT} />
+        <input id="url" name="url" type="text" inputMode="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="example.com" aria-invalid={!!err.url} aria-describedby={err.url ? 'url-error' : undefined} className={INPUT} />
       </Field>
 
       <Field id="project" label="Project">
@@ -77,12 +95,26 @@ export function NewAuditForm({
             ))}
           </select>
         </Field>
-        <Field id="gsc" label="Search Console property" hint="Search Console checks are skipped when none is selected.">
-          <select id="gsc" name="gsc" className={INPUT} defaultValue="">
-            <option value="">None (skip these checks)</option>
+        <Field id="gsc" label="Search Console property" error={err.gscProperty} hint={gscHint}>
+          <select id="gsc" name="gsc" className={INPUT} value={selectedGsc} onChange={(e) => setGsc(e.target.value)}>
+            {matches.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+            <option value="">None (skip Search Console checks)</option>
           </select>
         </Field>
       </div>
+
+      {selectedGsc && (
+        <Field id="gscRange" label="Search Console date range" hint="Compared with the period before it, for traffic decay.">
+          <select id="gscRange" name="gscRange" defaultValue="90" className={INPUT}>
+            <option value="28">Last 28 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </Field>
+      )}
 
       <fieldset>
         <legend className="mb-2 text-sm font-semibold text-ink">Audit type</legend>

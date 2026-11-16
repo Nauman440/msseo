@@ -8,12 +8,13 @@ import { onpageRules } from './rules-onpage';
 import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
+import { indexFunnel, gscRules } from './rules-gsc';
 import { templateRules } from './rules-templates';
 import { trustRules } from './rules-trust';
 import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules, ...gscRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 
@@ -37,6 +38,8 @@ const CARDS: { id: CardId; title: string; section: CheckCard['section']; expertO
   { id: 'images', title: 'Images and video', section: 'onpage' },
   { id: 'trust', title: 'Trust signals', section: 'onpage' },
   { id: 'aeo', title: 'AI search readiness', section: 'onpage' },
+  { id: 'gsc-index', title: 'Index coverage in Google', section: 'gsc' },
+  { id: 'gsc-perf', title: 'Search performance', section: 'gsc' },
 ];
 
 const toMeta = (d: RuleDef): RuleMeta => ({
@@ -151,6 +154,21 @@ function chartFor(card: CardId, ctx: AuditContext): CheckChart | undefined {
         { label: 'Pages with alt text', value: count((p) => p.checks?.no_image_alt !== true), tone: 'pass' },
         { label: 'Pages missing alt', value: count((p) => p.checks?.no_image_alt === true), tone: 'fail' },
       ] };
+    case 'gsc-index': {
+      if (!ctx.data.gsc || !ctx.content.length) return undefined;
+      const f = indexFunnel(ctx);
+      return { kind: 'hbar', rows: [
+        { label: 'Crawled', value: f.crawled, tone: 'info' },
+        { label: 'Indexable', value: f.indexable, tone: 'primary' },
+        { label: 'In sitemap', value: f.inSitemap, tone: 'primary' },
+        { label: 'Indexed', value: f.indexed.length, tone: 'pass' },
+      ] };
+    }
+    case 'gsc-perf': {
+      const q = (ctx.data.gsc?.queries ?? []).filter((r) => r.position <= 30 && r.impressions >= 10).sort((a, b) => b.impressions - a.impressions).slice(0, 80);
+      if (!q.length) return undefined;
+      return { kind: 'scatter', xLabel: 'Average position', yLabel: 'Impressions', band: [4, 20], points: q.map((r) => ({ x: Math.round(r.position * 10) / 10, y: r.impressions, label: r.keys[0] ?? '' })) };
+    }
     default:
       return undefined;
   }
@@ -255,7 +273,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
     crawlLimit: data.pageLimit,
     auditMode: data.mode,
     crawledAt: data.crawledAt,
-    gscProperty: null,
+    gscProperty: data.gsc?.property ?? null,
     overall: { score: overall, label: scoreLabel(overall), afterFixes: Math.max(overall, scoreAfterFixes(scored)) },
     categories: CATEGORY_ORDER.filter((c) => cats[c] !== undefined).map((c) => ({ id: c, label: CATEGORY_LABEL[c], score: cats[c]! })),
     severityCounts,
