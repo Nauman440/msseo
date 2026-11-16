@@ -126,6 +126,19 @@ export type AiRecommendations = {
   items: AiRecommendation[];
 };
 
+export type TemplateSpeed = {
+  label: string;
+  url: string;
+  pages: number;
+  /** Lighthouse performance 0–100; null when PageSpeed failed or ran out of time. */
+  mobile: number | null;
+  desktop: number | null;
+  /** Lab metrics from the mobile run (desktop when mobile is missing). */
+  lcpMs?: number;
+  tbtMs?: number;
+  cls?: number;
+};
+
 export type ReportModel = {
   auditId: string;
   brand: string;
@@ -154,6 +167,8 @@ export type ReportModel = {
   ai?: AiRecommendations;
   /** AI recommendations are still being written (the report is shown before they finish). */
   aiPending?: boolean;
+  /** Lighthouse per page template (spec §7, Expert mode). Missing on reports saved before step 5. */
+  speedByTemplate?: TemplateSpeed[];
   /** Caveats shown above the report, e.g. when pages could not be crawled. */
   notices?: AudienceText[];
 };

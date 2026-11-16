@@ -37,11 +37,13 @@ test('report switches between client and expert modes', async ({ page }) => {
   // Client mode hides checklist IDs and expert-only cards.
   await expect(page.getByText('1.3.2', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Redirect chains' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Speed per page type' })).toHaveCount(0);
 
   await switcher.getByRole('link', { name: 'SEO expert' }).click();
   await expect(page).toHaveURL(/mode=expert/);
   await expect(page.getByText('1.3.2', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Redirect chains' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Speed per page type' })).toBeVisible();
 });
 
 test('print route lays out A4 pages for PDF', async ({ page }) => {
@@ -67,7 +69,9 @@ test('PDF and Markdown downloads are generated on the server', async ({ request 
 
   const md = await request.get('/api/audits/demo/markdown?mode=expert');
   expect(md.headers()['content-type']).toContain('text/markdown');
-  expect(await md.text()).toContain('## Issues to fix');
+  const text = await md.text();
+  expect(text).toContain('## Issues to fix');
+  expect(text).toContain('## Speed per page type');
 });
 
 test('unknown audit returns 404', async ({ page }) => {

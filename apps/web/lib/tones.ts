@@ -89,3 +89,10 @@ export function scoreTone(score: number): Tone {
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+/** Lighthouse performance bands (≥ 90 good, 50–89 needs work, < 50 poor). */
+export function lighthouseTone(score: number): Tone {
+  if (score >= 90) return 'pass';
+  if (score >= 50) return 'primary';
+  return 'fail';
+}

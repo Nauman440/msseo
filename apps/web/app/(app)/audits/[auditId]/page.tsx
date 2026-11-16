@@ -8,6 +8,7 @@ import { Banner } from '@/components/report/Banner';
 import { ReportHeader } from '@/components/report/ReportHeader';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { AfterFixes, CheckGrid, CrawlFiles, SectionTitle } from '@/components/report/ReportSections';
+import { SpeedByTemplate } from '@/components/report/SpeedByTemplate';
 
 type Props = {
   params: Promise<{ auditId: string }>;
@@ -63,6 +64,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
 
         <SectionTitle n="02" title="Technical SEO checks" note={mode === 'client' ? 'Only cards with issues are shown' : undefined} />
         <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode={mode} />
+        {mode === 'expert' && report.speedByTemplate?.length ? <SpeedByTemplate rows={report.speedByTemplate} /> : null}
 
         {report.gscProperty && (
           <>

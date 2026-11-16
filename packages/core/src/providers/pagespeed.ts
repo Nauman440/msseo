@@ -108,13 +108,14 @@ export async function runPageSpeed(
   strategy: 'mobile' | 'desktop',
   apiKey: string,
   log?: HttpLog,
+  opts: { timeoutMs?: number; retries?: number } = {},
 ): Promise<PageSpeedResult> {
   const qs = new URLSearchParams({ url, strategy, category: 'performance', key: apiKey });
   const json = psiSchema.parse(
     await requestJson(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${qs}`, {
       provider: 'pagespeed',
-      timeoutMs: 90_000,
-      retries: 1,
+      timeoutMs: opts.timeoutMs ?? 90_000,
+      retries: opts.retries ?? 1,
       log,
     }),
   );

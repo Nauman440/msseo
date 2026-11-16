@@ -11,6 +11,8 @@ import { deepCrawl, type CrawlResult } from './deep-crawl';
 import { fetchPageContents, type PageContent } from './page-content';
 import { probeUrlVariants, type UrlVariantProbe } from './url-probes';
 import { checkLinks, type LinkCheck } from './link-check';
+import { MAX_TEMPLATES, runTemplateLighthouse, type LighthouseRun } from './lighthouse';
+import { buildTemplates, inlinksFromContent, type Template } from './templates';
 import { pickPages, quickCrawl } from './quick-crawl';
 import type { AuditData } from './types';
 
@@ -19,7 +21,7 @@ export const AUDIT_STEPS = [
   { id: 'preflight', label: 'Checking robots.txt, sitemap and domain setup' },
   { id: 'crawl', label: 'Checking pages' },
   { id: 'fetch', label: 'Collecting page data' },
-  { id: 'lighthouse', label: 'Measuring mobile speed' },
+  { id: 'lighthouse', label: 'Measuring speed for each page type' },
   { id: 'report', label: 'Scoring and building the report' },
   { id: 'ai', label: 'Writing AI recommendations' },
 ] as const;
@@ -92,15 +94,38 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
   let content: PageContent[];
   let probes: UrlVariantProbe[];
   let links: LinkCheck[];
+  let templates: Template[];
+  let lighthouse: LighthouseRun[];
+  // Each page type's representative gets PageSpeed mobile + desktop (spec §7), in parallel,
+  // within a budget so a quick audit stays near a minute; the homepage mobile run is reused.
+  const measure = (t: Template[], quick: boolean): Promise<LighthouseRun[]> =>
+    env.pagespeedKey
+      ? runTemplateLighthouse(t, {
+          key: env.pagespeedKey,
+          homeMobile: psiP,
+          homeUrl: found.homepage.finalUrl,
+          log: env.log,
+          budgetMs: quick ? 40_000 : 180_000,
+          timeoutMs: quick ? 40_000 : 90_000,
+          retries: quick ? 0 : 1,
+        })
+      : Promise.resolve([]);
+  const measuring = (t: Template[]) => {
+    if (env.pagespeedKey) onProgress({ step: 'lighthouse', state: 'running', detail: `${Math.min(t.length, MAX_TEMPLATES)} page types`, progress: at('lighthouse', 0) });
+  };
   if (mode === 'quick') {
     // Our own HTML read of the same pages runs alongside the live DataForSEO checks.
     const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
     const probesP = contentP.then((c) => probeUrlVariants(c, env.log));
     const linksP = contentP.then((c) => checkLinks(c, new Map(c.map((p) => [p.url, p.status])), env.log));
+    const templatesP = contentP.then((c) => templatesOf(c, inlinksFromContent(c)));
+    const lighthouseP = templatesP.then((t) => measure(t, true));
     const crawlP = quickCrawl(client, found, input, crawlProgress);
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
-    [crawl, content, probes, links] = await Promise.all([crawlP, contentP, probesP, linksP]);
+    [crawl, content, probes, links, templates] = await Promise.all([crawlP, contentP, probesP, linksP, templatesP]);
+    measuring(templates);
+    lighthouse = await lighthouseP;
   } else {
     preflight = await preflightP;
     onProgress({ step: 'preflight', state: 'done', progress: at('preflight', 1) });
@@ -108,17 +133,24 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     const okUrls = crawl.pages.filter((p) => p.resource_type === 'html' && p.status_code === 200).map((p) => p.url);
     content = await fetchPageContents(okUrls.slice(0, input.pageLimit), env.log);
     const known = new Map(crawl.pages.map((p) => [p.url, p.status_code]));
-    [probes, links] = await Promise.all([probeUrlVariants(content, env.log), checkLinks(content, known, env.log)]);
+    templates = templatesOf(content, new Map(crawl.pages.map((p) => [p.url, p.meta?.inbound_links_count ?? 0])));
+    measuring(templates);
+    [probes, links, lighthouse] = await Promise.all([probeUrlVariants(content, env.log), checkLinks(content, known, env.log), measure(templates, false)]);
   }
   const htmlCount = crawl.pages.filter((p) => p.resource_type === 'html').length;
   onProgress({ step: 'crawl', state: htmlCount ? 'done' : 'failed', detail: crawl.detail, progress: at('crawl', 1) });
   onProgress({ step: 'fetch', state: htmlCount ? 'done' : 'skipped', detail: `${crawl.pages.length} URLs`, progress: at('fetch', 1) });
 
-  if (env.pagespeedKey) onProgress({ step: 'lighthouse', state: 'running', progress: at('lighthouse', 0) });
   const psi = await psiP;
+  const measured = lighthouse.filter((l) => l.mobile || l.desktop).length;
   onProgress(
     env.pagespeedKey
-      ? { step: 'lighthouse', state: psi ? 'done' : 'failed', detail: psi ? `Score ${psi.performance ?? 'n/a'}` : 'PageSpeed did not respond', progress: at('lighthouse', 1) }
+      ? {
+          step: 'lighthouse',
+          state: psi || measured ? 'done' : 'failed',
+          detail: psi || measured ? `${measured} of ${lighthouse.length} page types measured` : 'PageSpeed did not respond',
+          progress: at('lighthouse', 1),
+        }
       : { step: 'lighthouse', state: 'skipped', detail: 'No PageSpeed key', progress: at('lighthouse', 1) },
   );
 
@@ -135,6 +167,8 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     content,
     probes,
     links,
+    templates,
+    lighthouse,
     psi,
     notices: crawl.notices,
   };
@@ -160,6 +194,12 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     }
   };
   return { report, cost: crawl.cost, finishAi };
+}
+
+/** Templates from indexable 200 pages (noindex pages are left out, spec §7). */
+function templatesOf(content: PageContent[], inlinks: Map<string, number>): Template[] {
+  const pages = content.filter((c) => c.status === 200 && !/noindex|none/.test(c.robots ?? ''));
+  return buildTemplates(pages.map((c) => ({ url: c.url, content: c })), inlinks);
 }
 
 function aiErrorText(err: unknown): string {

@@ -1,6 +1,6 @@
 import { CATEGORY_LABEL, SEVERITY_WEIGHT } from '../scoring/constants';
 import { categoryScores, icePriority, overallScore, scoreAfterFixes, scoreLabel, type ScoredRule } from '../scoring';
-import type { Audience, Category, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
+import type { Audience, Category, TemplateSpeed, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
 import { assetRules } from './rules-assets';
 import { contentRules } from './rules-content';
 import { linkRules } from './rules-links';
@@ -8,11 +8,12 @@ import { onpageRules } from './rules-onpage';
 import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
+import { templateRules } from './rules-templates';
 import { trustRules } from './rules-trust';
 import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 
@@ -181,6 +182,15 @@ function cwvFrom(data: AuditData): ReportModel['cwv'] {
   return metrics.length ? { source: psi.field ? 'field' : 'lab', device: 'mobile', metrics: metrics.slice(0, 3) } : null;
 }
 
+function speedByTemplate(data: AuditData): TemplateSpeed[] | undefined {
+  const runs = data.lighthouse ?? [];
+  if (!runs.length) return undefined;
+  return runs.map((r) => {
+    const lab = (r.mobile ?? r.desktop)?.lab;
+    return { label: r.label, url: r.url, pages: r.pages, mobile: r.mobile?.performance ?? null, desktop: r.desktop?.performance ?? null, lcpMs: lab?.lcpMs, tbtMs: lab?.tbtMs, cls: lab?.cls };
+  });
+}
+
 export function buildReport(data: AuditData, opts: { auditId: string; audience: Audience; brand: string }): ReportModel {
   const html = data.pages.filter((p) => p.resource_type === 'html');
   const ctx = contextOf(data);
@@ -251,6 +261,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
     severityCounts,
     pageHealth: { healthy: Math.max(0, ctx.ok.length - warnings - ctx.ok.filter((p) => failUrls.has(p.url)).length), warnings, errors },
     cwv: cwvFrom(data),
+    speedByTemplate: speedByTemplate(data),
     topIssues,
     robots: { found: data.preflight.robots.found, rows: byCard('robots').map(toRow), suggested: suggestedRobots(data) },
     sitemap: {

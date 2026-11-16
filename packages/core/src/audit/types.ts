@@ -4,6 +4,8 @@ import type { PageSpeedResult } from '../providers/pagespeed';
 import type { PageContent } from './page-content';
 import type { UrlVariantProbe } from './url-probes';
 import type { LinkCheck } from './link-check';
+import type { LighthouseRun } from './lighthouse';
+import type { Template } from './templates';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
 export type AuditMode = 'quick' | 'deep';
@@ -25,6 +27,9 @@ export type AuditData = {
   probes?: UrlVariantProbe[];
   /** Status of links found on the audited pages (rules 1.5.7, 1.12.5, 2.6.4). */
   links?: LinkCheck[];
+  /** Page templates (spec §7) and the Lighthouse runs on their representatives. */
+  templates?: Template[];
+  lighthouse?: LighthouseRun[];
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];

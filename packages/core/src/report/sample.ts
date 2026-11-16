@@ -36,6 +36,12 @@ export const sampleReport: ReportModel = {
       { id: 'cls', label: 'Cumulative Layout Shift', value: '0.04', threshold: 'Good ≤ 0.1', rating: 'good' },
     ],
   },
+  speedByTemplate: [
+    { label: 'Homepage', url: 'https://www.summitairhvac.com/', pages: 1, mobile: 38, desktop: 71, lcpMs: 4600, tbtMs: 640, cls: 0.04 },
+    { label: 'Service pages', url: 'https://www.summitairhvac.com/services/ac-repair/', pages: 12, mobile: 52, desktop: 88, lcpMs: 3400, tbtMs: 310, cls: 0.02 },
+    { label: 'Location pages', url: 'https://www.summitairhvac.com/areas/plano-tx/', pages: 18, mobile: 61, desktop: 92, lcpMs: 2900, tbtMs: 180, cls: 0.11 },
+    { label: 'Blog posts', url: 'https://www.summitairhvac.com/blog/when-to-replace-your-furnace/', pages: 9, mobile: null, desktop: 95, lcpMs: 1800, tbtMs: 60, cls: 0 },
+  ],
   topIssues: [
     {
       ruleId: '1.3.2', severity: 'critical', category: 'technical',

@@ -9,6 +9,7 @@ import { SeverityDonut } from '@/components/report/SeverityDonut';
 import { StackedBar } from '@/components/report/StackedBar';
 import { TopIssuesList } from '@/components/report/TopIssuesList';
 import { CrawlFiles } from '@/components/report/ReportSections';
+import { SpeedByTemplate } from '@/components/report/SpeedByTemplate';
 
 /*
  * PDF compositions. No md:/lg: classes here: in print the viewport is the A4
@@ -110,6 +111,11 @@ export function PdfChecks({ report, mode }: { report: ReportModel; mode: Audienc
         <div className="mt-4">
           <PdfCheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode={mode} />
         </div>
+        {mode === 'expert' && report.speedByTemplate?.length ? (
+          <div className="pdf-avoid mt-4">
+            <SpeedByTemplate rows={report.speedByTemplate} />
+          </div>
+        ) : null}
       </section>
       <section className="pdf-section">
         <PdfHeading n="04" title="On-page SEO" intro="How well each page tells search engines and visitors what it is about." />

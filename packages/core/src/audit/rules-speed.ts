@@ -1,4 +1,4 @@
-import { countPages, plural, type RuleDef } from './types';
+import { countPages, plural, type Evaluation, type RuleDef } from './types';
 
 /** Core Web Vitals thresholds (web.dev/vitals): good / poor boundaries. */
 export const CWV = {
@@ -35,11 +35,28 @@ export const speedRules: RuleDef[] = [
   },
   {
     id: '1.8.2', module: 1, category: 'speed', card: 'speed', scope: 'site', severity: 'medium',
-    title: { client: 'Low mobile speed score', expert: 'Lighthouse performance (mobile)' },
-    explain: { client: 'Google’s speed test scores the homepage out of 100.', expert: 'Lighthouse performance < 50 fail, < 90 warn.' },
-    fix: { client: 'Work through the speed suggestions.', expert: 'Address Lighthouse opportunities.' },
+    title: { client: 'Low speed scores', expert: 'Lighthouse performance per template × device' },
+    explain: { client: 'Google’s speed test scores each kind of page out of 100, on phones and computers.', expert: 'Lighthouse performance per template representative, mobile and desktop: < 50 fail, < 90 warn.' },
+    fix: { client: 'Work through the speed suggestions, starting with the slowest page type.', expert: 'Address Lighthouse opportunities on the lowest-scoring templates first.' },
     ice: { impact: 3, confidence: 4, effort: 3 },
-    evaluate: ({ data }) => {
+    evaluate: ({ data }): Evaluation | null => {
+      const scored = (data.lighthouse ?? []).flatMap((r) =>
+        (['mobile', 'desktop'] as const).flatMap((d) => (typeof r[d]?.performance === 'number' ? [{ label: r.label, url: r.url, device: d, score: r[d]!.performance! }] : [])),
+      );
+      if (scored.length > 1) {
+        const worst = scored.reduce((a, b) => (b.score < a.score ? b : a));
+        const slow = scored.filter((s) => s.score < 90);
+        const status = worst.score < 50 ? 'fail' : slow.length ? 'warn' : 'pass';
+        return {
+          status,
+          affected: [...new Set(slow.map((s) => s.url))],
+          applicable: new Set(scored.map((s) => s.url)).size,
+          metrics: { lowest: worst.score, runs: scored.length },
+          message: slow.length
+            ? { client: `Lowest speed score ${worst.score}/100 (${worst.label.toLowerCase()}, ${worst.device})`, expert: `${slow.length}/${scored.length} runs < 90; lowest ${worst.score} on ${worst.label} (${worst.device})` }
+            : { client: 'Every page type scores 90 or more', expert: `All ${scored.length} runs ≥ 90` },
+        };
+      }
       const score = data.psi?.performance;
       if (score === null || score === undefined) return null;
       const status = score < 50 ? 'fail' : score < 90 ? 'warn' : 'pass';

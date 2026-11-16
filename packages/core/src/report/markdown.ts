@@ -80,6 +80,15 @@ export function reportToMarkdown(report: ReportModel, mode: Audience): string {
     out.push('');
   }
 
+  if (expert && report.speedByTemplate?.length) {
+    const n = (v: number | null) => (v === null ? 'n/a' : String(v));
+    out.push('## Speed per page type (Lighthouse)', '', '| Page type | URL | Mobile | Desktop | LCP | TBT | CLS |', '|---|---|---|---|---|---|---|');
+    for (const r of report.speedByTemplate) {
+      out.push(`| ${cell(r.label)} (${r.pages}) | ${r.url} | ${n(r.mobile)} | ${n(r.desktop)} | ${r.lcpMs !== undefined ? `${(r.lcpMs / 1000).toFixed(1)} s` : '–'} | ${r.tbtMs !== undefined ? `${Math.round(r.tbtMs)} ms` : '–'} | ${r.cls !== undefined ? r.cls.toFixed(2) : '–'} |`);
+    }
+    out.push('');
+  }
+
   if (report.ai) {
     out.push('## AI recommendations', '', `_Written by ${report.ai.model} from the findings below. Check before acting._`, '', report.ai.summary[mode], '');
     report.ai.items.forEach((r, idx) => {
