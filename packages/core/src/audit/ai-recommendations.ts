@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { gscRules } from './rules-gsc';
 import type { OpenAiClient } from '../providers/openai';
 import type { AiRecommendations, ReportModel } from '../types';
 
@@ -58,15 +59,21 @@ Rules:
 - Plain, direct English. No marketing language.`;
 
 /** Compact, deterministic summary of the report for the prompt (no page HTML is sent). */
+/**
+ * Search Console data never goes to OpenAI (Google API Services User Data Policy, Limited Use;
+ * stated in the privacy policy): GSC findings and notices are left out of the prompt.
+ */
+const GSC_RULES = new Set(gscRules.map((r) => r.id));
+
 export function aiInput(report: ReportModel) {
-  const issues = report.issues ?? [];
+  const issues = (report.issues ?? []).filter((i) => !GSC_RULES.has(i.ruleId));
   return {
     site: report.url,
     pagesAudited: report.pagesCrawled,
     score: report.overall.score,
     categories: report.categories.map((c) => `${c.label}: ${c.score}`),
     coreWebVitals: report.cwv ? report.cwv.metrics.map((m) => `${m.label} ${m.value} (${m.rating}, ${report.cwv!.source} data)`) : 'not measured',
-    notices: (report.notices ?? []).map((n) => n.expert),
+    notices: (report.notices ?? []).map((n) => n.expert).filter((n) => !/search console|gsc/i.test(n)),
     findings: issues.slice(0, 40).map((i) => ({
       id: i.ruleId,
       severity: i.severity,

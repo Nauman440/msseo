@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 /** Every page must render without errors or sideways scroll on desktop and mobile (§9.5). */
 const ROUTES = [
   { path: '/', heading: /Get more customers from Google/i },
+  { path: '/privacy', heading: 'Privacy Policy' },
+  { path: '/terms', heading: 'Terms of Service' },
   { path: '/dashboard', heading: /holding a site back/i },
   { path: '/audits/demo', heading: 'summitairhvac.com' },
   { path: '/audits/demo?mode=expert', heading: 'summitairhvac.com' },

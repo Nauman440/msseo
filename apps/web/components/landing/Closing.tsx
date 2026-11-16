@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
 import { CONTACT_HREF } from '@/lib/site';
 import { AuditForm } from './AuditForm';
@@ -79,6 +80,12 @@ export function SiteFooter() {
           <a href={CONTACT_HREF} className="hover:text-mist">
             Contact
           </a>
+          <Link href="/privacy" className="hover:text-mist">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-mist">
+            Terms of Service
+          </Link>
           <span>© {new Date().getFullYear()} Morosoft Technologies</span>
         </nav>
       </Container>

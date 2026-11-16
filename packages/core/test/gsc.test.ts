@@ -123,3 +123,22 @@ describe('collectGsc', () => {
     expect(d.errors).toEqual([]);
   });
 });
+
+describe('AI input', () => {
+  it('never includes Search Console findings or notices', async () => {
+    const { aiInput, buildReport } = await import('../src');
+    const content = [parsePageContent('<title>Heating</title>', U('/heating/'))];
+    const report = buildReport(
+      { url: U('/'), pageLimit: 10, jsRendering: false, mode: 'quick', crawledAt: '', preflight, summary: null, pages: [], psi: null, content,
+        gsc: gsc({ queries: [row(['secret query'], 1, 900, 6)], inspections: [{ url: U('/heating/'), verdict: 'NEUTRAL' }] }),
+        notices: [{ client: 'x', expert: 'Search Console partial: boom' }] },
+      { auditId: 'a', audience: 'expert', brand: 'b' },
+    );
+    expect(report.issues?.some((i) => i.ruleId === '2.9.4')).toBe(true);
+    const sent = JSON.stringify(aiInput(report));
+    expect(sent).not.toContain('secret query');
+    expect(sent).not.toContain('"id":"2.9.4"');
+    expect(sent).not.toContain('"id":"1.3.4"');
+    expect(sent).not.toContain('Search Console partial');
+  });
+});

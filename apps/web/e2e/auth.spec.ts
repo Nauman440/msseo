@@ -11,8 +11,9 @@ test('the tool redirects to sign-in, and APIs answer 401', async ({ page, reques
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login\?next=%2Fdashboard/);
   expect((await request.get('/api/audits/demo/markdown')).status()).toBe(401);
-  // The public landing page stays open.
-  expect((await request.get('/')).status()).toBe(200);
+  // The public landing page and the legal pages (linked from Google's consent screen) stay open.
+  for (const path of ['/', '/privacy', '/terms']) expect((await request.get(path)).status(), path).toBe(200);
+  expect((await request.get('/api/gsc/connect')).status()).toBe(401);
 });
 
 test('first admin is created on /setup behind the shared password', async ({ browser, request }) => {
