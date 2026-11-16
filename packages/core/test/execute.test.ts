@@ -20,6 +20,8 @@ describe('executeAudit', () => {
     // First save is the reset "running" state, the last one the failure.
     expect(saved[0]?.status).toBe('running');
     expect(saved.at(-1)?.status).toBe('failed');
+    // Usage is recorded even for a failed audit (no paid calls happened here).
+    expect(record.usage).toEqual([]);
   });
 
   it('explains an address that does not exist instead of "fetch failed"', async () => {

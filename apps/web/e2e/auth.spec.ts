@@ -55,10 +55,14 @@ test('admin adds a member, who cannot manage users', async ({ page, browser }) =
   // Let the page hydrate first, so the form submits through React and shows its result.
   await page.waitForLoadState('networkidle');
 
-  await page.getByLabel('Email').fill(MEMBER.email);
-  await page.getByLabel('Starting password').fill(MEMBER.password);
-  await page.getByRole('button', { name: 'Add member' }).click();
-  await expect(page.getByText(`Added ${MEMBER.email}`)).toBeVisible();
+  // A fill can be lost if React finishes hydrating at that moment: retry the whole step
+  // (a second try after a successful add shows "already exists", which also means done).
+  await expect(async () => {
+    await page.getByLabel('Email').fill(MEMBER.email);
+    await page.getByLabel('Starting password').fill(MEMBER.password);
+    await page.getByRole('button', { name: 'Add member' }).click();
+    await expect(page.getByText(`Added ${MEMBER.email}`).or(page.getByText(/already/i))).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
 
   const member = await (await browser.newContext()).newPage();
   await member.goto('/login');

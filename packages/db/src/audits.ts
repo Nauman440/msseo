@@ -69,6 +69,17 @@ const resultWrites = (r: AuditRecord) =>
       ]
     : [];
 
+/** API usage of a finished (or failed) audit as ApiUsage rows, replaced on each save. */
+const usageWrites = (r: AuditRecord) =>
+  r.usage && r.status !== 'running'
+    ? [
+        prisma.apiUsage.deleteMany({ where: { auditId: r.id } }),
+        prisma.apiUsage.createMany({
+          data: r.usage.map((u) => ({ auditId: r.id, provider: u.provider, endpoint: u.endpoint, units: u.units, costUsd: u.costUsd ?? null, createdAt: new Date(r.finishedAt ?? r.createdAt) })),
+        }),
+      ]
+    : [];
+
 /** Inserts a new audit (its Project is created on first sight of the domain). */
 export async function insertAuditRecord(record: AuditRecord): Promise<void> {
   const projectId = await projectIdFor(record.input.url);
@@ -76,11 +87,12 @@ export async function insertAuditRecord(record: AuditRecord): Promise<void> {
     prisma.audit.create({ data: { id: record.id, projectId, createdById: record.createdById ?? null, ...auditColumns(record) } }),
     ...stepWrites(record),
     ...resultWrites(record),
+    ...usageWrites(record),
   ]);
 }
 
 export async function saveAuditRecord(record: AuditRecord): Promise<void> {
-  await prisma.$transaction([prisma.audit.update({ where: { id: record.id }, data: auditColumns(record) }), ...stepWrites(record), ...resultWrites(record)]);
+  await prisma.$transaction([prisma.audit.update({ where: { id: record.id }, data: auditColumns(record) }), ...stepWrites(record), ...resultWrites(record), ...usageWrites(record)]);
 }
 
 type AuditRow = Prisma.AuditGetPayload<{ include: { steps: true } }>;
@@ -146,7 +158,7 @@ export async function getProjectHistory(id: string) {
     include: {
       audits: {
         orderBy: { createdAt: 'asc' },
-        select: { id: true, createdAt: true, status: true, overallScore: true, auditMode: true, crawlLimit: true, pagesCrawled: true, gscProperty: true, createdBy: { select: { name: true, email: true } } },
+        select: { id: true, createdAt: true, status: true, overallScore: true, auditMode: true, crawlLimit: true, pagesCrawled: true, gscProperty: true, costUsd: true, createdBy: { select: { name: true, email: true } } },
       },
     },
   });
@@ -159,7 +171,7 @@ export async function getProjectHistory(id: string) {
   const report = (auditId: string | undefined) => (reports.find((r) => r.id === auditId)?.report ?? undefined) as ReportModel | undefined;
   return {
     project: { id: project.id, domain: project.domain, name: project.name, createdAt: project.createdAt },
-    audits: project.audits.map((a) => ({ ...a, createdBy: a.createdBy ? a.createdBy.name || a.createdBy.email : null })),
+    audits: project.audits.map((a) => ({ ...a, costUsd: a.costUsd === null ? null : Number(a.costUsd), createdBy: a.createdBy ? a.createdBy.name || a.createdBy.email : null })),
     latest: report(lastTwo[lastTwo.length - 1]),
     previous: lastTwo.length === 2 ? report(lastTwo[0]) : undefined,
   };
@@ -168,4 +180,20 @@ export async function getProjectHistory(id: string) {
 /** The project of an audit's domain (for links from a report to its project page). */
 export async function projectIdForAudit(auditId: string): Promise<string | null> {
   return (await prisma.audit.findUnique({ where: { id: auditId }, select: { projectId: true } }))?.projectId ?? null;
+}
+
+/** API usage per provider for a calendar month (UTC), for the settings page (spec §14). */
+export async function usageForMonth(year: number, month: number) {
+  const from = new Date(Date.UTC(year, month, 1));
+  const to = new Date(Date.UTC(year, month + 1, 1));
+  const rows = await prisma.apiUsage.groupBy({
+    by: ['provider', 'endpoint'],
+    where: { createdAt: { gte: from, lt: to } },
+    _sum: { units: true, costUsd: true },
+  });
+  const audits = await prisma.audit.count({ where: { createdAt: { gte: from, lt: to } } });
+  return {
+    audits,
+    rows: rows.map((r) => ({ provider: r.provider, endpoint: r.endpoint, units: r._sum.units ?? 0, costUsd: r._sum.costUsd ? Number(r._sum.costUsd) : null })),
+  };
 }

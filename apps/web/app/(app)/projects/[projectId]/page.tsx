@@ -71,6 +71,7 @@ export default async function ProjectPage({ params }: Props) {
                   {a.auditMode === 'deep' ? 'Deep crawl' : 'Quick audit'} · {a.pagesCrawled ?? 0} of {a.crawlLimit} pages
                   {a.gscProperty ? ' · Search Console' : ''}
                   {a.createdBy ? ` · by ${a.createdBy}` : ''}
+                  {user.role === 'admin' && a.costUsd !== null ? ` · $${a.costUsd.toFixed(2)}` : ''}
                 </p>
               </div>
               {a.overallScore !== null ? (

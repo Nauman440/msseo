@@ -4,6 +4,7 @@ import { ActionForm } from '@/components/forms/ActionForm';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { requireAdmin } from '@/lib/session';
 import { appSettings } from '@/lib/settings';
+import { UsageTable, type UsageMonth } from '@/components/settings/UsageTable';
 import { saveSettingsAction } from '../actions';
 
 export const metadata: Metadata = { title: 'Audit settings' };
@@ -14,9 +15,24 @@ const LABEL = 'flex flex-col gap-1.5 text-sm font-semibold';
 const HINT = 'text-[13px] font-normal text-ink-3';
 
 /** Admin audit settings (spec §4): page limits, JS rendering default, PageSpeed page types, client URL count. */
+/** This month and last month (UTC). Usage is recorded from 2026-11-16 onwards. */
+async function usage(): Promise<UsageMonth[] | null> {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const { usageForMonth } = await import('@seo/db');
+    const now = new Date();
+    const months = [0, 1].map((back) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1)));
+    return await Promise.all(
+      months.map(async (d) => ({ label: d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }), ...(await usageForMonth(d.getUTCFullYear(), d.getUTCMonth())) })),
+    );
+  } catch {
+    return null;
+  }
+}
+
 export default async function GeneralSettingsPage() {
   await requireAdmin();
-  const s = await appSettings();
+  const [s, months] = await Promise.all([appSettings(), usage()]);
   const hasDb = Boolean(process.env.DATABASE_URL);
 
   return (
@@ -64,6 +80,12 @@ export default async function GeneralSettingsPage() {
             </span>
           </label>
         </ActionForm>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-xl font-bold">API usage</h2>
+        <p className="text-sm text-ink-2">Calls each audit made to paid or quota-limited services. DataForSEO cost is what its API reports per audit; PageSpeed and Search Console are free within Google’s quotas.</p>
+        {months ? <UsageTable months={months} /> : <p className="text-sm text-ink-3">Usage tracking needs the database.</p>}
       </section>
     </Container>
   );

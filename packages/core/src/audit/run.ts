@@ -59,7 +59,7 @@ export type AuditOutcome = {
   report: ReportModel;
   cost: number;
   /** Set when AI recommendations were requested: runs after the report is shown. */
-  finishAi?: () => Promise<AiRecommendations | null>;
+  finishAi?: () => Promise<{ ai: AiRecommendations | null; tokens: number }>;
 };
 
 const WEIGHT: Record<StepId, [number, number]> = {
@@ -228,10 +228,10 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     try {
       const { ai, tokens } = await generateAiRecommendations(report, createOpenAiClient({ ...openai, log: env.log }));
       onProgress({ step: 'ai', state: 'done', detail: `${ai.items.length} recommendations · ${tokens.toLocaleString('en-US')} tokens`, progress: 100 });
-      return ai;
+      return { ai, tokens };
     } catch (err) {
       onProgress({ step: 'ai', state: 'failed', detail: aiErrorText(err), progress: 100 });
-      return null;
+      return { ai: null, tokens: 0 };
     }
   };
   return { report, cost: crawl.cost, finishAi };

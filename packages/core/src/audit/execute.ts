@@ -1,4 +1,5 @@
 import type { NewAuditInput } from '../audit-input';
+import type { HttpLog } from '../providers/http';
 import type { ReportModel } from '../types';
 import { AUDIT_STEPS, runAudit, type AuditEnv, type StepId, type StepState } from './run';
 
@@ -15,11 +16,19 @@ export type AuditRecord = {
   error?: string;
   report?: ReportModel;
   costUsd?: number;
+  /** API calls per provider (and OpenAI tokens) for cost tracking; written to ApiUsage. */
+  usage?: ApiUsageEntry[];
   /** Team member who started it (absent before login existed, or in local development). */
   createdById?: string;
   createdAt: string;
   finishedAt?: string;
 };
+
+/** One usage line: `units` calls (endpoint "calls") or OpenAI tokens (endpoint "tokens"). */
+export type ApiUsageEntry = { provider: string; endpoint: 'calls' | 'tokens'; units: number; costUsd?: number };
+
+/** Paid or quota-limited providers worth tracking (requests to the audited site itself are not). */
+const TRACKED = new Set(['dataforseo', 'pagespeed', 'gsc', 'gsc-inspect', 'openai']);
 
 const freshSteps = (): AuditRecord['steps'] => AUDIT_STEPS.map((s) => ({ id: s.id, label: s.label, state: 'queued' as StepState }));
 
@@ -82,7 +91,20 @@ export function friendlyError(err: unknown): string {
  */
 export async function executeAudit(record: AuditRecord, env: AuditEnv, save: (r: AuditRecord) => Promise<void>): Promise<void> {
   // A retried job (worker restarted mid-run) starts clean.
-  Object.assign(record, { status: 'running', progress: 0, steps: freshSteps(), error: undefined, report: undefined, finishedAt: undefined });
+  Object.assign(record, { status: 'running', progress: 0, steps: freshSteps(), error: undefined, report: undefined, finishedAt: undefined, usage: undefined });
+
+  // Count API calls per provider (every attempt, since retries are billed too).
+  const calls = new Map<string, number>();
+  let cost: number | undefined;
+  let tokens = 0;
+  const log: HttpLog = (e) => {
+    if (TRACKED.has(e.provider)) calls.set(e.provider, (calls.get(e.provider) ?? 0) + 1);
+    env.log?.(e);
+  };
+  const usage = (): ApiUsageEntry[] => [
+    ...[...calls].map(([provider, units]) => ({ provider, endpoint: 'calls' as const, units, ...(provider === 'dataforseo' && cost !== undefined ? { costUsd: cost } : {}) })),
+    ...(tokens ? [{ provider: 'openai', endpoint: 'tokens' as const, units: tokens }] : []),
+  ];
 
   // Progress writes are serialised so they never overwrite each other out of order.
   let chain = save(record);
@@ -95,7 +117,7 @@ export async function executeAudit(record: AuditRecord, env: AuditEnv, save: (r:
   };
 
   try {
-    const { report, cost, finishAi } = await runAudit(record.id, record.input, env, (u) =>
+    const { report, cost: crawlCost, finishAi } = await runAudit(record.id, record.input, { ...env, log }, (u) =>
       update((r) => {
         r.progress = Math.max(r.progress, u.progress);
         const step = r.steps.find((s) => s.id === u.step);
@@ -109,18 +131,21 @@ export async function executeAudit(record: AuditRecord, env: AuditEnv, save: (r:
     await update((r) => {
       const finishedAt = new Date().toISOString();
       const durationSeconds = Math.round((Date.parse(finishedAt) - Date.parse(r.createdAt)) / 1000);
-      Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: cost, finishedAt });
+      cost = crawlCost;
+      Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: crawlCost, finishedAt, usage: usage() });
     });
     if (!finishAi) return;
-    const ai = await finishAi();
+    const result = await finishAi();
+    tokens = result.tokens;
     await update((r) => {
-      if (r.report) r.report = { ...r.report, ...(ai ? { ai } : {}), aiPending: false };
+      if (r.report) r.report = { ...r.report, ...(result.ai ? { ai: result.ai } : {}), aiPending: false };
+      r.usage = usage();
     });
   } catch (err) {
     await update((r) => {
       const step = r.steps.find((s) => s.state === 'running');
       if (step) step.state = 'failed';
-      Object.assign(r, { status: 'failed', error: friendlyError(err), finishedAt: new Date().toISOString() });
+      Object.assign(r, { status: 'failed', error: friendlyError(err), finishedAt: new Date().toISOString(), usage: usage() });
     });
   }
 }
