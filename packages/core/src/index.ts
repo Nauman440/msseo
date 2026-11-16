@@ -1,7 +1,8 @@
 export * from './types';
 export * from './scoring';
 export * from './audit-input';
-export { AUDIT_STEPS, runAudit, type AuditEnv, type ProgressUpdate, type StepId, type StepState } from './audit/run';
+export { AUDIT_STEPS, runAudit, type AuditEnv, type AuditOutcome, type ProgressUpdate, type StepId, type StepState } from './audit/run';
+export { markDuplicates, pickPages } from './audit/quick-crawl';
 export { buildReport, evaluateRules, ALL_RULES } from './audit/build-report';
 export type { AuditData } from './audit/types';
 export { buildSummary } from './report/summary';

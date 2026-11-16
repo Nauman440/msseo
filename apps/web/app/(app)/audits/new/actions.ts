@@ -11,6 +11,7 @@ export async function createAuditAction(_prev: NewAuditState, form: FormData): P
     url: form.get('url') ?? '',
     audience: form.get('audience') ?? 'client',
     pageLimit: form.get('pageLimit') ?? undefined,
+    auditMode: form.get('mode') === 'deep' ? 'deep' : 'quick',
     jsRendering: form.get('js') === 'on',
     aiRecommendations: form.get('ai') === 'on',
     gscProperty: (form.get('gsc') as string) || null,

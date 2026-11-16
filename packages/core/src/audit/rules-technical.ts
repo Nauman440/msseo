@@ -158,7 +158,7 @@ export const technicalRules: RuleDef[] = [
       n ? { client: `${plural(n, 'link')} bounce${n === 1 ? 's' : ''} through several redirects`, expert: `${n} redirect chains` } : { client: 'No redirect chains', expert: '0 redirect chains' }, 'warn'),
   },
   {
-    id: '1.5.5', module: 1, category: 'technical', card: 'errors', scope: 'page', severity: 'medium',
+    id: '1.5.5', crawlOnly: true, module: 1, category: 'technical', card: 'errors', scope: 'page', severity: 'medium',
     title: { client: 'Internal links point to redirects', expert: 'Internal links to redirected URLs' },
     explain: { client: 'Links that go through redirects are slower and pass less value.', expert: 'Update internal links to final destinations.' },
     fix: { client: 'Update links to point to the final page.', expert: 'Replace links to 3xx URLs with their targets.' },
@@ -266,7 +266,7 @@ export const technicalRules: RuleDef[] = [
       n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} errors in business details`, expert: `${plural(n, 'page')} with schema errors` } : { client: 'Business details are valid', expert: '0 schema validation errors' }, 'warn'),
   },
   {
-    id: '1.12.1', module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',
+    id: '1.12.1', crawlOnly: true, module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',
     title: { client: 'Pages are hard to reach', expert: 'Pages deeper than 3 clicks' },
     explain: { client: 'Pages buried deep in the site get visited less by people and Google.', expert: 'Click depth > 3 lowers crawl frequency and internal authority.' },
     fix: { client: 'Link important pages from the menu or homepage.', expert: 'Flatten architecture; add hub/nav links.' },
@@ -275,7 +275,7 @@ export const technicalRules: RuleDef[] = [
       n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} hard to reach`, expert: `${plural(n, 'page')} at depth > 3` } : { client: 'Every page is within 3 clicks', expert: 'Max depth ≤ 3' }, 'warn'),
   },
   {
-    id: '1.12.2', module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',
+    id: '1.12.2', crawlOnly: true, module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'high',
     title: { client: 'Pages with no links pointing to them', expert: 'Orphan pages' },
     explain: { client: 'Pages that nothing links to are hard for Google to find and value.', expert: 'Orphans (in sitemap, 0 inlinks) receive no internal equity.' },
     fix: { client: 'Link to these pages from related pages.', expert: 'Add contextual internal links to orphan URLs.' },

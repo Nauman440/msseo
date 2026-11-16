@@ -3,11 +3,15 @@ import type { Preflight } from '../providers/direct-fetch';
 import type { PageSpeedResult } from '../providers/pagespeed';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
+export type AuditMode = 'quick' | 'deep';
+
 /** Everything the rules need, collected by the pipeline (a slice of §5.4 SiteData). */
 export type AuditData = {
   url: string;
   pageLimit: number;
   jsRendering: boolean;
+  /** quick = live per-page checks (Instant Pages); deep = full DataForSEO crawl. */
+  mode: AuditMode;
   crawledAt: string;
   preflight: Preflight;
   summary: OnPageSummary | null;
@@ -65,6 +69,8 @@ export type RuleDef = {
   explain: AudienceText;
   fix: AudienceText;
   ice: Ice;
+  /** Needs the full crawl's link graph (depth, inlinks, cross-page comparison); skipped in quick mode. */
+  crawlOnly?: true;
   /** Returns null when the rule does not apply (e.g. no PageSpeed key). */
   evaluate: (ctx: AuditContext) => Evaluation | null;
 };

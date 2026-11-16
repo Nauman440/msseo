@@ -35,6 +35,8 @@ export function evaluateRules(data: AuditData): EvaluatedRule[] {
   const ctx: AuditContext = { data, html, ok: html.filter((p) => p.status_code === 200) };
   const out: EvaluatedRule[] = [];
   for (const def of ALL_RULES) {
+    // Quick audits have no link graph: never let a crawl-only rule read as "pass".
+    if (def.crawlOnly && data.mode === 'quick') continue;
     const ev = def.evaluate(ctx);
     if (!ev) continue;
     out.push({
@@ -218,6 +220,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
     audience: opts.audience,
     pagesCrawled: html.length,
     crawlLimit: data.pageLimit,
+    auditMode: data.mode,
     crawledAt: data.crawledAt,
     gscProperty: null,
     overall: { score: overall, label: scoreLabel(overall), afterFixes: Math.max(overall, scoreAfterFixes(scored)) },

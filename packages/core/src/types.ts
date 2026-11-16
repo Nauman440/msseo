@@ -134,6 +134,8 @@ export type ReportModel = {
   audience: Audience;
   pagesCrawled: number;
   crawlLimit: number;
+  /** quick = live per-page checks; deep = full crawl. Missing on reports saved before 2026-11-16 (deep). */
+  auditMode?: 'quick' | 'deep';
   crawledAt: string;
   /** Wall-clock time from audit start to finished report. */
   durationSeconds?: number;
@@ -150,6 +152,8 @@ export type ReportModel = {
   /** All issues, sorted like topIssues. Missing on reports saved before it existed. */
   issues?: ReportIssue[];
   ai?: AiRecommendations;
+  /** AI recommendations are still being written (the report is shown before they finish). */
+  aiPending?: boolean;
   /** Caveats shown above the report, e.g. when pages could not be crawled. */
   notices?: AudienceText[];
 };

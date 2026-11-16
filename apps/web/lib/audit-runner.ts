@@ -39,13 +39,19 @@ export async function startAudit(input: NewAuditInput): Promise<AuditRecord> {
       Object.assign(step, { state: u.state, detail: u.detail });
     }),
   )
-    .then(({ report, cost }) =>
-      update((r) => {
+    .then(async ({ report, cost, finishAi }) => {
+      // The report is shown as soon as it is built; AI recommendations follow.
+      await update((r) => {
         const finishedAt = new Date().toISOString();
         const durationSeconds = Math.round((Date.parse(finishedAt) - Date.parse(r.createdAt)) / 1000);
         Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: cost, finishedAt });
-      }),
-    )
+      });
+      if (!finishAi) return;
+      const ai = await finishAi();
+      await update((r) => {
+        if (r.report) r.report = { ...r.report, ...(ai ? { ai } : {}), aiPending: false };
+      });
+    })
     .catch((err: unknown) =>
       update((r) => {
         const step = r.steps.find((s) => s.state === 'running');
@@ -61,6 +67,11 @@ export async function startAudit(input: NewAuditInput): Promise<AuditRecord> {
 /** A running audit whose job is gone (server restarted) is reported as interrupted. */
 export async function getAuditStatus(id: string): Promise<AuditRecord | null> {
   const record = await getAudit(id);
+  // AI recommendations were still being written when the app restarted: stop waiting.
+  if (record?.status === 'completed' && record.report?.aiPending && !running.has(id)) {
+    record.report = { ...record.report, aiPending: false };
+    await saveAudit(record);
+  }
   if (record?.status === 'running' && !running.has(id)) {
     record.status = 'failed';
     record.error = 'The audit was interrupted (the app restarted). Please run it again.';

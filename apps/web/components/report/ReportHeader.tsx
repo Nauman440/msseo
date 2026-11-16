@@ -35,6 +35,7 @@ export function ReportHeader({ report, mode }: { report: ReportModel; mode: Audi
   const meta = [
     { label: 'URL', value: report.url, mono: true },
     { label: 'Pages audited', value: `${report.pagesCrawled.toLocaleString('en-US')} of ${report.crawlLimit.toLocaleString('en-US')}` },
+    { label: 'Audit type', value: report.auditMode === 'quick' ? 'Quick (key pages)' : 'Deep crawl' },
     { label: 'Crawled', value: formatDate(report.crawledAt) },
     ...(report.durationSeconds !== undefined ? [{ label: 'Audit time', value: formatDuration(report.durationSeconds) }] : []),
     { label: 'Search Console', value: report.gscProperty ?? 'Not used' },

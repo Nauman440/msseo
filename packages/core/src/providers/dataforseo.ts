@@ -169,6 +169,30 @@ export function createDataForSeoClient(config: DataForSeoConfig) {
       return task.result?.[0] ?? null;
     },
 
+    /**
+     * Live audit of one URL (POST /v3/on_page/instant_pages, docs checked 2026-11-16).
+     * One task per call: the docs both allow 20 tasks and say "each Live API call can
+     * contain only one task", and cap a batch at 5 URLs per domain, so callers run a few
+     * single-URL calls in parallel instead. Same item shape as /v3/on_page/pages.
+     */
+    async instantPage(url: string, opts: { enableJavascript: boolean; customUserAgent?: string }): Promise<{ page: OnPagePage | null; cost: number }> {
+      const { task, cost } = await call(
+        '/v3/on_page/instant_pages',
+        z.object({ items: z.array(pageSchema).nullable().optional() }).passthrough(),
+        [
+          {
+            url,
+            enable_javascript: opts.enableJavascript,
+            validate_micromarkup: true,
+            // Pages slower than 120 s still return what was loaded instead of an error.
+            return_despite_timeout: true,
+            ...(opts.customUserAgent ? { custom_user_agent: opts.customUserAgent } : {}),
+          },
+        ],
+      );
+      return { page: task.result?.[0]?.items?.[0] ?? null, cost };
+    },
+
     async pages(id: string, limit = 100): Promise<OnPagePage[]> {
       const { task } = await call(
         '/v3/on_page/pages',

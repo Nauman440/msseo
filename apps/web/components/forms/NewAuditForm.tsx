@@ -84,11 +84,19 @@ export function NewAuditForm({
         </Field>
       </div>
 
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold text-ink">Audit type</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Choice name="mode" value="quick" checked title="Quick audit · under 1 minute" body="Checks the key pages live. Best for most audits." />
+          <Choice name="mode" value="deep" title="Deep crawl · 3–5 minutes" body="Follows every link: click depth, orphan pages and copied content." />
+        </div>
+      </fieldset>
+
       <label className="flex cursor-pointer items-start gap-3">
-        <input type="checkbox" name="js" defaultChecked className="mt-1 size-4 accent-primary" />
+        <input type="checkbox" name="js" className="mt-1 size-4 accent-primary" />
         <span>
           <span className="block text-sm font-semibold">JavaScript rendering</span>
-          <span className="block text-[13px] text-ink-3">For page builders and JS frameworks. Uses more API credits.</span>
+          <span className="block text-[13px] text-ink-3">Only for sites built with JS frameworks or heavy page builders. About 3× slower and 10× the API cost.</span>
         </span>
       </label>
 
@@ -98,7 +106,7 @@ export function NewAuditForm({
           <span className="block text-sm font-semibold">AI recommendations</span>
           <span className="block text-[13px] text-ink-3">
             {aiReady
-              ? 'OpenAI turns the findings into a prioritised, step-by-step fix plan in the report. Adds about 30–60 seconds.'
+              ? 'OpenAI turns the findings into a prioritised, step-by-step fix plan. It appears in the report about 30 seconds after the report opens.'
               : 'Add OPENAI_API_KEY to .env to turn this on.'}
           </span>
         </span>
@@ -118,7 +126,7 @@ export function NewAuditForm({
       <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[13px] text-ink-3">
           {ready
-            ? `Live data via DataForSEO${pagespeedReady ? ' + PageSpeed Insights' : ''}. Usually 2–5 minutes.`
+            ? `Live data via DataForSEO${pagespeedReady ? ' + PageSpeed Insights' : ''}. Quick audits take under a minute.`
             : 'Add DataForSEO keys to .env to run audits.'}
         </p>
         <SubmitButton disabled={!ready} />

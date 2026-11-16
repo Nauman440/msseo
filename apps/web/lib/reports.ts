@@ -22,10 +22,10 @@ export async function getAuditView(auditId: string): Promise<AuditView> {
   return { kind: 'progress', record };
 }
 
-/** Median run time of past completed audits with the same page limit, or null if there are none. */
-export async function typicalDurationSeconds(pageLimit: number): Promise<{ seconds: number; samples: number } | null> {
+/** Median run time of past completed audits with the same page limit and type, or null if there are none. */
+export async function typicalDurationSeconds(pageLimit: number, mode: 'quick' | 'deep'): Promise<{ seconds: number; samples: number } | null> {
   const times = (await listAudits(100))
-    .filter((r) => r.status === 'completed' && r.finishedAt && r.input.pageLimit === pageLimit)
+    .filter((r) => r.status === 'completed' && r.finishedAt && r.input.pageLimit === pageLimit && (r.input.auditMode ?? 'deep') === mode)
     .map((r) => (Date.parse(r.finishedAt!) - Date.parse(r.createdAt)) / 1000)
     .sort((a, b) => a - b);
   if (times.length === 0) return null;

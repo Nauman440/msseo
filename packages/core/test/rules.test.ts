@@ -37,6 +37,7 @@ const data = (pages: OnPagePage[]): AuditData => ({
   url: 'https://example.com/',
   pageLimit: 10,
   jsRendering: false,
+  mode: 'deep',
   crawledAt: '2026-11-12T00:00:00Z',
   preflight,
   summary: null,

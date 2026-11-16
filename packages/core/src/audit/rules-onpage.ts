@@ -88,7 +88,7 @@ export const onpageRules: RuleDef[] = [
       n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} very little text`, expert: `${plural(n, 'page')} < 300 words` } : { client: 'Pages have enough text', expert: 'All content pages ≥ 300 words' }),
   },
   {
-    id: '2.4.7', module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'critical',
+    id: '2.4.7', crawlOnly: true, module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'critical',
     title: { client: 'Pages copy each other', expert: 'Duplicate content' },
     explain: { client: 'When pages are nearly identical, Google may ignore most of them.', expert: 'Near-duplicate pages compete and get filtered.' },
     fix: { client: 'Rewrite these pages so each is unique.', expert: 'Differentiate or canonicalise duplicate pages.' },

@@ -42,6 +42,8 @@ export const newAuditSchema = z.object({
     .number()
     .refine((v): v is PageLimit => (pageLimitValues as number[]).includes(v), 'Choose a page limit from the list')
     .default(DEFAULT_PAGE_LIMIT),
+  /** quick: live per-page checks, under a minute. deep: full crawl with link analysis, 3–5 min. */
+  auditMode: z.enum(['quick', 'deep']).default('quick'),
   jsRendering: z.coerce.boolean().default(true),
   /** Add LLM-written recommendations to the report (needs OPENAI_API_KEY). */
   aiRecommendations: z.coerce.boolean().default(false),

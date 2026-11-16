@@ -43,18 +43,54 @@ export type Preflight = {
   botAccess: { ua: 'browser' | 'googlebot'; status: number }[];
 };
 
-type Opts = { log?: HttpLog; maxSitemapUrlChecks?: number };
+/** What the audit needs to start checking pages, known a few seconds into preflight. */
+export type Discovery = {
+  homepage: { status: number; finalUrl: string };
+  /** Same-site page URLs: homepage links first (navigation), then sitemap URLs. */
+  candidates: string[];
+};
 
-const get = (url: string, opts: Opts, extra: { ua?: string; manual?: boolean; method?: 'GET' | 'HEAD' } = {}) =>
+type Opts = {
+  log?: HttpLog;
+  maxSitemapUrlChecks?: number;
+  /** Called once the homepage, robots.txt and sitemaps are read, before the slower checks finish. */
+  onDiscovery?: (d: Discovery) => void;
+};
+
+// Short timeouts, no retries for side checks: a slow site must not hold the audit up
+// (a 15 s timeout with one retry cost up to 30 s per request before 2026-11-16).
+const get = (url: string, opts: Opts, extra: { ua?: string; manual?: boolean; method?: 'GET' | 'HEAD'; retries?: number } = {}) =>
   request(url, {
     provider: 'site',
     method: extra.method ?? 'GET',
     headers: { 'user-agent': extra.ua ?? BROWSER_UA },
     manualRedirect: extra.manual,
-    timeoutMs: 15_000,
-    retries: 1,
+    timeoutMs: 8_000,
+    retries: extra.retries ?? 0,
     log: opts.log,
   });
+
+const NON_PAGE = /\.(jpe?g|png|gif|webp|avif|svg|ico|pdf|zip|mp4|mp3|css|js|xml|txt|docx?|xlsx?)$/i;
+
+/** Internal page links from the homepage HTML, in document order. */
+export function internalLinks(html: string, pageUrl: string): string[] {
+  const base = new URL(pageUrl);
+  const host = base.hostname.replace(/^www\./, '');
+  const out = new Set<string>();
+  // Whole href (fragments are stripped below); pure "#section" links resolve to the page itself.
+  for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
+    try {
+      const u = new URL(m[1]!.replace(/&amp;/g, '&'), base);
+      if (!/^https?:$/.test(u.protocol) || u.hostname.replace(/^www\./, '') !== host) continue;
+      if (NON_PAGE.test(u.pathname) || /\/(wp-admin|wp-login|cart|checkout|my-account|feed)\b/i.test(u.pathname)) continue;
+      u.hash = '';
+      out.add(u.toString());
+    } catch {
+      // ignore malformed hrefs
+    }
+  }
+  return [...out];
+}
 
 export function parseRobots(body: string): Pick<RobotsInfo, 'sitemaps' | 'disallowAll'> {
   const sitemaps: string[] = [];
@@ -118,13 +154,13 @@ async function fetchSitemaps(fromRobots: string[], origin: string, opts: Opts): 
       const res = await get(url, opts);
       const parsed = parseSitemap(res.ok ? await res.text() : '');
       out.push({ url, status: res.status, valid: res.ok && parsed.valid, isIndex: parsed.isIndex, urls: parsed.isIndex ? [] : parsed.urls });
-      if (parsed.isIndex && depth === 0) for (const child of parsed.urls.slice(0, 10)) await visit(child, 1);
+      if (parsed.isIndex && depth === 0) await Promise.all(parsed.urls.slice(0, 10).map((child) => visit(child, 1)));
     } catch {
       out.push({ url, status: 0, valid: false, isIndex: false, urls: [] });
     }
   };
 
-  for (const url of fromRobots) await visit(url, 0);
+  await Promise.all(fromRobots.map((url) => visit(url, 0)));
   if (!out.some((s) => s.valid)) {
     for (const url of [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`]) {
       await visit(url, 0);
@@ -136,7 +172,7 @@ async function fetchSitemaps(fromRobots: string[], origin: string, opts: Opts): 
 
 async function checkUrls(urls: string[], opts: Opts): Promise<UrlCheck[]> {
   const results: UrlCheck[] = [];
-  const batch = 10;
+  const batch = 15;
   for (let i = 0; i < urls.length; i += batch) {
     const slice = urls.slice(i, i + batch);
     results.push(
@@ -159,7 +195,7 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
   const start = new URL(inputUrl);
   const bare = start.hostname.replace(/^www\./, '');
 
-  const home = await get(start.toString(), opts);
+  const home = await get(start.toString(), opts, { retries: 1 });
   const finalUrl = home.url || start.toString();
   const origin = new URL(finalUrl).origin;
   const headers: Record<string, string> = {};
@@ -201,6 +237,10 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
 
   const sitemaps = await fetchSitemaps(robots.sitemaps, origin, opts);
   const allUrls = [...new Set(sitemaps.flatMap((s) => s.urls))];
+  opts.onDiscovery?.({
+    homepage: { status: home.status, finalUrl },
+    candidates: [...new Set([finalUrl, ...internalLinks(html, finalUrl), ...allUrls.filter((u) => !NON_PAGE.test(new URL(u, origin).pathname))])],
+  });
   const sitemapUrlChecks = await checkUrls(allUrls.slice(0, opts.maxSitemapUrlChecks ?? 30), opts);
   const [variants, botAccess] = await Promise.all([variantsP, botAccessP]);
 
