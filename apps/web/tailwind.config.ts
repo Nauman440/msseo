@@ -41,7 +41,7 @@ const config: Config = {
         // Tick marks on navy surfaces (design: #5EEAD4).
         tick: { DEFAULT: '#5EEAD4', light: '#0F766E' },
         // Landing page accents from the design: "fixed for you" boxes and sample chart.
-        teal: { DEFAULT: '#0F766E', soft: '#99D5CF', bg: '#F1FAF8', text: '#0B5D55' },
+        teal: { DEFAULT: '#0F766E', soft: '#99D5CF', bg: '#F1FAF8', chip: '#DDF3EF', text: '#0B5D55' },
         // "Always waits for your approval" chips and "Notice" alert label.
         amber: { bg: '#FEF3C7', text: '#92400E' },
         pass: { bg: '#DCFCE7', text: '#15803D' },

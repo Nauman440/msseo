@@ -15,7 +15,7 @@ const HELP = ['Guided setup when you join', 'A person reviews your roadmap befor
 
 export function Team() {
   return (
-    <Section id="team">
+    <Section id="team" tone="white">
       <Container className="flex flex-col gap-9">
         <SectionHeader
           soon

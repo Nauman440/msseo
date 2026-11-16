@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { AiSearch } from '@/components/landing/AiSearch';
+import { Automation } from '@/components/landing/Automation';
 import { Faq, FinalCta, SiteFooter, StickyBar } from '@/components/landing/Closing';
 import { Hero, TopBar } from '@/components/landing/Hero';
 import { Approvals, HowItWorks } from '@/components/landing/HowItWorks';
 import { Issues } from '@/components/landing/Issues';
 import { Outcomes } from '@/components/landing/Outcomes';
-import { Included, Pricing } from '@/components/landing/Plans';
+import { Pricing } from '@/components/landing/Plans';
 import { Problem } from '@/components/landing/Problem';
 import { Reports } from '@/components/landing/Reports';
 import { Team } from '@/components/landing/Team';
@@ -33,7 +34,7 @@ export default function LandingPage() {
         <AiSearch />
         <Reports />
         <Team />
-        <Included />
+        <Automation />
         <Pricing />
         <Faq />
         <FinalCta />
