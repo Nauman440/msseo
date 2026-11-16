@@ -36,8 +36,37 @@ export function newAuditRecord(input: NewAuditInput, createdById?: string | null
   };
 }
 
+/** Network failures carry the real reason in `cause` (Node's fetch only says "fetch failed"). */
+function networkReason(err: unknown): string | null {
+  const cause = (err as { cause?: { code?: string; hostname?: string } } | null)?.cause;
+  switch (cause?.code) {
+    case 'ENOTFOUND':
+    case 'EAI_AGAIN':
+      return `The website address could not be found${cause.hostname ? ` (${cause.hostname})` : ''}: the domain has no DNS record. Check the spelling, or whether the domain has expired.`;
+    case 'ECONNREFUSED':
+      return 'The website refused the connection. Check that the site is online.';
+    case 'ECONNRESET':
+    case 'UND_ERR_SOCKET':
+      return 'The website closed the connection. A firewall may be blocking automated requests.';
+    case 'ETIMEDOUT':
+    case 'UND_ERR_CONNECT_TIMEOUT':
+      return 'The website did not answer in time. Check that it is online, then try again.';
+    case 'CERT_HAS_EXPIRED':
+      return "The website's security certificate has expired, so it cannot be checked securely.";
+    case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
+    case 'DEPTH_ZERO_SELF_SIGNED_CERT':
+    case 'SELF_SIGNED_CERT_IN_CHAIN':
+    case 'ERR_TLS_CERT_ALTNAME_INVALID':
+      return "The website's security certificate is not valid for this address.";
+    default:
+      return null;
+  }
+}
+
 /** Turns provider errors into a sentence the team can act on. */
 export function friendlyError(err: unknown): string {
+  const network = networkReason(err);
+  if (network) return network;
   const msg = err instanceof Error ? err.message : String(err);
   if (/401|unauthori|40100|40101/i.test(msg)) return 'DataForSEO rejected the login. Check DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD (use the API password, not the website password).';
   if (/402|40200|balance|insufficient/i.test(msg)) return 'DataForSEO account balance is too low to run this audit.';

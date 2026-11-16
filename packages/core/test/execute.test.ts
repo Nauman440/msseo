@@ -22,6 +22,14 @@ describe('executeAudit', () => {
     expect(saved.at(-1)?.status).toBe('failed');
   });
 
+  it('explains an address that does not exist instead of "fetch failed"', async () => {
+    const dns = Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND', hostname: 'callmewallah.com' } });
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(dns)));
+    const record = newAuditRecord(newAuditSchema.parse({ url: 'https://callmewallah.com/' }));
+    await executeAudit(record, env, async () => undefined);
+    expect(record.error).toBe('The website address could not be found (callmewallah.com): the domain has no DNS record. Check the spelling, or whether the domain has expired.');
+  });
+
   it('resets a record that is being retried after a worker restart', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('fetch failed'))));
     const record = newAuditRecord(newAuditSchema.parse({ url: 'https://unreachable.example.test/' }));
