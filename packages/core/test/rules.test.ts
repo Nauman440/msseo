@@ -94,4 +94,14 @@ describe('rules engine', () => {
     expect(broken.cwv).toBeNull();
     expect(broken.pageHealth.errors).toBeGreaterThan(0);
   });
+
+  it('1.8.4 trusts Lighthouse render-blocking savings over the crawler flag', () => {
+    const flagged = page({ checks: { has_micromarkup: true, has_render_blocking_resources: true } });
+    const psi = (ms: number) => ({ strategy: 'mobile' as const, url: 'https://example.com/', performance: 90, field: null, lab: {}, renderBlockingMs: ms });
+    const status = (d: AuditData) => evaluateRules(d).find((r) => r.def.id === '1.8.4')?.result.status;
+    expect(status({ ...data([flagged]), psi: psi(0) })).toBe('pass');
+    expect(status({ ...data([page({})]), psi: psi(1200) })).toBe('warn');
+    // Without PageSpeed, the crawler's static check is still used.
+    expect(status(data([flagged]))).toBe('warn');
+  });
 });

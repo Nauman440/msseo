@@ -24,7 +24,18 @@ const psiSchema = z
     lighthouseResult: z
       .object({
         categories: z.object({ performance: z.object({ score: z.number().nullable() }).partial() }).partial().optional(),
-        audits: z.record(z.object({ numericValue: z.number().optional() }).partial().passthrough()).optional(),
+        audits: z
+          .record(
+            z
+              .object({
+                numericValue: z.number(),
+                metricSavings: z.record(z.number()),
+                details: z.object({ overallSavingsMs: z.number() }).partial().passthrough(),
+              })
+              .partial()
+              .passthrough(),
+          )
+          .optional(),
       })
       .partial()
       .optional(),
@@ -38,6 +49,8 @@ export type PageSpeedResult = {
   performance: number | null;
   field: { lcpMs?: number; inpMs?: number; cls?: number; ttfbMs?: number } | null;
   lab: { lcpMs?: number; cls?: number; tbtMs?: number; ttfbMs?: number };
+  /** Lighthouse's estimated LCP/FCP saving from removing render-blocking requests; null if not reported. */
+  renderBlockingMs: number | null;
 };
 
 export async function runPageSpeed(
@@ -59,6 +72,12 @@ export async function runPageSpeed(
   const audits = json.lighthouseResult?.audits ?? {};
   const hasField = Boolean(m?.LARGEST_CONTENTFUL_PAINT_MS?.percentile);
   const score = json.lighthouseResult?.categories?.performance?.score;
+  // Lighthouse 13 calls it 'render-blocking-insight' (savings in metricSavings);
+  // older versions 'render-blocking-resources' (numericValue / overallSavingsMs).
+  const rb = audits['render-blocking-insight'] ?? audits['render-blocking-resources'];
+  const renderBlockingMs = rb
+    ? Math.max(rb.metricSavings?.LCP ?? 0, rb.metricSavings?.FCP ?? 0, rb.details?.overallSavingsMs ?? 0, rb.numericValue ?? 0)
+    : null;
 
   return {
     strategy,
@@ -79,5 +98,6 @@ export async function runPageSpeed(
       tbtMs: audits['total-blocking-time']?.numericValue,
       ttfbMs: audits['server-response-time']?.numericValue,
     },
+    renderBlockingMs,
   };
 }

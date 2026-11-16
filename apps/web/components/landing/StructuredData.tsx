@@ -53,7 +53,9 @@ export function StructuredData() {
       {
         '@type': 'FAQPage',
         '@id': `${SITE_URL}/#faq`,
-        mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+        // answerCount/text: optional for Google's FAQ rich results, but schema validators
+        // (DataForSEO flagged 'missing answerCount' as an error) expect them on Question.
+        mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, text: f.q, answerCount: 1, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
       },
     ],
   };

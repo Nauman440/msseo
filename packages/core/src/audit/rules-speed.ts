@@ -52,8 +52,19 @@ export const speedRules: RuleDef[] = [
     explain: { client: 'Some files must load before anything appears, which slows pages.', expert: 'Render-blocking CSS/JS delays first paint.' },
     fix: { client: 'Ask the developer to load these files later.', expert: 'Inline critical CSS; defer/async JS.' },
     ice: { impact: 2, confidence: 4, effort: 3 },
-    evaluate: ({ ok }) => countPages(ok, (p) => p.checks?.has_render_blocking_resources === true, (n) =>
-      n ? { client: `${plural(n, 'page')} load${n === 1 ? 's' : ''} blocking files first`, expert: `${plural(n, 'page')} with render-blocking resources` } : { client: 'No blocking files', expert: '0 pages with render-blocking resources' }, 'warn'),
+    evaluate: ({ ok, data }) => {
+      // Spec: Lighthouse render-blocking savings > 500 ms. Measured in a real browser, so it is
+      // preferred over the crawler's static HTML check, which flags e.g. Next.js's noModule polyfill.
+      const ms = data.psi?.renderBlockingMs;
+      if (ms !== undefined && ms !== null) {
+        const home = data.preflight.homepage.finalUrl;
+        return ms > 500
+          ? { status: 'warn', affected: [home], applicable: 1, message: { client: `Files delay the homepage by ${(ms / 1000).toFixed(1)} s`, expert: `Lighthouse render-blocking savings ${Math.round(ms)} ms on the homepage (mobile)` } }
+          : { status: 'pass', affected: [], applicable: 1, message: { client: 'No files hold the page up', expert: `Lighthouse render-blocking savings ${Math.round(ms)} ms (≤ 500 ms)` } };
+      }
+      return countPages(ok, (p) => p.checks?.has_render_blocking_resources === true, (n) =>
+        n ? { client: `${plural(n, 'page')} load${n === 1 ? 's' : ''} blocking files first`, expert: `${plural(n, 'page')} with render-blocking resources` } : { client: 'No blocking files', expert: '0 pages with render-blocking resources' }, 'warn');
+    },
   },
   {
     id: '1.8.6', module: 1, category: 'speed', card: 'speed', scope: 'page', severity: 'medium',
