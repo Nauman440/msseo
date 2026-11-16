@@ -133,3 +133,15 @@ test('expert mode lists every affected URL and exports CSV', async ({ page, requ
   expect((await request.get('/api/audits/demo/csv?rule=9.9.9')).status()).toBe(404);
   expect((await request.get('/api/audits/demo/csv?rule=%3Cx%3E')).status()).toBe(400);
 });
+
+test('robots.txt and corrected sitemap.xml download from the report', async ({ page, request }) => {
+  await page.goto('/audits/demo');
+  await expect(page.getByRole('link', { name: 'Download robots.txt' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download corrected sitemap.xml' })).toBeVisible();
+  const robots = await request.get('/api/audits/demo/robots');
+  expect(robots.headers()['content-disposition']).toContain('robots.txt');
+  expect(await robots.text()).toContain('User-agent:');
+  const sitemap = await request.get('/api/audits/demo/sitemap');
+  expect(sitemap.headers()['content-type']).toContain('application/xml');
+  expect((await sitemap.text()).match(/<loc>/g)).toHaveLength(8);
+});

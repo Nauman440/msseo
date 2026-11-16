@@ -9,6 +9,7 @@ import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
 import { indexFunnel, gscRules } from './rules-gsc';
+import { correctedSitemapUrls } from '../report/sitemap';
 import { templateRules } from './rules-templates';
 import { trustRules } from './rules-trust';
 import { urlRules } from './rules-urls';
@@ -287,6 +288,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
       url: data.preflight.sitemaps.find((s) => s.valid)?.url ?? '',
       rows: byCard('sitemap').map(toRow),
       segments,
+      corrected: correctedSitemapUrls(data) ?? undefined,
     },
     cards,
     issues: reportIssues,

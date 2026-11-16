@@ -15,3 +15,4 @@ export { sampleReport } from './report/sample';
 export { exchangeGscCode, gscAuthUrl, listGscSites, matchGscProperties, refreshGscToken, type GoogleOAuth } from './providers/gsc';
 export { diffReports, type IssueChange, type ReportDiff } from './report/diff';
 export { issuesToCsv } from './report/csv';
+export { sitemapXml } from './report/sitemap';

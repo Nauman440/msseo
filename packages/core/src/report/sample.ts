@@ -245,3 +245,9 @@ sampleReport.issues = sampleReport.topIssues
     affectedCount: SAMPLE_URLS[t.ruleId]!.length,
     urls: SAMPLE_URLS[t.ruleId]!.map((p) => `https://www.summitairhvac.com${p}`),
   }));
+
+sampleReport.sitemap.corrected = {
+  urls: ['/', '/services/', '/services/ac-repair/', '/services/heating/', '/areas/plano/', '/areas/frisco/', '/about/', '/contact/'].map((p) => `https://www.summitairhvac.com${p}`),
+  removed: 6,
+  added: 2,
+};

@@ -24,6 +24,7 @@ function countIssues(rows: ReportModel['robots']['rows']) {
 export function CrawlFiles({ report, mode, extras }: { report: ReportModel; mode: Audience; extras?: RowExtras }) {
   const robotsCard = { id: 'robots', title: '', section: 'technical' as const, rows: report.robots.rows };
   const sitemapCard = { id: 'sitemap', title: '', section: 'technical' as const, rows: report.sitemap.rows };
+  const corrected = report.sitemap.corrected;
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card title="robots.txt" badge={<IssueBadge count={countIssues(report.robots.rows)} worst={worstStatus(robotsCard)} />}>
@@ -33,6 +34,15 @@ export function CrawlFiles({ report, mode, extras }: { report: ReportModel; mode
           ))}
         </ul>
         <CodeBlock code={report.robots.suggested} label="Suggested robots.txt" />
+        {extras && (
+          <a
+            href={`/api/audits/${report.auditId}/robots`}
+            download
+            className="mt-4 inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink-3"
+          >
+            Download robots.txt
+          </a>
+        )}
       </Card>
       <Card title="sitemap.xml" badge={<IssueBadge count={countIssues(report.sitemap.rows)} worst={worstStatus(sitemapCard)} />}>
         <StackedBar segments={report.sitemap.segments} className="mb-5" />
@@ -41,6 +51,23 @@ export function CrawlFiles({ report, mode, extras }: { report: ReportModel; mode
             <StatusRow key={r.ruleId} row={r} mode={mode} extras={extras} />
           ))}
         </ul>
+        {/* Downloads only on screen: the PDF passes no extras. */}
+        {extras && corrected?.urls.length ? (
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
+            <a
+              href={`/api/audits/${report.auditId}/sitemap`}
+              download
+              className="inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink-3"
+            >
+              Download corrected sitemap.xml
+            </a>
+            <p className="text-[13px] text-ink-3 tabular">
+              {corrected.urls.length} URLs
+              {corrected.removed ? ` · ${corrected.removed} broken, redirected or hidden removed` : ''}
+              {corrected.added ? ` · ${corrected.added} missing pages added` : ''}
+            </p>
+          </div>
+        ) : null}
       </Card>
     </div>
   );

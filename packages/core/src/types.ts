@@ -162,7 +162,14 @@ export type ReportModel = {
   cwv: { source: 'field' | 'lab'; device: 'mobile'; metrics: CwvMetric[] } | null;
   topIssues: TopIssue[];
   robots: { found: boolean; rows: CheckRow[]; suggested: string };
-  sitemap: { found: boolean; url: string; rows: CheckRow[]; segments: Segment[] };
+  sitemap: {
+    found: boolean;
+    url: string;
+    rows: CheckRow[];
+    segments: Segment[];
+    /** Corrected URL list for the "Download corrected sitemap.xml" button; missing on older reports. */
+    corrected?: { urls: string[]; removed: number; added: number };
+  };
   cards: CheckCard[];
   /** All issues, sorted like topIssues. Missing on reports saved before it existed. */
   issues?: ReportIssue[];
