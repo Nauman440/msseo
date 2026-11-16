@@ -127,20 +127,20 @@ export async function updateAccount(userId: string, patch: AccountPatch): Promis
   await writeFileAccounts(accounts.map((a) => (a.userId === userId ? { ...a, ...patch } : a)));
 }
 
-export type AccountWithUser = Account & { email: string; name: string | null; active: boolean };
+export type AccountWithUser = Account & { email: string; name: string | null; active: boolean; projectId: string | null };
 
 /** For the team's Customers page, newest first. */
 export async function listAccounts(): Promise<AccountWithUser[]> {
   if (dbEnabled()) {
     const rows = await prisma.customerAccount.findMany({ orderBy: { createdAt: 'desc' }, include: { user: { select: { email: true, name: true, active: true } } } });
-    return rows.map((r) => ({ ...fromDb(r), email: r.user.email, name: r.user.name, active: r.user.active }));
+    return rows.map((r) => ({ ...fromDb(r), email: r.user.email, name: r.user.name, active: r.user.active, projectId: r.projectId }));
   }
   const { findUserById } = await import('./users');
   const accounts = (await readFileAccounts()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return Promise.all(
     accounts.map(async (a) => {
       const u = await findUserById(a.userId);
-      return { ...a, email: u?.email ?? '', name: u?.name ?? null, active: u?.active ?? false };
+      return { ...a, email: u?.email ?? '', name: u?.name ?? null, active: u?.active ?? false, projectId: null };
     }),
   );
 }

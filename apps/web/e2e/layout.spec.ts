@@ -11,6 +11,9 @@ const ROUTES = [
   { path: '/audits/demo?mode=expert', heading: 'summitairhvac.com' },
   { path: '/audits/new', heading: 'Audit a website' },
   { path: '/settings/general', heading: 'Audit settings' },
+  { path: '/settings/customers', heading: 'Trials and plans' },
+  { path: '/signup', heading: 'Choose your plan' },
+  { path: '/signup/account?plan=growth', heading: "Let's get you more customers" },
   { path: '/audits/demo/print', heading: 'Summit Air Heating & Cooling' },
   { path: '/dev/components', heading: 'Components' },
 ];

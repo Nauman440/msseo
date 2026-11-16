@@ -110,3 +110,23 @@ export async function deleteAuditAction(auditId: string, projectId: string): Pro
   revalidatePath('/dashboard');
   return { ok: 'Audit deleted.' };
 }
+
+/** Admin: change a customer's status, or extend their trial by 7 days (step 8; no payments yet). */
+export async function updateCustomerAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const { getAccountByUserId, updateAccount } = await import('@/lib/accounts');
+  const userId = String(form.get('userId') ?? '');
+  const account = await getAccountByUserId(userId);
+  if (!account) return { error: 'Customer not found.' };
+  const op = form.get('op');
+  if (op === 'extend') {
+    const from = Math.max(Date.now(), Date.parse(account.trialEndsAt));
+    await updateAccount(userId, { trialEndsAt: new Date(from + 7 * 86_400_000).toISOString(), status: 'trial' });
+  } else if (op === 'active' || op === 'cancelled' || op === 'trial') {
+    await updateAccount(userId, { status: op });
+  } else {
+    return { error: 'Unknown change.' };
+  }
+  revalidatePath('/settings/customers');
+  return { ok: 'Saved.' };
+}

@@ -5,6 +5,7 @@ import type { SessionUser } from '@/lib/session';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/settings/customers', label: 'Customers' },
   { href: '/audits/demo', label: 'Sample report' },
   { href: '/audits/demo/print', label: 'PDF layout' },
 ];

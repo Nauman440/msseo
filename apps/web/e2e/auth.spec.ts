@@ -147,3 +147,91 @@ test('the free report is public, offers the trial, and team audits stay private'
   expect((await request.get('/free/e2e-failed-audit')).status()).toBe(404);
   expect((await request.get('/api/free/e2e-failed-audit/status')).status()).toBe(404);
 });
+
+test('a visitor signs up from the free report and lands on their own dashboard', async ({ page, request }) => {
+  const id = '00000000-0000-4000-8000-00000000f4ee'; // the free audit seeded in the previous test
+  await page.goto(`/free/${id}`);
+  await page.getByRole('link', { name: 'Start 7-day free trial' }).first().click();
+
+  // Choose a plan, then step 1 · About you.
+  await expect(page.getByRole('heading', { name: 'Choose your plan' })).toBeVisible();
+  await page.getByRole('link', { name: 'Start 7-day free trial' }).nth(1).click(); // Growth
+  await expect(page).toHaveURL(/\/signup\/account\?plan=growth&audit=/);
+  await expect(page.getByText('Your free audit for')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Your name').fill('Ghazanfar Ali');
+  await page.getByLabel('Business name').fill('Summit Air');
+  await page.getByLabel('Email').fill('owner@summitair.example');
+  await page.getByLabel('Phone').fill('+1 214 555 0100');
+  await page.getByLabel('Password').fill('summit-air-2026');
+  await page.getByRole('button', { name: 'Create my account' }).click();
+
+  // Step 2 · the website from the free audit is pre-filled.
+  await expect(page).toHaveURL(/\/signup\/website$/);
+  await expect(page.getByRole('heading', { name: 'Hi Ghazanfar, is this your website?' })).toBeVisible();
+  await expect(page.getByLabel('Website address')).toHaveValue('https://summitairhvac.com/');
+  await expect(page.getByText(/Your free audit found \d+ issues?/)).toBeVisible();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  // Step 3 · area.
+  await expect(page).toHaveURL(/\/signup\/area$/);
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Country').fill('United States');
+  const areas = page.getByLabel('Cities and areas you serve', { exact: true });
+  await areas.fill('Dallas');
+  await areas.press('Enter');
+  await areas.fill('Plano');
+  await areas.press('Enter');
+  await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
+  await page.getByText('English', { exact: true }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  // Step 4 · services and competitors.
+  await expect(page).toHaveURL(/\/signup\/services$/);
+  await page.waitForLoadState('networkidle');
+  const services = page.getByLabel('Your services', { exact: true });
+  await services.fill('AC repair');
+  await services.press('Enter');
+  await page.getByLabel(/Competitors you know about/).fill('rival-hvac.com');
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  // Step 5 · connect and approve.
+  await expect(page).toHaveURL(/\/signup\/connect$/);
+  await page.getByText('Search Console', { exact: true }).click();
+  await page.getByText('I allow MSScore to prepare changes to my website').click();
+  await page.getByRole('button', { name: 'Finish setup' }).click();
+
+  // The customer dashboard: their site, the free audit's score, and its report.
+  await expect(page).toHaveURL(/\/my\?welcome=1$/);
+  await expect(page.getByRole('heading', { name: /You are all set, Ghazanfar/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'summitairhvac.com', level: 1 })).toBeVisible();
+  await expect(page.getByText(/Free trial: \d+ days? left/)).toBeVisible();
+  await page.getByRole('link', { name: 'Open the full report' }).click();
+  await expect(page).toHaveURL(new RegExp(`/my/reports/${id}$`));
+  await expect(page.getByRole('link', { name: 'Download .md' })).toBeVisible();
+
+  // Customers stay in their own area and cannot open other sites' audits.
+  await page.goto('/dashboard');
+  await expect(page).toHaveURL(/\/my$/);
+  expect((await page.request.get('/api/audits/e2e-failed-audit/status')).status()).toBe(404);
+  expect((await page.request.get(`/api/audits/${id}/status`)).status()).toBe(200);
+  expect((await request.get('/my')).url()).toMatch(/\/login/); // a visitor without the session
+});
+
+test('the team sees the new customer with their onboarding answers', async ({ page }) => {
+  await page.goto('/login?next=/settings/customers');
+  await page.getByLabel('Email').fill(ADMIN.email);
+  await page.getByLabel('Password').fill(ADMIN.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/settings\/customers/);
+  await expect(page.getByRole('heading', { name: 'Summit Air' })).toBeVisible();
+  await expect(page.getByText('Dallas, Plano', { exact: false })).toBeVisible();
+  await expect(page.getByText('AC repair')).toBeVisible();
+  await expect(page.getByText('Allowed to prepare changes', { exact: false })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Mark active' }).click();
+  await expect(page.getByText('Active', { exact: true })).toBeVisible();
+  // Customers are not team members.
+  await page.goto('/settings/users');
+  await expect(page.getByText('owner@summitair.example')).toHaveCount(0);
+});
