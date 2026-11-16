@@ -1,92 +1,50 @@
 import 'server-only';
-import { runAudit, type NewAuditInput } from '@seo/core';
-import { createAudit, getAudit, saveAudit, type AuditRecord } from './audit-store';
+import { executeAudit, type NewAuditInput } from '@seo/core';
+import { enqueueAudit } from '@seo/db/queue';
+import { createAudit, getAudit, saveAudit, usingDatabase, type AuditRecord } from './audit-store';
 import { providerConfig } from './providers-config';
 
 /**
- * Local runner: audits run inside the web process (no Redis needed). With REDIS_URL
- * set, Phase 1 enqueues a BullMQ job here instead and apps/worker runs the same runAudit().
+ * Starts audits. With USE_WORKER=1 (plus Postgres and Redis) each audit becomes a
+ * BullMQ job that apps/worker runs, so audits survive web restarts and redeploys.
+ * Otherwise it runs inside this process (local development, or before a worker exists).
  */
 const running = ((globalThis as { __auditJobs?: Set<string> }).__auditJobs ??= new Set<string>());
+
+export const workerMode = () => process.env.USE_WORKER === '1' && Boolean(process.env.REDIS_URL) && usingDatabase();
 
 export class ConfigError extends Error {}
 
 export async function startAudit(input: NewAuditInput, createdById?: string | null): Promise<AuditRecord> {
   const { env } = providerConfig();
-  if (!env) throw new ConfigError('DataForSEO login and password are missing from .env.');
+  if (!env) throw new ConfigError('DataForSEO login and password are missing from the server environment.');
 
   const record = await createAudit(input, createdById);
+  if (workerMode()) {
+    await enqueueAudit(record.id);
+    return record;
+  }
   running.add(record.id);
-
-  // Progress writes are serialised so they never overwrite each other out of order.
-  let chain = Promise.resolve();
-  const update = (mutate: (r: AuditRecord) => void) => {
-    chain = chain.then(async () => {
-      mutate(record);
-      await saveAudit(record);
-    });
-    return chain;
-  };
-
-  void runAudit(record.id, input, env, (u) =>
-    update((r) => {
-      r.progress = Math.max(r.progress, u.progress);
-      const step = r.steps.find((s) => s.id === u.step);
-      if (!step) return;
-      const now = new Date().toISOString();
-      step.startedAt ??= now;
-      if (u.state !== 'running' && u.state !== 'queued') step.finishedAt = now;
-      Object.assign(step, { state: u.state, detail: u.detail });
-    }),
-  )
-    .then(async ({ report, cost, finishAi }) => {
-      // The report is shown as soon as it is built; AI recommendations follow.
-      await update((r) => {
-        const finishedAt = new Date().toISOString();
-        const durationSeconds = Math.round((Date.parse(finishedAt) - Date.parse(r.createdAt)) / 1000);
-        Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: cost, finishedAt });
-      });
-      if (!finishAi) return;
-      const ai = await finishAi();
-      await update((r) => {
-        if (r.report) r.report = { ...r.report, ...(ai ? { ai } : {}), aiPending: false };
-      });
-    })
-    .catch((err: unknown) =>
-      update((r) => {
-        const step = r.steps.find((s) => s.state === 'running');
-        if (step) step.state = 'failed';
-        Object.assign(r, { status: 'failed', error: friendlyError(err), finishedAt: new Date().toISOString() });
-      }),
-    )
-    .finally(() => running.delete(record.id));
-
+  void executeAudit(record, env, saveAudit).finally(() => running.delete(record.id));
   return record;
 }
 
-/** Whether this process is still working on the audit (false after a restart). */
-export const isAuditActive = (id: string) => running.has(id);
+/** Whether the audit is still being worked on (in worker mode the worker owns that, so yes). */
+export const isAuditActive = (id: string) => workerMode() || running.has(id);
 
-/** A running audit whose job is gone (server restarted) is reported as interrupted. */
+/** In-process mode: an audit left running by a restart is reported as interrupted. */
 export async function getAuditStatus(id: string): Promise<AuditRecord | null> {
   const record = await getAudit(id);
+  if (!record || workerMode() || running.has(id)) return record;
   // AI recommendations were still being written when the app restarted: stop waiting.
-  if (record?.status === 'completed' && record.report?.aiPending && !running.has(id)) {
+  if (record.status === 'completed' && record.report?.aiPending) {
     record.report = { ...record.report, aiPending: false };
     await saveAudit(record);
   }
-  if (record?.status === 'running' && !running.has(id)) {
+  if (record.status === 'running') {
     record.status = 'failed';
     record.error = 'The audit was interrupted (the app restarted). Please run it again.';
     await saveAudit(record);
   }
   return record;
-}
-
-function friendlyError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (/401|unauthori|40100|40101/i.test(msg)) return 'DataForSEO rejected the login. Check DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD in .env (use the API password, not the website password).';
-  if (/402|40200|balance|insufficient/i.test(msg)) return 'DataForSEO account balance is too low to run this audit.';
-  if (/fetch failed|ENOTFOUND|ECONNREFUSED|timeout/i.test(msg)) return `Could not reach a service: ${msg}`;
-  return msg;
 }

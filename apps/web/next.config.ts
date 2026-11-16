@@ -16,15 +16,23 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: resolve(process.cwd(), '../..'),
   transpilePackages: ['@seo/core', '@seo/db'],
   // Playwright launches a browser binary; it must stay a runtime require, not be bundled.
-  serverExternalPackages: ['playwright', 'playwright-core'],
+  // BullMQ loads its Lua scripts from disk, so it must stay a runtime require too.
+  serverExternalPackages: ['playwright', 'playwright-core', 'bullmq'],
   // Playwright loads parts of itself dynamically, which file tracing can miss;
   // ship the whole package with the PDF route in the standalone (Docker) build.
   outputFileTracingIncludes: {
     '/api/audits/[id]/pdf': ['../../node_modules/.pnpm/playwright*/**/*'],
     // Prisma loads its query engine (.so.node) dynamically, which tracing misses in a pnpm monorepo.
-    '/**/*': ['../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/**/*'],
+    // BullMQ's Lua command files are read at runtime (audits are queued from server actions).
+    '/**/*': ['../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/**/*', '../../node_modules/.pnpm/bullmq@*/node_modules/bullmq/dist/**/*'],
   },
   poweredByHeader: false,
+  // serverExternalPackages does not reach packages compiled via transpilePackages
+  // (@seo/db imports BullMQ), so keep BullMQ out of the server bundle explicitly.
+  webpack: (config, { isServer }) => {
+    if (isServer) config.externals = [...(config.externals ?? []), 'bullmq'];
+    return config;
+  },
   // Inline the (small, ~8 KB gzipped) stylesheet into the HTML so it is not a
   // render-blocking request (our own rule 1.8.4 flagged msseo.tech for it).
   experimental: { inlineCss: true },

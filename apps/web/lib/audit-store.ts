@@ -1,29 +1,19 @@
 import 'server-only';
-import { randomUUID } from 'node:crypto';
-import { AUDIT_STEPS, type NewAuditInput } from '@seo/core';
+import { newAuditRecord, type AuditRecord, type NewAuditInput } from '@seo/core';
 import * as dbStore from './store-db';
 import * as fileStore from './store-file';
-import type { AuditRecord } from './store-file';
 
 /**
- * Audit storage. Postgres (Prisma) when DATABASE_URL is set, which is always the case
- * on the server; otherwise JSON files in .data/audits, so tests and machines without a
- * database keep working. Callers never need to know which one is active.
+ * Audit storage. Postgres (Prisma, shared with apps/worker) when DATABASE_URL is set,
+ * which is always the case on the server; otherwise JSON files in .data/audits, so
+ * tests and machines without a database keep working.
  */
-export type { AuditRecord } from './store-file';
+export type { AuditRecord } from '@seo/core';
 
 export const usingDatabase = () => Boolean(process.env.DATABASE_URL);
 
 export async function createAudit(input: NewAuditInput, createdById?: string | null): Promise<AuditRecord> {
-  const record: AuditRecord = {
-    id: randomUUID(),
-    input,
-    ...(createdById ? { createdById } : {}),
-    status: 'running',
-    progress: 0,
-    steps: AUDIT_STEPS.map((s) => ({ id: s.id, label: s.label, state: 'queued' })),
-    createdAt: new Date().toISOString(),
-  };
+  const record = newAuditRecord(input, createdById);
   await (usingDatabase() ? dbStore.createAudit(record) : fileStore.saveAudit(record));
   return record;
 }

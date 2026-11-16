@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@seo/core": "workspace:*",
+    "@seo/db": "workspace:^",
     "bullmq": "^5.34.0",
     "ioredis": "^5.4.2",
     "pino": "^9.5.0",

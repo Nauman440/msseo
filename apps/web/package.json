@@ -15,6 +15,7 @@
     "@seo/core": "workspace:*",
     "@seo/db": "workspace:*",
     "bcryptjs": "3.0.3",
+    "bullmq": "^5.34.0",
     "ioredis": "5.11.1",
     "next": "^15.3.0",
     "next-auth": "5.0.0-beta.32",
