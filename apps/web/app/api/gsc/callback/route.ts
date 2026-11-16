@@ -2,15 +2,13 @@ import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { exchangeGscCode } from '@seo/core';
 import { saveGscConnection } from '@seo/db';
-import { googleOAuth, GSC_STATE_COOKIE } from '@/lib/google-oauth';
+import { googleOAuth, GSC_STATE_COOKIE, publicOrigin } from '@/lib/google-oauth';
 import { getSessionUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
 const back = (req: NextRequest, query: string) => {
-  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
-  const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '');
-  const res = NextResponse.redirect(new URL(`/settings/search-console?${query}`, host ? `${proto}://${host}` : req.url));
+  const res = NextResponse.redirect(new URL(`/settings/search-console?${query}`, publicOrigin(req.headers)));
   res.cookies.delete({ name: GSC_STATE_COOKIE, path: '/api/gsc' });
   return res;
 };

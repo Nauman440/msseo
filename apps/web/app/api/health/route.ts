@@ -1,10 +1,11 @@
-import { prisma } from '@seo/db';
+import { gscSetup, prisma } from '@seo/db';
 import { workerMode } from '@/lib/audit-runner';
 
 /**
  * GET /api/health — liveness check for Coolify/Docker. Public; reveals only whether the
  * database answers and how audits run (in the worker, with how many workers connected,
- * or inside the web app). Always 200, so a database or Redis hiccup never restarts the app.
+ * or inside the web app), and whether Search Console is configured on this app (yes/no only,
+ * never which setting is missing). Always 200, so a database or Redis hiccup never restarts the app.
  */
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,8 @@ export async function GET() {
       database = 'error';
     }
   }
-  if (!workerMode()) return Response.json({ ok: true, database, audits: 'in-process' });
+  const searchConsole = gscSetup().ready ? 'configured' : 'not configured';
+  if (!workerMode()) return Response.json({ ok: true, database, searchConsole, audits: 'in-process' });
 
   let workers: number | 'error';
   try {
@@ -30,5 +32,5 @@ export async function GET() {
   } catch {
     workers = 'error';
   }
-  return Response.json({ ok: true, database, audits: 'worker', workers });
+  return Response.json({ ok: true, database, searchConsole, audits: 'worker', workers });
 }

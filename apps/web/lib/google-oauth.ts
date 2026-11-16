@@ -9,13 +9,18 @@ import type { GoogleOAuth } from '@seo/core';
  */
 export function googleOAuth(headers: Headers): GoogleOAuth {
   const fixed = process.env.GOOGLE_REDIRECT_URI?.trim();
-  const host = headers.get('x-forwarded-host') ?? headers.get('host') ?? 'localhost:3005';
-  const proto = headers.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
   return {
     clientId: process.env.GOOGLE_CLIENT_ID?.trim() ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() ?? '',
-    redirectUri: fixed || `${proto.split(',')[0]}://${host.split(',')[0]}/api/gsc/callback`,
+    redirectUri: fixed || `${publicOrigin(headers)}/api/gsc/callback`,
   };
+}
+
+/** The address visitors use (behind Coolify's proxy the request URL is the container's). */
+export function publicOrigin(headers: Headers): string {
+  const host = (headers.get('x-forwarded-host') ?? headers.get('host') ?? 'localhost:3005').split(',')[0]!.trim();
+  const proto = (headers.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')).split(',')[0]!.trim();
+  return `${proto}://${host}`;
 }
 
 export const GSC_STATE_COOKIE = 'gsc_oauth_state';
