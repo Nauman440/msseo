@@ -31,3 +31,19 @@ export async function enqueueAudit(auditId: string, attempt = 0): Promise<void> 
 export async function auditWorkerCount(): Promise<number> {
   return auditQueue().getWorkersCount();
 }
+
+/** Scheduled jobs (step 8): the weekly customer re-audit, Mondays 06:00 UTC. */
+export const SCHEDULE_QUEUE = 'schedules';
+export const WEEKLY_CUSTOMER_AUDITS = 'weekly-customer-audits';
+
+/** Creates or updates the weekly schedule (idempotent; called when the worker starts). */
+export async function ensureWeeklySchedule(): Promise<void> {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL is not set');
+  const queue = new Queue(SCHEDULE_QUEUE, { connection: redisConnection(url) });
+  try {
+    await queue.upsertJobScheduler(WEEKLY_CUSTOMER_AUDITS, { pattern: '0 6 * * 1', tz: 'UTC' }, { name: WEEKLY_CUSTOMER_AUDITS });
+  } finally {
+    await queue.close();
+  }
+}

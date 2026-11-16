@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, redisConnection, type AuditJobData } from '@seo/db/queue';
+import { createWeeklyCustomerAudit, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
+import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { renderPdfBytes } from './pdf/render';
 
 /**
@@ -59,11 +59,31 @@ const worker = new Worker<AuditJobData>(
 );
 
 worker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'audit job failed'));
+
+// Weekly customer re-audit (step 8): one audit per due customer, queued like any other.
+const scheduler = new Worker(
+  SCHEDULE_QUEUE,
+  async (job) => {
+    if (job.name !== WEEKLY_CUSTOMER_AUDITS) return;
+    const due = await dueCustomerSites();
+    for (const account of due) {
+      try {
+        await enqueueAudit(await createWeeklyCustomerAudit(account));
+      } catch (err) {
+        log.error({ accountId: account.id, err: err instanceof Error ? err.message : String(err) }, 'weekly audit not queued');
+      }
+    }
+    log.info({ customers: due.length }, 'weekly customer audits queued');
+  },
+  { connection, concurrency: 1 },
+);
+scheduler.on('error', (err) => log.error({ err }, 'scheduler error'));
+ensureWeeklySchedule().catch((err: unknown) => log.error({ err: err instanceof Error ? err.message : String(err) }, 'weekly schedule not set'));
 worker.on('error', (err) => log.error({ err }, 'worker error'));
 
 const shutdown = async () => {
   log.info('shutting down');
-  await worker.close(); // waits for running audits to finish their current step
+  await Promise.all([worker.close(), scheduler.close()]); // running audits finish their current step
   await connection.quit();
   await prisma.$disconnect();
   process.exit(0);

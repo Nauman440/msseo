@@ -57,11 +57,12 @@ type Props = {
   typical: { seconds: number; samples: number } | null;
   initial: ProgressSnapshot;
   /** Public free audits poll their own endpoint and offer "try again" instead of a retry (step 8). */
-  variant?: 'team' | 'public';
+  variant?: 'team' | 'public' | 'customer';
 };
 
 export function AuditProgress({ id, url, pageLimit, typical, initial, variant = 'team' }: Props) {
   const isPublic = variant === 'public';
+  const isCustomer = variant === 'customer';
   const router = useRouter();
   const [snap, setSnap] = useState(initial);
   const [retryState, retry, retrying] = useActionState(retryAuditAction.bind(null, id), {});
@@ -132,7 +133,11 @@ export function AuditProgress({ id, url, pageLimit, typical, initial, variant = 
           <div className="mt-6 rounded-tile border border-fail-text/20 bg-fail-bg p-4">
             <p className="text-sm font-medium text-fail-text">{snap.error ?? 'Something went wrong.'}</p>
             {retryState.error && <p role="alert" className="mt-2 text-sm text-fail-text">{retryState.error}</p>}
-            {isPublic ? (
+            {isCustomer ? (
+              <Link href="/my" className="mt-3 inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover">
+                Back to your dashboard
+              </Link>
+            ) : isPublic ? (
               <Link href={`/free?url=${encodeURIComponent(url)}`} className="mt-3 inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover">
                 Try again
               </Link>
@@ -151,7 +156,7 @@ export function AuditProgress({ id, url, pageLimit, typical, initial, variant = 
           </div>
         )}
       </section>
-      {!failed && !isPublic && <p className="mt-4 text-[13px] text-ink-3">You can leave this page — the audit keeps running and appears on the overview when it’s done.</p>}
+      {!failed && variant === 'team' && <p className="mt-4 text-[13px] text-ink-3">You can leave this page — the audit keeps running and appears on the overview when it’s done.</p>}
     </div>
   );
 }
