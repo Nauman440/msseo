@@ -9,22 +9,27 @@ WORKDIR /repo
 
 FROM base AS build
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile && pnpm --filter @seo/db generate
 ENV NEXT_TELEMETRY_DISABLED=1 NEXT_OUTPUT_STANDALONE=1
 RUN pnpm --filter @seo/web build
 
 FROM mcr.microsoft.com/playwright:v1.65.0-noble AS run
 WORKDIR /app
-# DATA_DIR holds the audit JSON files until Postgres is wired in (Phase 1).
-# Mount a Coolify persistent volume at /data so audits survive redeploys.
+# Audits live in Postgres (DATABASE_URL). DATA_DIR keeps the pre-database JSON audits,
+# which are imported into Postgres once; keep the /data volume mounted until then.
 # REQUIRE_PREVIEW_PASSWORD makes the app refuse traffic until PREVIEW_PASSWORD is set.
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data REQUIRE_PREVIEW_PASSWORD=1
 RUN mkdir -p /data && chown pwuser:pwuser /data
+# Prisma CLI for `migrate deploy` at start-up (version must match packages/db).
+# `prisma --version` downloads its engines now, as root: at runtime the app user cannot write there.
+RUN npm install -g prisma@6.19.3 && prisma --version
 COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=pwuser:pwuser /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=pwuser:pwuser /repo/apps/web/public ./apps/web/public
+COPY --from=build --chown=pwuser:pwuser /repo/packages/db/prisma ./prisma
 USER pwuser
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-CMD ["node", "apps/web/server.js"]
+# Apply pending database migrations (no-op when up to date), then start the app.
+CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy --schema=prisma/schema.prisma; fi && exec node apps/web/server.js"]

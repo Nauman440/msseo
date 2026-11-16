@@ -20,6 +20,9 @@ importers:
       '@seo/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@seo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       next:
         specifier: ^15.3.0
         version: 15.5.29(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

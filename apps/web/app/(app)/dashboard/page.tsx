@@ -4,7 +4,8 @@ import { RecentAudits } from '@/components/home/RecentAudits';
 import { CategoryGrid, ModuleRoadmap } from '@/components/home/Coverage';
 import { StatTile } from '@/components/ui/StatTile';
 import { modules, recentAudits, teamStats, type RecentAudit } from '@/lib/home-data';
-import { listAudits, type AuditRecord } from '@/lib/audit-store';
+import { ProjectList } from '@/components/home/ProjectList';
+import { listAudits, listProjects, type AuditRecord } from '@/lib/audit-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,8 @@ function SectionHeading({ eyebrow, title, aside }: { eyebrow: string; title: str
 }
 
 export default async function HomePage() {
-  const real = (await listAudits(10)).map(toRow);
+  const [audits, projects] = await Promise.all([listAudits(10), listProjects()]);
+  const real = audits.map(toRow);
   // Real audits first; the demo row stays so the sample report is always one click away.
   const rows = real.length ? [...real, recentAudits[0]!] : recentAudits;
   return (
@@ -50,6 +52,13 @@ export default async function HomePage() {
             <StatTile key={s.label} value={s.value} label={s.label} hint={s.hint} variant="raised" />
           ))}
         </section>
+
+        {projects && (
+          <section className="pt-16" aria-labelledby="projects-heading">
+            <SectionHeading eyebrow="Projects" title="Client websites" aside={<p id="projects-heading" className="text-[13px] text-ink-3">One project per domain, created by its first audit</p>} />
+            <ProjectList projects={projects} />
+          </section>
+        )}
 
         <section className="pt-16">
           <SectionHeading

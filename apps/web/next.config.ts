@@ -14,13 +14,15 @@ const nextConfig: NextConfig = {
   // Monorepo root, so the standalone build is laid out as apps/web/server.js
   // (what apps/web/Dockerfile runs) and workspace packages are traced.
   outputFileTracingRoot: resolve(process.cwd(), '../..'),
-  transpilePackages: ['@seo/core'],
+  transpilePackages: ['@seo/core', '@seo/db'],
   // Playwright launches a browser binary; it must stay a runtime require, not be bundled.
   serverExternalPackages: ['playwright', 'playwright-core'],
   // Playwright loads parts of itself dynamically, which file tracing can miss;
   // ship the whole package with the PDF route in the standalone (Docker) build.
   outputFileTracingIncludes: {
     '/api/audits/[id]/pdf': ['../../node_modules/.pnpm/playwright*/**/*'],
+    // Prisma loads its query engine (.so.node) dynamically, which tracing misses in a pnpm monorepo.
+    '/**/*': ['../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/**/*'],
   },
   poweredByHeader: false,
   // Inline the (small, ~8 KB gzipped) stylesheet into the HTML so it is not a
