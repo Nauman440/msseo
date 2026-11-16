@@ -79,6 +79,25 @@ export default async function GeneralSettingsPage() {
               <span className={HINT}>About 3× slower and 10× the crawl cost; only needed for JS-built sites.</span>
             </span>
           </label>
+
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="sr-only">Free audits</legend>
+            <p className="mb-3 font-display text-base font-bold">Free audits from the website</p>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input type="checkbox" name="public.enabled" defaultChecked={s['public.enabled']} className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="block text-sm font-semibold">Visitors can run free audits</span>
+                  <span className={HINT}>Quick audits of up to 10 pages, 3 per visitor per day, behind Cloudflare Turnstile.</span>
+                </span>
+              </label>
+              <label className={LABEL}>
+                Free audits per day (all visitors)
+                <input name="public.dailyCap" type="number" min={0} max={1000} defaultValue={s['public.dailyCap']} className={`${INPUT} tabular`} />
+                <span className={HINT}>Spending cap: further visitors are asked to come back tomorrow. 0 pauses free audits.</span>
+              </label>
+            </div>
+          </fieldset>
         </ActionForm>
       </section>
 

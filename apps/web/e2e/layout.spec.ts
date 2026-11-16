@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 const ROUTES = [
   { path: '/', heading: /Get more customers from Google/i },
   { path: '/privacy', heading: 'Privacy Policy' },
+  { path: '/free', heading: 'See what is holding your website back' },
   { path: '/terms', heading: 'Terms of Service' },
   { path: '/dashboard', heading: /holding a site back/i },
   { path: '/audits/demo', heading: 'summitairhvac.com' },

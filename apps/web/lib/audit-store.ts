@@ -24,3 +24,12 @@ export const listAudits = (limit?: number) => (usingDatabase() ? dbStore.listAud
 
 /** Projects (client domains) with audit counts; null without a database. */
 export const listProjects = (limit?: number) => (usingDatabase() ? dbStore.listProjects(limit) : Promise.resolve(null));
+
+/** Free (public) audits started since `since`, for the daily spending cap (step 8). */
+export async function countPublicAuditsSince(since: Date): Promise<number> {
+  if (usingDatabase()) {
+    const { prisma } = await import('@seo/db');
+    return prisma.audit.count({ where: { source: 'public', createdAt: { gte: since } } });
+  }
+  return (await fileStore.listAudits(5000)).filter((r) => r.input.source === 'public' && Date.parse(r.createdAt) >= since.getTime()).length;
+}

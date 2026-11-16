@@ -56,9 +56,12 @@ type Props = {
   /** Median duration of earlier audits with the same page limit. */
   typical: { seconds: number; samples: number } | null;
   initial: ProgressSnapshot;
+  /** Public free audits poll their own endpoint and offer "try again" instead of a retry (step 8). */
+  variant?: 'team' | 'public';
 };
 
-export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
+export function AuditProgress({ id, url, pageLimit, typical, initial, variant = 'team' }: Props) {
+  const isPublic = variant === 'public';
   const router = useRouter();
   const [snap, setSnap] = useState(initial);
   const [retryState, retry, retrying] = useActionState(retryAuditAction.bind(null, id), {});
@@ -69,7 +72,7 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
     if (snap.status !== 'running') return;
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/audits/${id}/status`, { cache: 'no-store' });
+        const res = await fetch(isPublic ? `/api/free/${id}/status` : `/api/audits/${id}/status`, { cache: 'no-store' });
         if (!res.ok) return;
         const next = (await res.json()) as ProgressSnapshot;
         setSnap(next);
@@ -79,7 +82,7 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
       }
     }, 3000);
     return () => clearInterval(timer);
-  }, [id, router, snap.status]);
+  }, [id, isPublic, router, snap.status]);
 
   const failed = snap.status === 'failed';
   return (
@@ -129,6 +132,11 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
           <div className="mt-6 rounded-tile border border-fail-text/20 bg-fail-bg p-4">
             <p className="text-sm font-medium text-fail-text">{snap.error ?? 'Something went wrong.'}</p>
             {retryState.error && <p role="alert" className="mt-2 text-sm text-fail-text">{retryState.error}</p>}
+            {isPublic ? (
+              <Link href={`/free?url=${encodeURIComponent(url)}`} className="mt-3 inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover">
+                Try again
+              </Link>
+            ) : (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <form action={retry}>
                 <button type="submit" disabled={retrying} className="inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover disabled:opacity-60">
@@ -139,10 +147,11 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
                 Change settings
               </Link>
             </div>
+            )}
           </div>
         )}
       </section>
-      {!failed && <p className="mt-4 text-[13px] text-ink-3">You can leave this page — the audit keeps running and appears on the overview when it’s done.</p>}
+      {!failed && !isPublic && <p className="mt-4 text-[13px] text-ink-3">You can leave this page — the audit keeps running and appears on the overview when it’s done.</p>}
     </div>
   );
 }

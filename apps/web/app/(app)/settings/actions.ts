@@ -90,6 +90,8 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'crawl.enableJsDefault': form.get('crawl.enableJsDefault') === 'on',
     'lighthouse.maxTemplates': form.get('lighthouse.maxTemplates'),
     'report.maxExampleUrlsClient': form.get('report.maxExampleUrlsClient'),
+    'public.enabled': form.get('public.enabled') === 'on',
+    'public.dailyCap': form.get('public.dailyCap'),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const { saveSettings } = await import('@seo/db');

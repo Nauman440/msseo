@@ -14,6 +14,9 @@ export const settingsSchema = z
     'crawl.enableJsDefault': z.coerce.boolean().default(false),
     'lighthouse.maxTemplates': z.coerce.number().int().min(1, 'At least 1').max(6, 'At most 6').default(6),
     'report.maxExampleUrlsClient': z.coerce.number().int().min(1, 'At least 1').max(50, 'At most 50').default(5),
+    /** Public free audits from the landing page (step 8): on/off and a daily spending cap. */
+    'public.enabled': z.coerce.boolean().default(true),
+    'public.dailyCap': z.coerce.number().int().min(0, 'At least 0').max(1000, 'At most 1000').default(30),
   })
   .refine((s) => s['crawl.defaultLimit'] <= s['crawl.maxLimit'], { message: 'The default page limit cannot be above the maximum', path: ['crawl.defaultLimit'] });
 

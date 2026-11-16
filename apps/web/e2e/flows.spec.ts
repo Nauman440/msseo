@@ -79,14 +79,14 @@ test('unknown audit returns 404', async ({ page }) => {
   expect(res?.status()).toBe(404);
 });
 
-test('landing page is public, indexable and sends the URL into the audit tool', async ({ page }) => {
+test('landing page is public, indexable and sends the URL into the free audit', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /index, follow/);
   await expect(page.getByText('Coming soon').first()).toBeVisible();
   await page.getByLabel('Enter your website to start').fill('clientsite.com');
   await page.getByRole('button', { name: 'Show me what to fix' }).click();
-  await expect(page).toHaveURL(/\/audits\/new\?url=clientsite\.com/);
-  await expect(page.getByLabel('Website URL')).toHaveValue('clientsite.com');
+  await expect(page).toHaveURL(/\/free\?url=clientsite\.com/);
+  await expect(page.getByLabel('Your website')).toHaveValue('clientsite.com');
 });
 
 test('reports without a Search Console property never mention it', async ({ page }) => {
@@ -144,4 +144,20 @@ test('robots.txt and corrected sitemap.xml download from the report', async ({ p
   const sitemap = await request.get('/api/audits/demo/sitemap');
   expect(sitemap.headers()['content-type']).toContain('application/xml');
   expect((await sitemap.text()).match(/<loc>/g)).toHaveLength(8);
+});
+
+test('a visitor runs a free audit from the landing page', async ({ page }) => {
+  await page.goto('/');
+  // The landing page's website boxes lead to the public free audit, pre-filled.
+  const box = page.getByRole('textbox').first();
+  await box.fill('https://msscore-e2e-free.invalid/');
+  await box.press('Enter');
+  await expect(page).toHaveURL(/\/free\?url=/);
+  await expect(page.getByLabel('Your website')).toHaveValue('https://msscore-e2e-free.invalid/');
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Run my free audit' }).click();
+  // The address cannot exist, so the audit stops at the first DNS lookup (no paid API is called).
+  await expect(page).toHaveURL(/\/free\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole('link', { name: 'Try again' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole('button', { name: /Retry/ })).toHaveCount(0);
 });

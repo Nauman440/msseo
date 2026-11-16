@@ -7,8 +7,8 @@ const BUTTON =
   'min-h-[54px] shrink-0 rounded-button bg-primary px-[30px] text-base font-extrabold text-primary-ink transition-colors hover:bg-primary-hover';
 
 /**
- * Website box from the homepage design. A plain GET form into the audit tool
- * (/audits/new?url=…), so it works without JavaScript. `layout`: 'row' puts the
+ * Website box from the homepage design. A plain GET form into the free audit
+ * (/free?url=…), so it works without JavaScript. `layout`: 'row' puts the
  * button beside the input on wide screens, 'stack' puts it underneath.
  */
 export function AuditForm({

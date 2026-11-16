@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema } f
 
 describe('admin settings', () => {
   it('uses the spec defaults', () => {
-    expect(DEFAULT_SETTINGS).toEqual({ 'crawl.defaultLimit': 10, 'crawl.maxLimit': 50, 'crawl.enableJsDefault': false, 'lighthouse.maxTemplates': 6, 'report.maxExampleUrlsClient': 5 });
+    expect(DEFAULT_SETTINGS).toEqual({ 'crawl.defaultLimit': 10, 'crawl.maxLimit': 50, 'crawl.enableJsDefault': false, 'lighthouse.maxTemplates': 6, 'report.maxExampleUrlsClient': 5, 'public.enabled': true, 'public.dailyCap': 30 });
   });
 
   it('merges stored values and ignores invalid ones', () => {

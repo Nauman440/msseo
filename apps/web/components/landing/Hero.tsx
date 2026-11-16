@@ -6,12 +6,12 @@ import { ComingSoon, Container, CtaLink } from './primitives';
 import { SampleScore } from './SampleScore';
 
 const NAV = [
-  { href: '#outcomes', label: 'Why it works' },
-  { href: '#how', label: 'How it works' },
-  { href: '#automation', label: 'Automation' },
-  { href: '#team', label: 'Your team' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#outcomes', label: 'Why it works' },
+  { href: '/#how', label: 'How it works' },
+  { href: '/#automation', label: 'Automation' },
+  { href: '/#team', label: 'Your team' },
+  { href: '/#pricing', label: 'Pricing' },
+  { href: '/#faq', label: 'FAQ' },
 ];
 
 const STATS: { value: string; label: string; soon?: boolean }[] = [

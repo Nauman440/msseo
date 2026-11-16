@@ -11,8 +11,8 @@ export const COMPANY = { name: 'Morosoft Technologies', url: 'https://morosoft.c
 export const SITE_DESCRIPTION =
   'MSScore is a free SEO audit tool by Morosoft. It checks technical SEO, on-page SEO, speed, mobile and AI search readiness, gives your website a health score and a prioritised list of what to fix first.';
 
-/** Where audit CTAs go. The audit tool is team-only for now (public free audit comes later). */
-export const AUDIT_HREF = '/audits/new';
+/** Landing-page audit boxes and buttons: the public free audit (step 8). The team uses /audits/new. */
+export const AUDIT_HREF = '/free';
 
 /** "Talk to our team", "Book a call", footer Contact. */
 export const CONTACT_HREF = process.env.NEXT_PUBLIC_CONTACT_URL || 'https://morosoft.com/';

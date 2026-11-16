@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { sampleReport } from '@seo/core';
 import { signPrintToken } from '@seo/core/print-token';
 import { AUTH_DATA, E2E_ENCRYPTION_KEY, E2E_PREVIEW_PASSWORD } from '../playwright.config';
 
@@ -121,4 +122,28 @@ test('a signed print link opens one report for the PDF email, and nothing else',
   // The token is bound to its audit and to the print page.
   expect((await request.get(`/audits/other/print?pdf_token=${encodeURIComponent(token)}`, opts)).status()).toBe(401);
   expect((await request.get(`/audits/demo?pdf_token=${encodeURIComponent(token)}`, opts)).status()).toBe(307);
+});
+
+test('the free report is public, offers the trial, and team audits stay private', async ({ page, request }) => {
+  const id = '00000000-0000-4000-8000-00000000f4ee';
+  const report = { ...sampleReport, auditId: id };
+  const record = {
+    id,
+    input: { url: 'https://www.summitairhvac.com/', audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, aiRecommendations: false, gscProperty: null, gscRangeDays: 90, source: 'public' },
+    status: 'completed', progress: 100, steps: [], report, createdAt: '2026-11-16T00:00:00.000Z', finishedAt: '2026-11-16T00:01:00.000Z',
+  };
+  await mkdir(resolve(AUTH_DATA, 'audits'), { recursive: true });
+  await writeFile(resolve(AUTH_DATA, 'audits', `${id}.json`), JSON.stringify(record));
+
+  await page.goto(`/free/${id}`);
+  await expect(page.getByRole('heading', { name: 'summitairhvac.com', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start 7-day free trial' }).first()).toHaveAttribute('href', `/signup?audit=${id}`);
+  // Expert-only content and team actions are not part of the free report.
+  await expect(page.getByText('1.3.2', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Download .md' })).toHaveCount(0);
+
+  // The same audit is not reachable through the team routes without a login, and a team audit is not public.
+  expect((await request.get(`/api/audits/${id}/status`)).status()).toBe(401);
+  expect((await request.get('/free/e2e-failed-audit')).status()).toBe(404);
+  expect((await request.get('/api/free/e2e-failed-audit/status')).status()).toBe(404);
 });
