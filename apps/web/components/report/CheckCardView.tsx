@@ -4,7 +4,7 @@ import { IssueBadge } from '@/components/ui/Pills';
 import { HBarList } from './HBarList';
 import { QuickWinsScatter } from './QuickWinsScatter';
 import { StackedBar } from './StackedBar';
-import { StatusRow } from './StatusRow';
+import { StatusRow, type RowExtras } from './StatusRow';
 
 const RANK: Record<RuleStatus, number> = { fail: 3, warn: 2, info: 1, manual: 1, skipped: 0, pass: 0 };
 
@@ -24,7 +24,7 @@ export function isCardVisible(card: CheckCard, mode: Audience): boolean {
   return visibleRows(card, mode).some((r) => r.status === 'fail' || r.status === 'warn');
 }
 
-export function CheckCardView({ card, mode }: { card: CheckCard; mode: Audience }) {
+export function CheckCardView({ card, mode, extras }: { card: CheckCard; mode: Audience; extras?: RowExtras }) {
   const rows = visibleRows(card, mode);
   const issues = rows.filter((r) => r.status === 'fail' || r.status === 'warn').length;
   return (
@@ -38,7 +38,7 @@ export function CheckCardView({ card, mode }: { card: CheckCard; mode: Audience 
       {card.chart?.kind === 'scatter' && mode === 'expert' && <QuickWinsScatter {...card.chart} />}
       <ul>
         {rows.map((row) => (
-          <StatusRow key={row.ruleId} row={row} mode={mode} />
+          <StatusRow key={row.ruleId} row={row} mode={mode} extras={extras} />
         ))}
       </ul>
     </Card>

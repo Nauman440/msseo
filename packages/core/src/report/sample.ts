@@ -228,3 +228,20 @@ export const sampleReport: ReportModel = {
     },
   ],
 };
+
+// Full issue list for two of the top issues, so the demo shows the Expert URL list and CSV export.
+const SAMPLE_URLS: Record<string, string[]> = {
+  '1.5.1': ['/services/duct-cleaning-old/', '/blog/2019-ac-rebates/', '/areas/old-plano/', '/specials/spring-2021/'],
+  '2.1.2': ['/', '/services/', '/services/ac-repair/', '/services/heating/', '/areas/plano/', '/areas/frisco/', '/areas/allen/', '/areas/mckinney/', '/blog/', '/blog/furnace-tips/', '/about/', '/contact/'],
+};
+sampleReport.issues = sampleReport.topIssues
+  .filter((t) => SAMPLE_URLS[t.ruleId])
+  .map((t) => ({
+    ...t,
+    status: 'fail' as const,
+    message: t.sub,
+    explain: t.sub,
+    fix: t.sub,
+    affectedCount: SAMPLE_URLS[t.ruleId]!.length,
+    urls: SAMPLE_URLS[t.ruleId]!.map((p) => `https://www.summitairhvac.com${p}`),
+  }));

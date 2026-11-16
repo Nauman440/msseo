@@ -116,3 +116,20 @@ test('unknown project returns 404', async ({ page }) => {
   const res = await page.goto('/projects/does-not-exist');
   expect(res?.status()).toBe(404);
 });
+
+test('expert mode lists every affected URL and exports CSV', async ({ page, request }) => {
+  await page.goto('/audits/demo?mode=client');
+  await expect(page.getByText('All 12 affected')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Issues CSV' })).toHaveCount(0);
+
+  await page.goto('/audits/demo?mode=expert');
+  await page.getByText('All 12 affected').click();
+  await expect(page.getByText('/areas/mckinney/', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Issues CSV' })).toBeVisible();
+
+  const one = await request.get('/api/audits/demo/csv?rule=2.1.2');
+  expect(one.headers()['content-type']).toContain('text/csv');
+  expect((await one.text()).trim().split('\r\n')).toHaveLength(13);
+  expect((await request.get('/api/audits/demo/csv?rule=9.9.9')).status()).toBe(404);
+  expect((await request.get('/api/audits/demo/csv?rule=%3Cx%3E')).status()).toBe(400);
+});

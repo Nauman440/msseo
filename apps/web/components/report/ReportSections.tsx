@@ -5,7 +5,7 @@ import { CheckCardView, isCardVisible, worstStatus } from './CheckCardView';
 import { CodeBlock } from './CodeBlock';
 import { ScoreAfterFixes } from './ScoreAfterFixes';
 import { StackedBar } from './StackedBar';
-import { StatusRow } from './StatusRow';
+import { StatusRow, type RowExtras } from './StatusRow';
 
 export function SectionTitle({ n, title, note }: { n: string; title: string; note?: string }) {
   return (
@@ -21,7 +21,7 @@ function countIssues(rows: ReportModel['robots']['rows']) {
   return rows.filter((r) => r.status === 'fail' || r.status === 'warn').length;
 }
 
-export function CrawlFiles({ report, mode }: { report: ReportModel; mode: Audience }) {
+export function CrawlFiles({ report, mode, extras }: { report: ReportModel; mode: Audience; extras?: RowExtras }) {
   const robotsCard = { id: 'robots', title: '', section: 'technical' as const, rows: report.robots.rows };
   const sitemapCard = { id: 'sitemap', title: '', section: 'technical' as const, rows: report.sitemap.rows };
   return (
@@ -29,7 +29,7 @@ export function CrawlFiles({ report, mode }: { report: ReportModel; mode: Audien
       <Card title="robots.txt" badge={<IssueBadge count={countIssues(report.robots.rows)} worst={worstStatus(robotsCard)} />}>
         <ul className="mb-5">
           {report.robots.rows.map((r) => (
-            <StatusRow key={r.ruleId} row={r} mode={mode} />
+            <StatusRow key={r.ruleId} row={r} mode={mode} extras={extras} />
           ))}
         </ul>
         <CodeBlock code={report.robots.suggested} label="Suggested robots.txt" />
@@ -38,7 +38,7 @@ export function CrawlFiles({ report, mode }: { report: ReportModel; mode: Audien
         <StackedBar segments={report.sitemap.segments} className="mb-5" />
         <ul>
           {report.sitemap.rows.map((r) => (
-            <StatusRow key={r.ruleId} row={r} mode={mode} />
+            <StatusRow key={r.ruleId} row={r} mode={mode} extras={extras} />
           ))}
         </ul>
       </Card>
@@ -46,12 +46,12 @@ export function CrawlFiles({ report, mode }: { report: ReportModel; mode: Audien
   );
 }
 
-export function CheckGrid({ cards, mode }: { cards: CheckCard[]; mode: Audience }) {
+export function CheckGrid({ cards, mode, extras }: { cards: CheckCard[]; mode: Audience; extras?: RowExtras }) {
   const visible = cards.filter((c) => isCardVisible(c, mode));
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {visible.map((card) => (
-        <CheckCardView key={card.id} card={card} mode={mode} />
+        <CheckCardView key={card.id} card={card} mode={mode} extras={extras} />
       ))}
     </div>
   );

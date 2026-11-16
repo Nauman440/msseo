@@ -9,6 +9,7 @@ import { ReportHeader } from '@/components/report/ReportHeader';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { AfterFixes, CheckGrid, CrawlFiles, SectionTitle } from '@/components/report/ReportSections';
 import { SpeedByTemplate } from '@/components/report/SpeedByTemplate';
+import { rowExtras } from '@/components/report/StatusRow';
 
 type Props = {
   params: Promise<{ auditId: string }>;
@@ -49,6 +50,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const report = view.report;
   const mode = parseMode((await searchParams).mode, report.audience);
   const summary = reportSummary(report);
+  const extras = rowExtras(report);
 
   return (
     <>
@@ -68,23 +70,23 @@ export default async function ReportPage({ params, searchParams }: Props) {
         {report.ai ? <AiRecommendationsCard ai={report.ai} mode={mode} /> : report.aiPending && <AiPendingCard auditId={report.auditId} />}
 
         <SectionTitle n="01" title="Crawl files" note="robots.txt and sitemap.xml" />
-        <CrawlFiles report={report} mode={mode} />
+        <CrawlFiles report={report} mode={mode} extras={extras} />
 
         <SectionTitle n="02" title="Technical SEO checks" note={mode === 'client' ? 'Only cards with issues are shown' : undefined} />
-        <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode={mode} />
+        <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode={mode} extras={extras} />
         {mode === 'expert' && report.speedByTemplate?.length ? <SpeedByTemplate rows={report.speedByTemplate} /> : null}
 
         {report.gscProperty && (
           <>
             <SectionTitle n="03" title="Search Console" />
-            <CheckGrid cards={report.cards.filter((c) => c.section === 'gsc')} mode={mode} />
+            <CheckGrid cards={report.cards.filter((c) => c.section === 'gsc')} mode={mode} extras={extras} />
           </>
         )}
 
         {report.cards.some((c) => c.section === 'onpage') && (
           <>
             <SectionTitle n={report.gscProperty ? '04' : '03'} title="On-page SEO checks" />
-            <CheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode={mode} />
+            <CheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode={mode} extras={extras} />
           </>
         )}
 

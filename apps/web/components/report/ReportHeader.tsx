@@ -76,14 +76,19 @@ export function ReportHeader({ report, mode, projectHref }: { report: ReportMode
             >
               Download .md
             </a>
-            <button
-              type="button"
-              disabled
-              title="Available once the audit pipeline is connected (Phase 1)"
-              className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-5 text-sm font-semibold text-ink-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            {mode === 'expert' && (
+              <a
+                href={`/api/audits/${report.auditId}/csv`}
+                download
+                title="Every issue and affected URL as a spreadsheet"
+                className="inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold text-ink transition-colors hover:border-ink-3"
+              >
+                Issues CSV
+              </a>
+            )}
+            <ButtonLink href={`/audits/new?url=${encodeURIComponent(report.url)}&audience=${report.audience}`} variant="secondary" className="min-h-10">
               Re-run audit
-            </button>
+            </ButtonLink>
           </div>
         </div>
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] sm:flex sm:flex-wrap sm:gap-x-8">
