@@ -6,7 +6,8 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 // A second server with login switched on, used only by e2e/auth.spec.ts.
 const AUTH_PORT = PORT + 1;
 // Fresh, throwaway data folder per run so the "no accounts yet" setup flow is real.
-const AUTH_DATA = resolve(tmpdir(), `msscore-e2e-auth-${Date.now()}`);
+// Set once in the main process; test workers re-load this file but inherit the variable.
+export const AUTH_DATA = (process.env.E2E_AUTH_DATA ??= resolve(tmpdir(), `msscore-e2e-auth-${Date.now()}`));
 export const E2E_PREVIEW_PASSWORD = 'e2e-shared-password';
 // Locally, PLAYWRIGHT_CHANNEL=chrome reuses installed Chrome instead of downloading Chromium.
 const channel = process.env.PLAYWRIGHT_CHANNEL || undefined;

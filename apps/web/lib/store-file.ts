@@ -14,12 +14,26 @@ export type { AuditRecord } from '@seo/core';
 const DIR = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'), 'audits');
 const file = (id: string) => resolve(DIR, `${id.replace(/[^a-z0-9-]/gi, '')}.json`);
 
+let seq = 0;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function saveAudit(record: AuditRecord): Promise<void> {
   await mkdir(DIR, { recursive: true });
-  // Write-then-rename so a reader never sees a half-written file.
-  const tmp = `${file(record.id)}.${process.pid}.tmp`;
+  // Write-then-rename so a reader never sees a half-written file. Each save gets its own
+  // temp file: two saves of one audit can overlap (e.g. a retry and its first progress write).
+  const tmp = `${file(record.id)}.${process.pid}.${++seq}.tmp`;
   await writeFile(tmp, JSON.stringify(record));
-  await rename(tmp, file(record.id));
+  // Windows refuses to replace a file another request is reading (EPERM/EBUSY): retry briefly.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(tmp, file(record.id));
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (attempt >= 8 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw err;
+      await sleep(25 * (attempt + 1));
+    }
+  }
 }
 
 export async function getAudit(id: string): Promise<AuditRecord | null> {

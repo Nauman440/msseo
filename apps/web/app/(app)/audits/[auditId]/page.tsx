@@ -39,6 +39,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
     const typical = await typicalDurationSeconds(input.pageLimit, input.auditMode ?? 'deep');
     return (
       <AuditProgress
+        key={createdAt}
         id={id}
         url={input.url}
         pageLimit={input.pageLimit}

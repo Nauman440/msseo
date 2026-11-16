@@ -34,6 +34,7 @@ function auditColumns(r: AuditRecord) {
     overallScore: r.report?.overall.score ?? null,
     categoryScores: r.report ? (r.report.categories as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
     report: r.report ? (r.report as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+    createdAt: new Date(r.createdAt),
     startedAt: new Date(r.createdAt),
     finishedAt: r.finishedAt ? new Date(r.finishedAt) : null,
   };
@@ -72,7 +73,7 @@ const resultWrites = (r: AuditRecord) =>
 export async function insertAuditRecord(record: AuditRecord): Promise<void> {
   const projectId = await projectIdFor(record.input.url);
   await prisma.$transaction([
-    prisma.audit.create({ data: { id: record.id, projectId, createdById: record.createdById ?? null, createdAt: new Date(record.createdAt), ...auditColumns(record) } }),
+    prisma.audit.create({ data: { id: record.id, projectId, createdById: record.createdById ?? null, ...auditColumns(record) } }),
     ...stepWrites(record),
     ...resultWrites(record),
   ]);

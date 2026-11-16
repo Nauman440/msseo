@@ -1,5 +1,7 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { E2E_PREVIEW_PASSWORD } from '../playwright.config';
+import { AUTH_DATA, E2E_PREVIEW_PASSWORD } from '../playwright.config';
 
 // One ordered story against a fresh server with login on (see playwright.config.ts).
 test.describe.configure({ mode: 'serial' });
@@ -71,4 +73,36 @@ test('admin adds a member, who cannot manage users', async ({ page, browser }) =
   await member.locator('header summary').click();
   await member.getByRole('button', { name: 'Sign out' }).click();
   await expect(member).toHaveURL(/\/login/);
+});
+
+test('a failed audit can be retried in place with the same settings', async ({ page }) => {
+  // A failed audit of an address that cannot exist: the retry fails again at the first
+  // DNS lookup, so no paid API is called (or, without DataForSEO keys, it reports that).
+  const id = 'e2e-failed-audit';
+  const steps = ['preflight', 'crawl', 'fetch', 'lighthouse', 'gsc', 'report', 'ai'].map((s) => ({ id: s, label: s, state: s === 'preflight' ? 'failed' : 'queued' }));
+  const record = {
+    id,
+    input: { url: 'https://msscore-e2e.invalid/', audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, aiRecommendations: false, gscProperty: null, gscRangeDays: 90 },
+    status: 'failed', progress: 5, steps, error: 'Old failure', createdAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:00:10.000Z',
+  };
+  await mkdir(resolve(AUTH_DATA, 'audits'), { recursive: true });
+  await writeFile(resolve(AUTH_DATA, 'audits', `${id}.json`), JSON.stringify(record));
+
+  await page.goto(`/login?next=/audits/${id}`);
+  await page.getByLabel('Email').fill(ADMIN.email);
+  await page.getByLabel('Password').fill(ADMIN.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText('Old failure')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('button', { name: 'Retry with the same settings' }).click();
+  // Same audit page, a fresh run, which ends in a new (real) failure message.
+  await expect(page).toHaveURL(new RegExp(`/audits/${id}`));
+  const noKeys = page.getByText(/DataForSEO login and password are missing/);
+  await expect
+    .poll(async () => (await noKeys.count()) > 0 || (await page.getByText('Old failure').count()) === 0, { timeout: 30_000 })
+    .toBe(true);
+  if (await noKeys.count()) return; // CI without provider keys: the action explains why it cannot run.
+  await expect(page.getByRole('button', { name: 'Retry with the same settings' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText(/does not exist|could not|did not respond/i)).toBeVisible();
 });

@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import type { StepState } from '@seo/core';
 import { formatDuration, secondsBetween } from '@/lib/duration';
 import { cn } from '@/lib/tones';
+import { retryAuditAction } from '@/app/(app)/audits/[auditId]/actions';
 
 type Step = { id: string; label: string; state: StepState; detail?: string; startedAt?: string; finishedAt?: string };
 export type ProgressSnapshot = {
@@ -60,6 +61,7 @@ type Props = {
 export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
   const router = useRouter();
   const [snap, setSnap] = useState(initial);
+  const [retryState, retry, retrying] = useActionState(retryAuditAction.bind(null, id), {});
   const now = useNow(snap.status === 'running');
   const elapsed = now === null ? null : secondsBetween(snap.createdAt, snap.finishedAt, now);
 
@@ -126,9 +128,17 @@ export function AuditProgress({ id, url, pageLimit, typical, initial }: Props) {
         {failed && (
           <div className="mt-6 rounded-tile border border-fail-text/20 bg-fail-bg p-4">
             <p className="text-sm font-medium text-fail-text">{snap.error ?? 'Something went wrong.'}</p>
-            <Link href={`/audits/new?url=${encodeURIComponent(url)}`} className="mt-3 inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover">
-              Try again
-            </Link>
+            {retryState.error && <p role="alert" className="mt-2 text-sm text-fail-text">{retryState.error}</p>}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <form action={retry}>
+                <button type="submit" disabled={retrying} className="inline-flex min-h-10 items-center rounded-button bg-primary px-5 text-sm font-semibold text-primary-ink hover:bg-primary-hover disabled:opacity-60">
+                  {retrying ? 'Restarting…' : 'Retry with the same settings'}
+                </button>
+              </form>
+              <Link href={`/audits/new?url=${encodeURIComponent(url)}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold text-ink hover:border-ink-3">
+                Change settings
+              </Link>
+            </div>
           </div>
         )}
       </section>

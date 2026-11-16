@@ -21,8 +21,10 @@ function auditQueue(): Queue<AuditJobData> {
   return g.__auditQueue;
 }
 
-export async function enqueueAudit(auditId: string): Promise<void> {
-  await auditQueue().add('audit', { auditId }, { jobId: auditId, removeOnComplete: 1000, removeOnFail: 1000 });
+/** `attempt` > 0 for a retry: BullMQ ignores a job id it still holds, so retries get their own. */
+export async function enqueueAudit(auditId: string, attempt = 0): Promise<void> {
+  const jobId = attempt ? `${auditId}-retry-${attempt}` : auditId;
+  await auditQueue().add('audit', { auditId }, { jobId, removeOnComplete: 1000, removeOnFail: 1000 });
 }
 
 /** Workers currently connected to the audit queue (for /api/health). */
