@@ -7,7 +7,7 @@ export type SiteTab = 'overview' | 'issues' | 'keywords' | 'pages' | 'plan' | 'r
 
 const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4';
 
-export function SiteHeader({ domain, tab, connected, latestId, pages, running, multiSite }: {
+export function SiteHeader({ domain, tab, connected, latestId, pages, running, multiSite, autopilotAt = null }: {
   domain: string;
   tab: SiteTab;
   connected: boolean;
@@ -15,6 +15,8 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
   pages: number | null;
   running: boolean;
   multiSite: boolean;
+  /** Last automatic update of competitors and keywords (design chip "Autopilot on"). */
+  autopilotAt?: string | null;
 }) {
   const q = `site=${encodeURIComponent(domain)}`;
   // Weekly plan and Rankings are built from Search Console, so they wait for Google.
@@ -51,6 +53,11 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
                 Visit site
               </a>
               {pages !== null && <span className="rounded-full bg-sunken px-2.5 py-1 text-xs font-bold text-ink-2">{pages} pages checked</span>}
+              {autopilotAt && (
+                <span className="rounded-full bg-teal-chip px-2.5 py-1 text-xs font-bold text-teal-text" title="Competitors, keywords and the page plan update by themselves every month">
+                  Autopilot on · updated {new Date(autopilotAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                </span>
+              )}
               {connected ? (
                 <span className="rounded-full bg-teal-chip px-2.5 py-1 text-xs font-bold text-teal-text">Google connected</span>
               ) : (

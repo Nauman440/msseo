@@ -9,6 +9,7 @@ import { startAudit } from '@/lib/audit-runner';
 import { signIn } from '@/lib/auth';
 import { authEnabled, getSessionUser } from '@/lib/session';
 import { FINISHED, freeAuditSummary, stepPath, websiteOrigin } from '@/lib/signup';
+import { startAutopilot } from '@/lib/autopilot';
 import { emailLayout, notifyTeam, sendMail } from '@/lib/mailer';
 import { createUser, UserExistsError } from '@/lib/users';
 
@@ -150,5 +151,7 @@ export async function finishSignupAction(_prev: SignupState, form: FormData): Pr
     const input = newAuditSchema.parse({ url: account.website, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
     await startAudit(input, user.id).catch(() => undefined); // the dashboard offers "Run audit" if this fails
   }
+  // Autopilot: competitors, keywords and the page plan fill in by themselves a few minutes later.
+  await startAutopilot(user.id!);
   redirect('/my?welcome=1');
 }

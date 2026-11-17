@@ -16,7 +16,7 @@ export default async function CustomerKeywordsPage({ searchParams }: Props) {
   const ws = await getKeywordWorkspace(s.domain);
   return (
     <>
-      <SiteHeader domain={s.domain} tab="keywords" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="keywords" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       <div>
         <h2 className="font-display text-[24px] font-bold">Your keywords</h2>
         <p className="mt-1 max-w-2xl text-[15px] text-ink-2">What your customers type into Google, grouped into topics, with the ones worth going after first.</p>

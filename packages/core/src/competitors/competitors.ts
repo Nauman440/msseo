@@ -303,3 +303,19 @@ export function shortlistStatus(ws: CompetitorWorkspace): { direct: number; aspi
   if (aspirational > aMax) warnings.push(`Keep at most ${aMax} aspirational competitors.`);
   return { direct, aspirational, warnings };
 }
+
+/** Autopilot: competitors over this many visits a month are aspirational at most, never mined for keywords. */
+const GIANT_ETV = 1_000_000;
+
+/** The strongest direct rivals, shortlisted only when no person has shortlisted any yet. */
+export function autoShortlist(ws: CompetitorWorkspace): CompetitorWorkspace {
+  if (ws.competitors.some((c) => c.shortlist !== 'none')) return ws;
+  const direct = ws.competitors.filter((c) => c.type === 'direct' || c.type === 'local').sort((a, b) => b.seenIn - a.seenIn || (b.etv ?? 0) - (a.etv ?? 0)).slice(0, 5).map((c) => c.domain);
+  const aspirational = ws.competitors
+    .filter((c) => c.type === 'search' && !direct.includes(c.domain) && (c.etv ?? 0) > 0 && (c.etv ?? 0) <= GIANT_ETV)
+    .sort((a, b) => (b.etv ?? 0) - (a.etv ?? 0))
+    .slice(0, 2)
+    .map((c) => c.domain);
+  return { ...ws, competitors: ws.competitors.map((c) => (direct.includes(c.domain) ? { ...c, shortlist: 'direct' as const } : aspirational.includes(c.domain) ? { ...c, shortlist: 'aspirational' as const } : c)) };
+}
+

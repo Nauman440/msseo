@@ -18,7 +18,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
   const g = s.google;
   return (
     <>
-      <SiteHeader domain={s.domain} tab="connections" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="connections" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       {error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{error}</p>}
       {disconnected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm text-ink-2">Google is disconnected. Your past reports are kept.</p>}
 

@@ -94,3 +94,29 @@ describe('competitor identification', () => {
     expect(shortlistStatus(r.workspace).warnings).toHaveLength(2);
   });
 });
+
+describe('autopilot shortlist', () => {
+  it('shortlists the strongest direct rivals and two aspirational sites, never over a person', async () => {
+    const { autoShortlist } = await import('../src');
+    const rec = (domain: string, type: 'direct' | 'local' | 'search' | 'directory', seenIn: number, etv: number | null) => ({
+      domain, name: null, type, typeLocked: false, shortlist: 'none' as const, sources: ['serp' as const], seenIn, avgPosition: null, sharedKeywords: null,
+      etv, keywords: null, trend: null, notes: null, isNew: false, firstSeenAt: '', refreshedAt: null,
+    });
+    const ws = {
+      ...emptyWorkspace('myhvac.com'),
+      competitors: [
+        rec('a.com', 'direct', 5, 900), rec('b.com', 'local', 4, 100), rec('c.com', 'direct', 3, 50), rec('d.com', 'direct', 2, 10), rec('e.com', 'direct', 2, 5), rec('f.com', 'direct', 1, 1),
+        rec('big.com', 'search', 0, 50_000), rec('bigger.com', 'search', 0, 90_000), rec('giant.com', 'search', 0, 9_000_000), rec('yelp.com', 'directory', 9, null),
+      ],
+    };
+    const out = autoShortlist(ws);
+    const by = Object.fromEntries(out.competitors.map((c) => [c.domain, c.shortlist]));
+    expect(Object.keys(by).filter((d) => by[d] === 'direct')).toEqual(['a.com', 'b.com', 'c.com', 'd.com', 'e.com']);
+    expect(Object.keys(by).filter((d) => by[d] === 'aspirational')).toEqual(['big.com', 'bigger.com']);
+    expect(by['giant.com']).toBe('none'); // over a million visits a month: not a realistic rival
+    expect(by['yelp.com']).toBe('none');
+    // A shortlist someone made by hand is left alone.
+    const manual = updateCompetitor(ws, 'f.com', { shortlist: 'direct' });
+    expect(autoShortlist(manual).competitors.filter((c) => c.shortlist !== 'none').map((c) => c.domain)).toEqual(['f.com']);
+  });
+});

@@ -38,6 +38,23 @@ export const WEEKLY_CUSTOMER_AUDITS = 'weekly-customer-audits';
 /** Module 3.9: competitor refresh on the 1st of Jan, Apr, Jul and Oct, 07:00 UTC. */
 export const QUARTERLY_COMPETITORS = 'quarterly-competitors';
 
+/** Autopilot (customers): daily check for websites due their monthly run, 05:00 UTC. */
+export const DAILY_AUTOPILOT = 'daily-autopilot';
+/** Autopilot right after a customer finishes sign-up or adds a website (data: { userId }). */
+export const AUTOPILOT_CUSTOMER = 'autopilot-customer';
+
+/** Queues an autopilot run for one customer (deduplicated for 10 minutes), after `delayMs` (lets the first audit finish). */
+export async function enqueueAutopilot(userId: string, delayMs = 0): Promise<void> {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL is not set');
+  const queue = new Queue(SCHEDULE_QUEUE, { connection: redisConnection(url) });
+  try {
+    await queue.add(AUTOPILOT_CUSTOMER, { userId }, { jobId: `autopilot-${userId}-${Math.floor(Date.now() / 600_000)}`, delay: delayMs, removeOnComplete: 100, removeOnFail: 100 });
+  } finally {
+    await queue.close();
+  }
+}
+
 /** Creates or updates the weekly schedule (idempotent; called when the worker starts). */
 export async function ensureWeeklySchedule(): Promise<void> {
   const url = process.env.REDIS_URL;
@@ -46,6 +63,7 @@ export async function ensureWeeklySchedule(): Promise<void> {
   try {
     await queue.upsertJobScheduler(WEEKLY_CUSTOMER_AUDITS, { pattern: '0 6 * * 1', tz: 'UTC' }, { name: WEEKLY_CUSTOMER_AUDITS });
     await queue.upsertJobScheduler(QUARTERLY_COMPETITORS, { pattern: '0 7 1 1,4,7,10 *', tz: 'UTC' }, { name: QUARTERLY_COMPETITORS });
+    await queue.upsertJobScheduler(DAILY_AUTOPILOT, { pattern: '0 5 * * *', tz: 'UTC' }, { name: DAILY_AUTOPILOT });
   } finally {
     await queue.close();
   }

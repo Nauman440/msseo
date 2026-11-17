@@ -25,7 +25,7 @@ export default async function ReportsPage({ searchParams }: Props) {
     .map((r) => ({ date: r.createdAt.slice(0, 10), score: r.score!, href: `/my/reports/${r.id}` }));
   return (
     <>
-      <SiteHeader domain={s.domain} tab="reports" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="reports" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title="Score over time">
           <ScoreTrend points={trend} />

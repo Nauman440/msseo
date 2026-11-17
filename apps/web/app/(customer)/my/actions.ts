@@ -8,6 +8,7 @@ import { websiteOrigin } from '@/lib/signup';
 import { ConfigError, startAudit } from '@/lib/audit-runner';
 import { hit } from '@/lib/rate-limit';
 import { requireCustomer } from '@/lib/session';
+import { startAutopilot } from '@/lib/autopilot';
 
 export type RunState = { error?: string };
 
@@ -46,6 +47,7 @@ export async function addWebsiteAction(_prev: RunState, form: FormData): Promise
   await updateAccount(user.id, { extraWebsites: [...account.extraWebsites, website] });
   const input = newAuditSchema.parse({ url: website, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
   await startAudit(input, user.id).catch(() => undefined);
+  await startAutopilot(user.id);
   revalidatePath('/my');
   redirect(`/my?site=${encodeURIComponent(domainOf(website))}`);
 }

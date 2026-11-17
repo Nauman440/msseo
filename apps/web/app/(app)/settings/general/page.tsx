@@ -30,9 +30,20 @@ async function usage(): Promise<UsageMonth[] | null> {
   }
 }
 
+/** Autopilot spend this month (USD), or null without a database. */
+async function autopilotSpent(): Promise<number | null> {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const { autopilotSpentThisMonth } = await import('@seo/db');
+    return await autopilotSpentThisMonth();
+  } catch {
+    return null;
+  }
+}
+
 export default async function GeneralSettingsPage() {
   await requireAdmin();
-  const [s, months] = await Promise.all([appSettings(), usage()]);
+  const [s, months, spent] = await Promise.all([appSettings(), usage(), autopilotSpent()]);
   const hasDb = Boolean(process.env.DATABASE_URL);
 
   return (
@@ -119,6 +130,33 @@ export default async function GeneralSettingsPage() {
                 <input name="ai.maxTokens" type="number" min={5000} max={200000} step={1000} defaultValue={s['ai.maxTokens']} className={`${INPUT} tabular`} />
                 <span className={HINT}>Checks stop once this is used up.</span>
               </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="sr-only">Autopilot</legend>
+            <p className="mb-3 font-display text-base font-bold">Autopilot for customers</p>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <label className="flex cursor-pointer items-start gap-3 sm:col-span-3">
+                <input type="checkbox" name="autopilot.enabled" defaultChecked={s['autopilot.enabled']} className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="block text-sm font-semibold">Run competitors and keyword research by themselves for customers</span>
+                  <span className={HINT}>
+                    A few minutes after sign-up, then once a month per website: find competitors, shortlist the strongest rivals (unless someone already has), keyword research with
+                    their keyword gap, topics, AI questions and the page plan. About $0.50–0.60 for a first run, $0.15–0.30 for a monthly refresh.
+                  </span>
+                </span>
+              </label>
+              <label className={LABEL}>
+                Monthly cap (USD)
+                <input name="autopilot.monthlyCap" type="number" min={0} max={1000} step={1} defaultValue={s['autopilot.monthlyCap']} className={`${INPUT} tabular`} />
+                <span className={HINT}>Autopilot pauses until next month when reached; the team is emailed once. Manual runs still work.</span>
+              </label>
+              {spent !== null && (
+                <p className="text-sm sm:col-span-2 sm:self-end">
+                  <span className="font-semibold tabular">${spent.toFixed(2)}</span> spent this month of <span className="tabular">${s['autopilot.monthlyCap'].toFixed(2)}</span>
+                </p>
+              )}
             </div>
           </fieldset>
         </ActionForm>

@@ -20,7 +20,7 @@ export default async function RankingsPage({ searchParams }: Props) {
   const onPage1 = data.searches.filter((r) => r.position <= 10).length;
   return (
     <>
-      <SiteHeader domain={s.domain} tab="rankings" connected latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="rankings" connected latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       <section aria-labelledby="rankings" className="flex flex-col gap-4 rounded-[18px] border border-border bg-surface p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

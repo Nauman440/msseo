@@ -17,7 +17,7 @@ export default async function CustomerPagesPage({ searchParams }: Props) {
   const ws = await getMapping(s.domain);
   return (
     <>
-      <SiteHeader domain={s.domain} tab="pages" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="pages" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-[24px] font-bold">Your page plan</h2>

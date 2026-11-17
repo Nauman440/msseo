@@ -21,6 +21,9 @@ export const settingsSchema = z
     'ai.checks': z.coerce.boolean().default(true),
     'ai.maxPages': z.coerce.number().int().min(1, 'At least 1').max(10, 'At most 10').default(5),
     'ai.maxTokens': z.coerce.number().int().min(5000, 'At least 5,000').max(200000, 'At most 200,000').default(40000),
+    /** Autopilot (customers): competitors → keywords → topics → page plan → AI questions, monthly per website, under a monthly cap in USD. */
+    'autopilot.enabled': z.coerce.boolean().default(true),
+    'autopilot.monthlyCap': z.coerce.number().min(0, 'At least 0').max(1000, 'At most 1,000').default(20),
   })
   .refine((s) => s['crawl.defaultLimit'] <= s['crawl.maxLimit'], { message: 'The default page limit cannot be above the maximum', path: ['crawl.defaultLimit'] });
 

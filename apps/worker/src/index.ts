@@ -2,7 +2,8 @@ import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
 import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, gscSetup, pageKeywordsFor, prisma, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { customerAutopilot, dailyAutopilot } from './autopilot';
 import { refreshCompetitors } from './competitors';
 import { renderPdfBytes } from './pdf/render';
 
@@ -73,6 +74,15 @@ const scheduler = new Worker(
   async (job) => {
     if (job.name === QUARTERLY_COMPETITORS) {
       await refreshCompetitors(log);
+      return;
+    }
+    if (job.name === DAILY_AUTOPILOT) {
+      await dailyAutopilot(log);
+      return;
+    }
+    if (job.name === AUTOPILOT_CUSTOMER) {
+      const userId = (job.data as { userId?: string }).userId;
+      if (userId) await customerAutopilot(userId, log);
       return;
     }
     if (job.name !== WEEKLY_CUSTOMER_AUDITS) return;

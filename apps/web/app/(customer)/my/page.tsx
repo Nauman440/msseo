@@ -23,11 +23,11 @@ export default async function CustomerDashboard({ searchParams }: Props) {
         <section role="status" className="rounded-[18px] bg-night p-6 text-mist sm:p-8">
           <h2 className="font-display text-[24px] font-bold">You are all set, {s.user.name.split(' ')[0]}</h2>
           <p className="mt-2 max-w-2xl text-[15px] leading-7 text-mist-2">
-            Your {PLANS[s.account.plan].name} trial is running. Connect Google below so we can build your weekly plan from real search data. Your website is checked again automatically every week.
+            Your {PLANS[s.account.plan].name} trial is running. In a few minutes autopilot finds your competitors, researches your keywords and builds your page plan, then keeps them up to date every month. Connect Google below so your weekly plan uses real search data. Your website is also checked again every week.
           </p>
         </section>
       )}
-      <SiteHeader domain={s.domain} tab="overview" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} />
+      <SiteHeader domain={s.domain} tab="overview" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
 
       {data ? (
         <>

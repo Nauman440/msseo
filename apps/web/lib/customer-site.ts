@@ -4,6 +4,7 @@ import type { ReportModel } from '@seo/core';
 import { accountSites, domainOf, getAccountByUserId, type Account } from './accounts';
 import { customerAudits, type CustomerAuditRow } from './customer-data';
 import { googleStatus, isConnected, type GoogleStatus } from './customer-google';
+import { getKeywordWorkspace } from './keywords';
 import { requireCustomer } from './session';
 import { FINISHED, stepPath } from './signup';
 
@@ -21,6 +22,8 @@ export type CustomerSite = {
   running: boolean;
   google: GoogleStatus;
   connected: boolean;
+  /** When autopilot last updated competitors and keywords for this site (null = not yet). */
+  autopilotAt: string | null;
 };
 
 export async function loadCustomerSite(site?: string): Promise<CustomerSite> {
@@ -32,7 +35,7 @@ export async function loadCustomerSite(site?: string): Promise<CustomerSite> {
   const website = sites.find((w) => domainOf(w) === site) ?? sites[0];
   if (!website) redirect('/my/sites');
   const domain = domainOf(website);
-  const [audits, google] = await Promise.all([customerAudits(website), googleStatus(user.id, domain)]);
+  const [audits, google, keywords] = await Promise.all([customerAudits(website), googleStatus(user.id, domain), getKeywordWorkspace(domain)]);
   const latestRow = audits.rows.find((r) => r.status === 'completed');
   return {
     user: { id: user.id, name: user.name, email: user.email },
@@ -45,5 +48,6 @@ export async function loadCustomerSite(site?: string): Promise<CustomerSite> {
     running: audits.rows.some((r) => r.status === 'running'),
     google,
     connected: isConnected(google),
+    autopilotAt: keywords.autopilot?.lastRunAt ?? null,
   };
 }
