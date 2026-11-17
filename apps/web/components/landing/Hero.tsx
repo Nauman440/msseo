@@ -26,9 +26,25 @@ const TOOLS = ['WordPress', 'Shopify', 'Google Search Console', 'Google Analytic
 export function TopBar() {
   return (
     <>
-      <p className="bg-primary px-6 py-2.5 text-center text-sm font-bold text-primary-ink">
-        Free SEO audit: see what is costing you customers in a few minutes.
-      </p>
+      <div className="bg-primary text-primary-ink">
+        <Container className="flex items-center justify-between gap-4 py-1.5">
+          {/* Spacer keeps the message centred on wide screens while the account links sit on the right. */}
+          <span aria-hidden className="hidden w-[150px] shrink-0 lg:block" />
+          <p className="min-w-0 text-sm font-bold sm:text-center">
+            <span className="sm:hidden">Free SEO audit in minutes</span>
+            <span className="hidden sm:inline">Free SEO audit: see what is costing you customers in a few minutes.</span>
+          </p>
+          {/* Returning customers and the team sign in here; new customers start the 7-day trial. */}
+          <nav aria-label="Account" className="flex w-auto shrink-0 items-center justify-end gap-3 text-sm font-bold lg:w-[150px]">
+            <Link href="/login" className="inline-flex min-h-9 items-center whitespace-nowrap hover:underline">
+              Log in
+            </Link>
+            <Link href="/signup" className="inline-flex min-h-9 items-center whitespace-nowrap rounded-control border border-primary-ink/40 px-3 hover:border-primary-ink">
+              Sign up
+            </Link>
+          </nav>
+        </Container>
+      </div>
       <header className="border-b border-border bg-surface">
         <Container className="flex items-center justify-between gap-3 py-3.5">
           <Link href="/" aria-label="MS SCORE home" className="shrink-0">
@@ -36,22 +52,15 @@ export function TopBar() {
             <Logo height={28} priority className="sm:hidden" />
             <Logo height={36} priority className="hidden sm:block" />
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-x-3 text-[15px] sm:gap-x-[18px]">
+          <nav aria-label="Main" className="flex items-center gap-x-4 text-[15px] xl:gap-x-[22px]">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href} className="hidden font-medium text-ink-2 hover:text-ink xl:inline">
+              <a key={n.href} href={n.href} className="hidden whitespace-nowrap font-medium text-ink-2 hover:text-ink lg:inline">
                 {n.label}
               </a>
             ))}
-            <CtaLink size="sm">
+            <CtaLink size="sm" className="whitespace-nowrap">
               Get my free audit
             </CtaLink>
-            {/* Returning customers and the team sign in here; new customers start the 7-day trial. */}
-            <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-ink hover:text-primary-text">
-              Log in
-            </Link>
-            <Link href="/signup" className="hidden min-h-11 items-center rounded-button border border-border-strong px-4 font-semibold text-ink hover:border-ink-3 sm:inline-flex">
-              Sign up
-            </Link>
           </nav>
         </Container>
       </header>
