@@ -294,6 +294,25 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/mapping/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
+  // Module 12 for customers: the audit's findings become an action plan with a roadmap.
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Action plan' }).click();
+  await expect(page.getByRole('heading', { name: 'Your action plan', level: 2 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: /Create actions from the top \d+ issues/ }).click();
+  await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '30/60/90-day roadmap' })).toBeVisible();
+  await page.locator('select[name="status"]').first().selectOption('done');
+  await expect(page.getByText('Marked done. We will check the results after 7, 14 and 28 days.')).toBeVisible();
+  const plan = await page.request.get('/api/action-plan/summitairhvac.com/csv');
+  expect(plan.headers()['content-type']).toContain('text/csv');
+  expect(await plan.text()).toContain('priority,title,severity');
+  expect((await page.request.get('/api/action-plan/rival-hvac.com/csv')).status()).toBe(404);
+  await page.goto('/my/approvals');
+  await expect(page.getByRole('heading', { name: 'Nothing to approve' })).toBeVisible();
+  await page.goto('/action-plan/summitairhvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+  await page.goto('/my/actions');
+
   // Account settings from the site tabs: plan, details and password.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Account settings', level: 1 })).toBeVisible();

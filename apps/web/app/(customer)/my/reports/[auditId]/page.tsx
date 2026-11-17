@@ -9,6 +9,8 @@ import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { canViewAudit } from '@/lib/access';
 import { getSavedWorkspace } from '@/lib/competitors';
+import { getActions } from '@/lib/actions';
+import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
 import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
 import { requireCustomer } from '@/lib/session';
 
@@ -32,7 +34,7 @@ export default async function CustomerReportPage({ params }: Props) {
   }
 
   const report = view.report;
-  const competitors = await getSavedWorkspace(report.project.domain);
+  const [competitors, actions] = await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain)]);
   return (
     <>
       <div className="rounded-[18px] border border-border bg-surface">
@@ -64,6 +66,7 @@ export default async function CustomerReportPage({ params }: Props) {
           </>
         )}
         {competitors && <CompetitorSummary ws={competitors} href={`/my/competitors?site=${competitors.domain}`} />}
+        <ActionPlanSummary ws={actions} href={`/my/actions?site=${actions.domain}`} />
       </div>
     </>
   );

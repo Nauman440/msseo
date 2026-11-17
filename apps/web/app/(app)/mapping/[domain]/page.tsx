@@ -30,6 +30,7 @@ export default async function TeamMappingPage({ params }: Props) {
         <SectionHeader as="h1" align="left" eyebrow="Keyword to page mapping" title={domain} intro="Which page should rank for each keyword topic, what to do with it, and the title, heading, links and schema to add." />
         <div className="flex flex-wrap gap-3">
           <Link href={`/keywords/${domain}`} className={link}>Keywords</Link>
+          <Link href={`/action-plan/${domain}`} className={link}>Action plan</Link>
           {ws.rows.length > 0 && <a href={`/api/mapping/${domain}/csv`} className={link}>Download CSV</a>}
         </div>
       </div>

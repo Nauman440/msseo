@@ -12,6 +12,8 @@ import { SpeedByTemplate } from '@/components/report/SpeedByTemplate';
 import { rowExtras } from '@/components/report/StatusRow';
 import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { getSavedWorkspace } from '@/lib/competitors';
+import { getActions } from '@/lib/actions';
+import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
 
 type Props = {
   params: Promise<{ auditId: string }>;
@@ -53,7 +55,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const report = view.report;
   const mode = parseMode((await searchParams).mode, report.audience);
   const extras = rowExtras(report);
-  const competitors = report.auditId === 'demo' ? null : await getSavedWorkspace(report.project.domain);
+  const [competitors, actions] = report.auditId === 'demo' ? [null, null] : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain)]);
 
   return (
     <>
@@ -92,6 +94,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
         )}
 
         {competitors && <CompetitorSummary ws={competitors} href={`/competitors/${competitors.domain}`} />}
+        {actions && <ActionPlanSummary ws={actions} href={`/action-plan/${actions.domain}`} />}
 
         <div className="pt-4">
           <AfterFixes report={report} />

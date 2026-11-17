@@ -33,3 +33,4 @@ export { createOpenAiClient, type OpenAiClient } from './providers/openai';
 export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } from './customer/plan';
 export * from './mapping/mapping';
 export { draftableRows, writeDrafts } from './mapping/drafts';
+export * from './actions/actions';

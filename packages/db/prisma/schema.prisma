@@ -254,3 +254,11 @@ model MappingWorkspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Module 12: one action plan per website (JSON document, ≤ a few hundred actions).
+model ActionWorkspace {
+  domain    String   @id
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

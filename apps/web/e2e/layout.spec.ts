@@ -15,6 +15,7 @@ const ROUTES = [
   { path: '/competitors/example.com', heading: 'example.com' },
   { path: '/keywords/example.com', heading: 'example.com' },
   { path: '/mapping/example.com', heading: 'example.com' },
+  { path: '/action-plan/example.com', heading: 'example.com' },
   { path: '/settings/account', heading: 'Your account' },
   { path: '/signup', heading: 'Choose your plan' },
   { path: '/signup/account?plan=growth', heading: "Let's get you more customers" },
