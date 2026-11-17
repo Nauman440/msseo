@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { listGa4Properties, listGscSites, normDomain } from '@seo/core';
+import { gscCanRead, listGa4Properties, normDomain } from '@seo/core';
 import { accountSites, domainOf, getAccountByUserId } from '@/lib/accounts';
 import { forgetSiteGoogleData } from '@/lib/customer-google';
 import { requireCustomer } from '@/lib/session';
@@ -25,12 +25,12 @@ export async function saveGoogleChoiceAction(rawDomain: string, _prev: ConnectSt
   const ga4Property = String(form.get('ga4Property') ?? '');
   if (!gscProperty) return { error: 'Choose your Search Console property.' };
   try {
-    // Only properties this Google account can really read.
+    // Only properties this Google account can really read: ask Google about the chosen one directly.
     const token = await db.customerGoogleToken(user.id);
-    const [sites, props] = await Promise.all([listGscSites(token), ga4Property ? listGa4Properties(token) : Promise.resolve([])]);
-    if (!sites.includes(gscProperty)) return { error: 'That Search Console property is not in this Google account.' };
+    const [canRead, props] = await Promise.all([gscCanRead(token, gscProperty), ga4Property ? listGa4Properties(token) : Promise.resolve([])]);
+    if (!canRead) return { error: 'This Google account cannot read that Search Console property. Choose another one, or use "Switch account".' };
     const ga4 = ga4Property ? props.find((p) => p.property === ga4Property) : undefined;
-    if (ga4Property && !ga4) return { error: 'That Analytics property is not in this Google account.' };
+    if (ga4Property && !ga4) return { error: 'This Google account cannot read that Analytics property. Choose another one, or skip Analytics.' };
     await db.setCustomerGoogleSite(user.id, domain, { gscProperty, ga4Property: ga4?.property ?? null, ga4Name: ga4 ? `${ga4.accountName} · ${ga4.name}` : null });
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Could not save. Please try again.' };

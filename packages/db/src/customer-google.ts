@@ -36,7 +36,7 @@ export async function saveCustomerGoogle(userId: string, c: { email: string; ref
     create: { userId, googleEmail: c.email, refreshTokenEnc, scopes: c.scopes },
     update: { googleEmail: c.email, refreshTokenEnc, scopes: c.scopes },
   });
-  tokens.delete(userId);
+  for (const k of tokens.keys()) if (k.startsWith(`${userId}:`)) tokens.delete(k);
 }
 
 /** Sets (or clears, with null) the properties used for one of the customer's websites. */
@@ -51,20 +51,25 @@ export async function setCustomerGoogleSite(userId: string, domain: string, choi
 
 export async function deleteCustomerGoogle(userId: string): Promise<void> {
   await prisma.customerGoogle.deleteMany({ where: { userId } });
-  tokens.delete(userId);
+  for (const k of tokens.keys()) if (k.startsWith(`${userId}:`)) tokens.delete(k);
 }
 
 const tokens = new Map<string, { token: string; expires: number }>();
 
-/** A fresh access token for the customer's Google account (cached ~45 min per process). */
+/**
+ * A fresh access token for the customer's Google account (cached ~45 min). The cache key includes
+ * the stored connection itself, so after "Switch account" (saved by another part of the app, which
+ * may hold its own copy of this module) an old account's token is never reused.
+ */
 export async function customerGoogleToken(userId: string): Promise<string> {
-  const hit = tokens.get(userId);
-  if (hit && hit.expires > Date.now()) return hit.token;
   const row = await prisma.customerGoogle.findUnique({ where: { userId } });
   if (!row) throw new Error('Google is not connected for this account.');
+  const key = `${userId}:${row.refreshTokenEnc.slice(-24)}`;
+  const hit = tokens.get(key);
+  if (hit && hit.expires > Date.now()) return hit.token;
   try {
     const token = await refreshGscToken({ clientId: process.env.GOOGLE_CLIENT_ID!.trim(), clientSecret: process.env.GOOGLE_CLIENT_SECRET!.trim() }, decryptSecret(row.refreshTokenEnc));
-    tokens.set(userId, { token, expires: Date.now() + 45 * 60_000 });
+    tokens.set(key, { token, expires: Date.now() + 45 * 60_000 });
     return token;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

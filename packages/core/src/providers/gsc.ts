@@ -85,6 +85,21 @@ export async function listGscSites(token: string, log?: HttpLog): Promise<string
   return (json.siteEntry ?? []).filter((s) => s.permissionLevel !== 'siteUnverifiedUser').map((s) => s.siteUrl).sort();
 }
 
+/**
+ * Whether the signed-in account can read one property (Search Console sites.get). Used to check a
+ * customer's choice directly instead of comparing it with a fresh property list.
+ */
+export async function gscCanRead(token: string, property: string, log?: HttpLog): Promise<boolean> {
+  try {
+    const json = z.object({ siteUrl: z.string().optional(), permissionLevel: z.string().optional() }).parse(
+      await requestJson(`${API}/sites/${site(property)}`, { provider: 'gsc', headers: auth(token), timeoutMs: 15_000, retries: 1, log }),
+    );
+    return json.permissionLevel !== 'siteUnverifiedUser';
+  } catch {
+    return false;
+  }
+}
+
 /** Properties that cover the audited host: sc-domain:example.com, or a URL-prefix property on the same host. */
 export function matchGscProperties(properties: string[], url: string): string[] {
   let host: string;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CUSTOMER_GOOGLE_SCOPES, ga4Summary, ga4WebStreamHosts, gscAuthUrl, listGa4Properties, matchGa4Properties, searchesFrom, weeklyPlan, type GscRow, type ReportModel } from '../src';
+import { CUSTOMER_GOOGLE_SCOPES, ga4Summary, gscCanRead, ga4WebStreamHosts, gscAuthUrl, listGa4Properties, matchGa4Properties, searchesFrom, weeklyPlan, type GscRow, type ReportModel } from '../src';
 
 /** Customers connect their own Google (Search Console + Analytics 4). Sample responses only, no live calls. */
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -11,6 +11,16 @@ describe('customer Google connection', () => {
     const url = new URL(gscAuthUrl({ clientId: 'id', clientSecret: 's', redirectUri: 'https://msseo.tech/api/gsc/callback' }, 'st', CUSTOMER_GOOGLE_SCOPES));
     expect(url.searchParams.get('scope')).toBe('openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly');
     expect(url.searchParams.get('access_type')).toBe('offline');
+  });
+
+  it('checks a chosen Search Console property directly with Google', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      String(url).includes('sc-domain%3Aawais-javed.com') ? json({ siteUrl: 'sc-domain:awais-javed.com', permissionLevel: 'siteOwner' }) : new Response('{}', { status: 403 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await gscCanRead('tok', 'sc-domain:awais-javed.com')).toBe(true);
+    expect(await gscCanRead('tok', 'https://not-mine.com/')).toBe(false);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('https://www.googleapis.com/webmasters/v3/sites/sc-domain%3Aawais-javed.com');
   });
 
   it('lists GA4 properties across pages, skipping roll-ups', async () => {
