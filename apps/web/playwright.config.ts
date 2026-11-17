@@ -54,6 +54,8 @@ export default defineConfig({
         DATA_DIR: AUTH_DATA,
         DATABASE_URL: '',
         REDIS_URL: '',
+        // Paid APIs fail fast (closed port): e2e never spends DataForSEO credits.
+        DATAFORSEO_BASE_URL: 'http://127.0.0.1:9',
       },
       timeout: 60_000,
     },

@@ -221,3 +221,13 @@ model CompetitorWorkspace {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
+
+/// Module 4 keyword workspace for one website (keyed by its domain, without www): seeds,
+/// keywords, clusters and AI prompts as one document (see @seo/core KeywordWorkspace).
+model KeywordWorkspace {
+  domain    String    @id
+  data      Json
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

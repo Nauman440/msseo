@@ -94,6 +94,11 @@ export function ReportHeader({ report, mode, projectHref }: { report: ReportMode
                 Competitors
               </ButtonLink>
             )}
+            {report.auditId !== 'demo' && (
+              <ButtonLink href={`/keywords/${report.project.domain}`} variant="secondary" className="min-h-10">
+                Keywords
+              </ButtonLink>
+            )}
           </div>
         </div>
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] sm:flex sm:flex-wrap sm:gap-x-8">

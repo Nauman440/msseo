@@ -34,6 +34,8 @@ const SERVICE_SLUG = /(^|-)(ac|air-conditioning|aircon|hvac|heating|cooling|furn
 const LOCATION_SEG = /^(areas?|locations?|service-areas?|cities|city|near-me|areas-we-serve|where-we-serve|communities)$/;
 // Common US metros + Pakistan's largest cities, matched as whole slug words ("ac-repair-dallas").
 const CITIES = 'atlanta austin baltimore boston charlotte chicago cincinnati cleveland columbus dallas denver detroit el-paso fort-worth fresno houston indianapolis jacksonville kansas-city las-vegas long-beach los-angeles louisville memphis mesa miami milwaukee minneapolis nashville new-york oakland oklahoma-city omaha orlando philadelphia phoenix pittsburgh plano portland raleigh richmond sacramento san-antonio san-diego san-francisco san-jose seattle st-louis tampa tucson tulsa virginia-beach washington arlington irving frisco mckinney garland scottsdale chandler gilbert tempe aurora boulder marietta alpharetta roswell karachi lahore islamabad rawalpindi faisalabad multan peshawar quetta sialkot gujranwala hyderabad dubai sharjah abu-dhabi london manchester birmingham toronto';
+/** The same cities as plain names (keyword cleaning 4.4: searches for another city). */
+export const KNOWN_CITIES: readonly string[] = CITIES.split(' ').map((c) => c.replace(/-/g, ' '));
 const CITY_RE = new RegExp(`(^|-)(${CITIES.split(' ').join('|')})(-|$)`);
 
 const segments = (url: string) => new URL(url).pathname.split('/').filter(Boolean).map((s) => decodeURIComponent(s).toLowerCase());

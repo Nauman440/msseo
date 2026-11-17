@@ -242,6 +242,29 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/competitors/rival-hvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
+  // Module 4 for customers: seeds come from onboarding; add keywords, remove one, export CSV.
+  await page.getByRole('link', { name: 'Keywords' }).click();
+  await expect(page.getByRole('heading', { name: 'Your keywords', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove AC repair', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Keywords', { exact: true }).fill('ac repair plano\nEmergency AC repair, ac repair plano');
+  await page.getByRole('button', { name: 'Add keywords' }).click();
+  await expect(page.getByText('2 keywords added.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove emergency ac repair' })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
+  await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();
+  await page.getByLabel('Show').selectOption('removed');
+  await expect(page.getByRole('button', { name: 'Keep emergency ac repair' })).toBeVisible();
+  await expect(page.getByText('Removed by hand')).toBeVisible();
+  const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
+  expect(csv.headers()['content-type']).toContain('text/csv');
+  expect(await csv.text()).toContain('emergency ac repair,removed,Removed by hand');
+  // Other sites' keywords stay private.
+  expect((await page.request.get('/api/keywords/rival-hvac.com/csv')).status()).toBe(404);
+  await page.goto('/keywords/summitairhvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+
   // Customers stay in their own area and cannot open other sites' audits.
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/my$/);

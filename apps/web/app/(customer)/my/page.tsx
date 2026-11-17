@@ -66,6 +66,11 @@ export default async function CustomerDashboard({ searchParams }: Props) {
               Competitors
             </Link>
           )}
+          {current && (
+            <Link href={`/my/keywords?site=${encodeURIComponent(domainOf(current))}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-bold hover:border-ink-3">
+              Keywords
+            </Link>
+          )}
           {current && <RunAuditButton disabled={Boolean(running)} site={domainOf(current)} />}
         </div>
       </div>

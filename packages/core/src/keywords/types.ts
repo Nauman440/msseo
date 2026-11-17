@@ -1,0 +1,79 @@
+import type { KeywordIntent } from '../providers/dataforseo-keywords';
+
+/**
+ * Module 4 · Keyword research (spec §16.2). One workspace per website (keyed by domain),
+ * used by the team for any client and by customers for their own sites, like Module 3.
+ */
+export type KeywordSource = 'seed' | 'ranked' | 'competitor' | 'suggestion' | 'autocomplete' | 'gsc' | 'import' | 'manual';
+export type KeywordStatus = 'kept' | 'removed';
+
+export type KeywordRecord = {
+  term: string;
+  volume: number | null;
+  /** Monthly volume, oldest first, starting at `trendFrom` ("YYYY-MM"). */
+  trend: number[] | null;
+  trendFrom: string | null;
+  difficulty: number | null;
+  cpc: number | null;
+  intent: KeywordIntent | null;
+  /** The site's own Google position and ranking URL (Labs or Search Console). */
+  position: number | null;
+  url: string | null;
+  gscClicks: number | null;
+  gscImpressions: number | null;
+  sources: KeywordSource[];
+  status: KeywordStatus;
+  removeReason: string | null;
+  /** Kept or removed by hand: the cleaning rules no longer change it. */
+  statusLocked: boolean;
+  /** Top-10 result URLs (clustering), kept so a re-cluster does not pay again. */
+  serpUrls: string[] | null;
+  clusterId: string | null;
+  addedAt: string;
+};
+
+export type ClusterPageType = 'home' | 'service' | 'location' | 'service_location' | 'blog_post' | 'directory';
+
+export type KeywordCluster = {
+  id: string;
+  name: string;
+  /** The most searched keyword; clusters keep their id and hand-set scores across re-runs. */
+  head: string;
+  size: number;
+  intent: KeywordIntent | null;
+  /** The kind of page Google ranks for the head keyword (SERP check), or a guess from intent. */
+  pageType: ClusterPageType;
+  volume: number;
+  /** 1–5. Business value (intent + CPC) and chance to rank (difficulty + current position). */
+  businessValue: number;
+  rankingChance: number;
+  scoresLocked: boolean;
+  /** businessValue × rankingChance (1–25). */
+  priority: number;
+  bestPosition: number | null;
+  bestUrl: string | null;
+  /** Already on Google page 1–2 (positions 4–20): optimise the existing page first. */
+  quickWin: boolean;
+  /** Valuable but hard: a long-term content and link project. */
+  longTerm: boolean;
+  /** Peak month (1–12) when searches are ≥ 40% above average; publish two months before. */
+  seasonalPeak: number | null;
+  seasonalDeadline: string | null;
+};
+
+export type AiPrompt = { id: string; text: string; service: string | null; location: string | null };
+
+export type KeywordSeeds = { services: string[]; locations: string[]; brands: string[]; extra: string[] };
+
+export type KeywordWorkspace = {
+  domain: string;
+  country: string;
+  language: string;
+  seeds: KeywordSeeds;
+  keywords: KeywordRecord[];
+  clusters: KeywordCluster[];
+  prompts: AiPrompt[];
+  lastRunAt: string | null;
+  clusteredAt: string | null;
+  promptsAt: string | null;
+};

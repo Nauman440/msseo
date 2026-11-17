@@ -38,6 +38,9 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
             <Link href={`/competitors/${p.domain}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
               Competitors
             </Link>
+            <Link href={`/keywords/${p.domain}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
+              Keywords
+            </Link>
             {p.latest && (
               <Link href={`/audits/${p.latest.id}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
                 Latest report

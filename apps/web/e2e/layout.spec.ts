@@ -13,6 +13,7 @@ const ROUTES = [
   { path: '/settings/general', heading: 'Audit settings' },
   { path: '/settings/customers', heading: 'Trials and plans' },
   { path: '/competitors/example.com', heading: 'example.com' },
+  { path: '/keywords/example.com', heading: 'example.com' },
   { path: '/signup', heading: 'Choose your plan' },
   { path: '/signup/account?plan=growth', heading: "Let's get you more customers" },
   { path: '/audits/demo/print', heading: 'Summit Air Heating & Cooling' },

@@ -5,7 +5,7 @@ import type { ReportModel } from '../types';
  * URLs), for one issue (`ruleId`) or every issue. RFC 4180 quoting; a leading quote
  * guard stops spreadsheet apps from running cell text that starts with = + - @.
  */
-const cell = (v: string | number | undefined) => {
+export const csvCell = (v: string | number | undefined) => {
   let s = v === undefined ? '' : String(v);
   if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -21,5 +21,5 @@ export function issuesToCsv(report: ReportModel, ruleId?: string): string | null
     return (i.urls.length ? i.urls : ['']).map((url) => [...base, url, ...tail]);
   });
   // BOM so Excel opens UTF-8 (e.g. "→", "≥") correctly.
-  return `﻿${[header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')}\r\n`;
+  return `﻿${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`;
 }

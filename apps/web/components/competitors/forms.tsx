@@ -8,16 +8,16 @@ import {
 } from '@/app/competitors/actions';
 import { TagInput } from '@/components/signup/TagInput';
 
-const INPUT = 'min-h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
-const SELECT_SM = 'min-h-10 rounded-control border border-border-strong bg-surface px-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
+export const INPUT = 'min-h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
+export const SELECT_SM = 'min-h-10 rounded-control border border-border-strong bg-surface px-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
 
-function Message({ state }: { state: CompetitorState }) {
+export function Message({ state }: { state: CompetitorState }) {
   if (state.error) return <p role="alert" className="text-[13px] font-semibold text-fail-text">{state.error}</p>;
   if (state.ok) return <p role="status" className="text-[13px] font-semibold text-pass-text">{state.ok}</p>;
   return null;
 }
 
-function Submit({ label, busy, tone = 'primary' }: { label: string; busy: string; tone?: 'primary' | 'secondary' }) {
+export function Submit({ label, busy, tone = 'primary' }: { label: string; busy: string; tone?: 'primary' | 'secondary' }) {
   const { pending } = useFormStatus();
   return (
     <button
