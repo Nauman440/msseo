@@ -19,6 +19,12 @@ function anyPage(pages: PageContent[], test: (c: PageContent) => boolean, pass: 
 }
 
 const isHome = (c: PageContent) => new URL(c.url).pathname.replace(/\/$/, '') === '';
+/**
+ * An online shop (Shopify, product schema, or cart/checkout links): customers buy on the site,
+ * so "tap to call" is not expected the way it is for a local service business.
+ */
+export const isOnlineShop = (pages: PageContent[]) =>
+  pages.some((c) => c.hints.includes('shopify') || c.schemaTypes.some((t) => t === 'Product' || t === 'Offer') || c.links.some((l) => l.internal && /\/(cart|checkout|basket)(\/|$)/.test(new URL(l.href).pathname)));
 /** Pages that are neither home nor blog/contact/legal: the best phase-1 guess at service pages. */
 const servicePages = (pages: PageContent[]) => pages.filter((c) => !isHome(c) && !NOT_SERVICE.test(new URL(c.url).pathname));
 
@@ -84,7 +90,7 @@ export const trustRules: RuleDef[] = [
     fix: { client: 'Make your phone number tappable on every page and keep the contact form short.', expert: 'Add a tel: link in the header; trim forms to ≤ 5 fields.' },
     ice: { impact: 4, confidence: 4, effort: 1 },
     evaluate: ({ content }) => {
-      if (!content.length) return null;
+      if (!content.length || isOnlineShop(content)) return null;
       const noTel = content.filter((c) => !c.telLinks).map((c) => c.url);
       const shortForm = content.some((c) => c.forms.some((f) => f.fields > 0 && f.fields <= 5));
       const missing = [noTel.length ? `click-to-call on ${plural(noTel.length, 'page')}` : '', shortForm ? '' : 'a short form'].filter(Boolean);

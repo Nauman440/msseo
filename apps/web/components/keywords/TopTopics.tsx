@@ -7,7 +7,9 @@ const PAGE: Record<KeywordCluster['pageType'], string> = {
   location: 'a page for that area',
   service_location: 'a service page for that city',
   blog_post: 'a helpful article',
-  directory: 'listings on directories (Yelp, Angi…)',
+  directory: 'listings on directories and marketplaces',
+  product: 'a product page',
+  category: 'a category page',
 };
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 const path = (url: string) => {

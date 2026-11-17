@@ -135,9 +135,9 @@ describe('keyword research', () => {
     expect(calls.filter((c) => c.startsWith('serp:'))).toHaveLength(3);
     expect(r.workspace.clusters.map((c) => c.head)).toEqual(['ac repair dallas', 'furnace repair dallas']);
     const ac = r.workspace.clusters[0]!;
-    expect(ac).toMatchObject({ size: 3, quickWin: true, bestPosition: 7, businessValue: 4, rankingChance: 5, priority: 20 });
+    expect(ac).toMatchObject({ size: 3, quickWin: true, bestPosition: 7, businessValue: 3, rankingChance: 5, priority: 15 });
     const furnace = r.workspace.clusters[1]!;
-    expect(furnace).toMatchObject({ businessValue: 4, rankingChance: 1, longTerm: true, quickWin: false });
+    expect(furnace).toMatchObject({ businessValue: 3, rankingChance: 1, longTerm: true, quickWin: false });
     expect(r.workspace.keywords.find((k) => k.term === 'ac repair dallas tx')?.clusterId).toBe(ac.id); // joined by shared words
     expect(r.workspace.keywords.find((k) => k.term === 'old removed')?.clusterId).toBeNull();
 

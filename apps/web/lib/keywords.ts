@@ -55,6 +55,8 @@ export async function saveKeywordWorkspace(ws: KeywordWorkspace): Promise<void> 
   await rename(tmp, file(ws.domain));
 }
 
+const GIANT_ETV = 1_000_000;
+
 /** Competitors to mine for keywords: shortlisted direct ones first, then the customer's own list. */
 export async function researchCompetitors(domain: string): Promise<{ domains: string[]; names: string[] }> {
   const ws = await getSavedWorkspace(domain);
@@ -62,8 +64,10 @@ export async function researchCompetitors(domain: string): Promise<{ domains: st
     .filter((c) => c.type !== 'directory' && c.type !== 'publisher')
     .sort((a, b) => Number(b.shortlist === 'direct') - Number(a.shortlist === 'direct') || Number(b.type === 'direct') - Number(a.type === 'direct') || b.seenIn - a.seenIn);
   const account = await accountFor(domain);
-  const domains = [...new Set([...ranked.filter((c) => c.shortlist !== 'none' || c.type === 'direct').map((c) => c.domain), ...(account?.competitors ?? []).map(normDomain)])].filter((d) => d.includes('.'));
-  const names = [...domains, ...ranked.filter((c) => c.shortlist !== 'none' || c.type === 'direct').map((c) => c.name ?? '').filter(Boolean)];
+  // Giants (over a million visits a month) rank for everything; their keyword lists drown a small site's.
+  const usable = ranked.filter((c) => (c.shortlist !== 'none' || c.type === 'direct') && (c.etv ?? 0) <= GIANT_ETV);
+  const domains = [...new Set([...usable.map((c) => c.domain), ...(account?.competitors ?? []).map(normDomain)])].filter((d) => d.includes('.'));
+  const names = [...domains, ...ranked.filter((c) => c.shortlist !== 'none' || c.type === 'direct').map((c) => c.domain), ...ranked.map((c) => c.name ?? '').filter(Boolean)];
   return { domains: domains.slice(0, 3), names };
 }
 

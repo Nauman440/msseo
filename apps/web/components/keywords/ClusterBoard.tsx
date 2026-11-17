@@ -10,6 +10,8 @@ const PAGE_TYPE: Record<KeywordCluster['pageType'], string> = {
   service_location: 'Service + city page',
   blog_post: 'Article or guide',
   directory: 'Directory listings',
+  product: 'Product page',
+  category: 'Category page',
 };
 const INTENT: Record<string, string> = { transactional: 'Ready to buy', commercial: 'Comparing', informational: 'Learning', navigational: 'Looking for a site' };
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

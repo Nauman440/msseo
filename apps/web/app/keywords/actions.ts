@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, fillMetrics,
+  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
   generatePrompts, MAX_CLUSTER_SERPS, normDomain, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
@@ -31,11 +31,22 @@ async function allowed(customer: boolean, key: string, perDay: number) {
   return !customer || (await hit(key, perDay, DAY)).allowed;
 }
 
-function dfs() {
+/** DataForSEO client that counts calls and knows the balance before the run (to record what was really charged). */
+async function dfs() {
   const { env } = providerConfig();
   if (!env) return null;
+  const cfg = env.dataforseo;
   let calls = 0;
-  return { calls: () => calls, api: createKeywordClient({ ...env.dataforseo, log: (e) => void (e.provider === 'dataforseo' && calls++) }) };
+  const before = await dataforseoBalance(cfg);
+  return {
+    calls: () => calls,
+    api: createKeywordClient({ ...cfg, log: (e) => void (e.provider === 'dataforseo' && calls++) }),
+    /** The balance drop when it is larger than DataForSEO's per-call figures (they under-report Labs). */
+    charged: async (reported: number) => {
+      const after = before === null ? null : await dataforseoBalance(cfg);
+      return before !== null && after !== null ? Math.max(reported, Math.round((before - after) * 10_000) / 10_000) : reported;
+    },
+  };
 }
 
 /** A short note about failed calls; the team is told when the DataForSEO balance is empty (HTTP 402). */
@@ -73,14 +84,14 @@ export async function researchKeywordsAction(rawDomain: string): Promise<Keyword
   const ws = await getKeywordWorkspace(domain);
   if (!ws.seeds.services.length) return { error: 'Add your services first, then save.' };
   if (!(await allowed(customer, `keywords-research:${domain}`, 1))) return { error: 'Keyword research runs once a day. Please try again tomorrow.' };
-  const c = dfs();
+  const c = await dfs();
   if (!c) return { error: 'Keyword research is not available right now.' };
   const [competitors, gsc] = await Promise.all([researchCompetitors(domain), gscQueries(domain)]);
   const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc });
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
   const cl = kept ? await clusterKeywords(c.api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
   await saveKeywordWorkspace(cl?.workspace ?? r.workspace);
-  await logUsage('dataforseo', c.calls(), r.cost + (cl?.cost ?? 0));
+  await logUsage('dataforseo', c.calls(), await c.charged(r.cost + (cl?.cost ?? 0)));
   pathsFor(domain);
   if (!r.workspace.keywords.length && r.errors.length) return { error: customer ? 'Keyword research is not available right now. Please try again later.' : `Research did not work: ${r.errors[0]}` };
   const errors = [...r.errors, ...(cl?.errors ?? [])];
@@ -94,10 +105,10 @@ export async function clusterKeywordsAction(rawDomain: string): Promise<KeywordS
   const ws = await getKeywordWorkspace(domain);
   if (!ws.keywords.some((k) => k.status === 'kept')) return { error: 'Research keywords first.' };
   if (!(await allowed(customer, `keywords-cluster:${domain}`, 2))) return { error: 'Clusters can be rebuilt twice a day.' };
-  const c = dfs();
+  const c = await dfs();
   const r = await clusterKeywords(c?.api ?? null, ws, { maxSerps: MAX_CLUSTER_SERPS });
   await saveKeywordWorkspace(r.workspace);
-  if (c) await logUsage('dataforseo', c.calls(), r.cost);
+  if (c) await logUsage('dataforseo', c.calls(), await c.charged(r.cost));
   pathsFor(domain);
   return { ok: `${r.workspace.clusters.length} clusters (${r.serps} new Google checks).${problems(r.errors, customer, 'searches could not be checked')}` };
 }
@@ -138,12 +149,12 @@ export async function addKeywordsAction(rawDomain: string, _prev: KeywordState, 
   const ws = await getKeywordWorkspace(domain);
   const r = addKeywords(ws, terms, upload instanceof File && upload.size > 0 ? 'import' : 'manual');
   let next = r.workspace;
-  const c = dfs();
+  const c = await dfs();
   if (c && r.added.length) {
     try {
       const filled = await fillMetrics(c.api, next, r.added);
       next = filled.workspace;
-      await logUsage('dataforseo', c.calls(), filled.cost);
+      await logUsage('dataforseo', c.calls(), await c.charged(filled.cost));
     } catch {
       // metrics come with the next research run
     }

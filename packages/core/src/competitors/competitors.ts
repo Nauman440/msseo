@@ -66,6 +66,9 @@ export const DIRECTORIES = new Set([
   'expertise.com', 'threebestrated.com', 'trustpilot.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'x.com', 'twitter.com', 'tiktok.com',
   'networx.com', 'fixr.com', 'taskrabbit.com', 'checkatrade.com', 'mybuilder.com', 'ratedpeople.com', 'trustatrader.com', 'yell.com', 'hipages.com.au',
   'homestars.com', 'olx.com.pk', 'olx.com', 'daraz.pk', 'urbancompany.com', 'mrmaintenance.pk', 'servicemarket.com', 'justdial.com', 'sulekha.com',
+  // Marketplaces: places to sell on, not rivals to copy.
+  'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.com.au', 'amazon.de', 'amazon.ae', 'amazon.in', 'ebay.com', 'ebay.co.uk', 'ebay.ca', 'ebay.com.au', 'etsy.com',
+  'onbuy.com', 'fruugo.co.uk', 'temu.com', 'aliexpress.com', 'walmart.com', 'notonthehighstreet.com', 'wish.com', 'noon.com', 'shein.com',
 ]);
 /** Encyclopedias, forums, video and media: content and link targets (3.7). */
 export const PUBLISHERS = new Set([
@@ -73,7 +76,7 @@ export const PUBLISHERS = new Set([
   'bobvila.com', 'familyhandyman.com', 'energy.gov', 'energystar.gov', 'bhg.com', 'thespruce.com', 'bankrate.com', 'nerdwallet.com', 'dawn.com', 'tribune.com.pk',
 ]);
 /** Never competitors: search engines and Google surfaces. */
-const IGNORE = new Set(['google.com', 'maps.google.com', 'bing.com', 'apple.com', 'gstatic.com']);
+const IGNORE = new Set(['google.com', 'google.co.uk', 'maps.google.com', 'bing.com', 'apple.com', 'gstatic.com']);
 
 /** 3.5 Auto-type (a locked, hand-picked type is kept). */
 export function classify(c: Pick<CompetitorRecord, 'domain' | 'sources' | 'seenIn' | 'type' | 'typeLocked'>): CompetitorType {

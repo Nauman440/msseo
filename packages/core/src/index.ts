@@ -27,5 +27,5 @@ export * from './keywords/keywords';
 export { brandStems, cleanKeywords, dedupeKey, normTerm, removalReason } from './keywords/clean';
 export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, updateCluster } from './keywords/cluster';
 export { generatePrompts, PROMPT_RANGE, templatePrompts } from './keywords/prompts';
-export { createKeywordClient, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
+export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
 export { createOpenAiClient, type OpenAiClient } from './providers/openai';

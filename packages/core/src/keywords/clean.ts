@@ -33,9 +33,23 @@ export function brandStems(names: string[]): string[] {
   return [...new Set(names.map((n) => n.toLowerCase().replace(/^www\./, '').split('.')[0]!.replace(/[^a-z0-9]/g, '')).filter((s) => s.length >= 5))];
 }
 
+/** Country names and the ways people write them, for "Another country". */
+const COUNTRIES: string[][] = [
+  ['united kingdom', 'uk', 'england', 'britain', 'great britain', 'scotland', 'wales'],
+  ['united states', 'usa', 'us', 'america', 'american'],
+  ['canada', 'canadian'], ['australia', 'australian'], ['new zealand', 'nz'], ['ireland', 'irish'], ['india', 'indian'], ['pakistan', 'pakistani'],
+  ['united arab emirates', 'uae'], ['saudi arabia', 'ksa'], ['qatar'], ['south africa'], ['germany'], ['france'], ['singapore'], ['malaysia'], ['philippines'], ['nigeria'],
+];
+
 /** Why a keyword should go, or null to keep it. */
-export function removalReason(term: string, ctx: { locations: string[]; brands: string[]; competitorStems: string[] }): string | null {
+export function removalReason(term: string, ctx: { locations: string[]; brands: string[]; competitorStems: string[]; country?: string }): string | null {
   const t = normTerm(term);
+  if (ctx.country) {
+    const home = COUNTRIES.find((g) => g[0] === normTerm(ctx.country!));
+    const other = COUNTRIES.find((g) => g !== home && g.some((n) => hasPhrase(t, n)) && !(home ?? []).some((n) => hasPhrase(t, n)));
+    // "us" alone is too common a word; only the longer names count for the United States.
+    if (other && !(other[0] === 'united states' && !['united states', 'usa', 'america', 'american'].some((n) => hasPhrase(t, n)))) return `Another country (${other[0]})`;
+  }
   if (JOBS.test(t)) return 'Job or training search';
   if (FREE.test(t) && !FREE_OK.test(t)) return 'Looking for something free';
   if (DIY.test(t)) return 'Do-it-yourself search';
@@ -52,35 +66,74 @@ export function removalReason(term: string, ctx: { locations: string[]; brands: 
   return null;
 }
 
-/** Words that mean the same trade, so "hvac near me" counts as being about "ac repair". */
-const SYNONYMS = [
-  ['ac', 'air', 'conditioning', 'conditioner', 'aircon', 'hvac', 'cooling', 'cool', 'cooler'],
-  ['furnace', 'heating', 'heat', 'heater', 'hvac', 'boiler', 'warm'],
-  ['plumbing', 'plumber', 'drain', 'pipe', 'leak', 'water'],
-  ['duct', 'ductwork', 'vent', 'air'],
-  ['electrical', 'electrician', 'wiring', 'electric'],
-  ['roofing', 'roofer', 'roof'],
+/**
+ * Words that mean the same trade, so "hvac near me" counts as being about "ac repair". A group
+ * switches on only through its trigger words ("cooling bedding" must not pull in air conditioning).
+ */
+const SYNONYMS: { triggers: string[]; words: string[] }[] = [
+  { triggers: ['ac', 'aircon', 'hvac', 'conditioning', 'conditioner'], words: ['ac', 'air', 'conditioning', 'conditioner', 'aircon', 'hvac', 'cooling', 'cool', 'cooler'] },
+  { triggers: ['furnace', 'heating', 'heater', 'hvac', 'boiler'], words: ['furnace', 'heating', 'heat', 'heater', 'hvac', 'boiler', 'warm'] },
+  { triggers: ['plumbing', 'plumber', 'drain'], words: ['plumbing', 'plumber', 'drain', 'pipe', 'leak', 'water'] },
+  { triggers: ['duct', 'ductwork'], words: ['duct', 'ductwork', 'vent', 'air'] },
+  { triggers: ['electrical', 'electrician'], words: ['electrical', 'electrician', 'wiring', 'electric'] },
+  { triggers: ['roofing', 'roofer', 'roof'], words: ['roofing', 'roofer', 'roof'] },
 ];
+/** Big shops and marketplaces: "bed linen dunelm" is someone looking for that shop, not for you. */
+const RETAILERS = /\b(amazon|ebay|etsy|walmart|costco|ikea|argos|tesco|asda|sainsbury'?s?|morrisons|aldi|lidl|dunelm|john lewis|marks (and |& )?spencers?|m&s|primark|matalan|h&m|zara home|b&m|home bargains|wilko|debenhams|tk maxx|homesense|laura ashley|dorma|catherine lansfield|wayfair|home depot|lowe'?s|bed bath (and|&) beyond|kohl'?s|macy'?s|temu|aliexpress|shein|m and s|habitat|pottery barn|brooklyn bedding|the white company|cotton traders|at next|from next|next home|next (bed|bedding|duvet|curtains)\w*|^next$|next$)\b/;
 const GENERIC = new Set(['repair', 'service', 'company', 'best', 'cost', 'price', 'installation', 'install', 'replacement', 'emergency', 'local', 'contractor', 'me']);
 
 /** The words that make a search about this business (services, brands, extra topics, plus synonyms). */
 export function topicWords(seeds: { services: string[]; brands: string[]; extra: string[] }): Set<string> {
   const words = new Set(dedupeKey([...seeds.services, ...seeds.brands, ...seeds.extra].join(' ')).split(' ').filter((w) => w && !GENERIC.has(w)));
-  for (const group of SYNONYMS) if (group.some((w) => words.has(w))) for (const w of group) words.add(w);
+  for (const group of SYNONYMS) if (group.triggers.some((w) => words.has(w))) for (const w of group.words) words.add(w);
   return words;
 }
 
-/** Keywords found by the tools (not typed in, not from Search Console) that share no topic word. */
-const offTopic = (k: KeywordRecord, topic: Set<string>) =>
-  topic.size > 0 && k.sources.every((s) => s === 'ranked' || s === 'competitor' || s === 'suggestion') && !dedupeKey(k.term).split(' ').some((w) => topic.has(w));
+/** Same word, or both in a synonym group the seed word switches on. */
+const sameWord = (seedWord: string, word: string) => seedWord === word || SYNONYMS.some((g) => g.triggers.includes(seedWord) && g.words.includes(word));
+
+/** Every distinctive word of one service/topic/brand appears in the keyword ("egyptian cotton duvet cover" ⊇ "duvet covers"). */
+export function coversSeed(term: string, seeds: { services: string[]; brands: string[]; extra: string[] }): boolean {
+  const words = dedupeKey(term).split(' ');
+  return [...seeds.services, ...seeds.extra, ...seeds.brands].some((phrase) => {
+    const need = dedupeKey(phrase).split(' ').filter((w) => w && !GENERIC.has(w));
+    return need.length > 0 && need.every((n) => words.some((w) => sameWord(n, w)));
+  });
+}
+
+const TOOL_SOURCES = new Set(['ranked', 'competitor', 'suggestion']);
+const toolOnly = (k: KeywordRecord) => k.sources.every((s) => TOOL_SOURCES.has(s));
+
+/**
+ * Keywords found by the tools (not typed in, not from Search Console) that are not about the
+ * business. Competitors' lists are the noisiest (big sites rank for everything), so their
+ * keywords must contain a whole service; the rest need one shared topic word.
+ */
+function offTopic(k: KeywordRecord, topic: Set<string>, seeds: { services: string[]; brands: string[]; extra: string[] }): boolean {
+  if (!topic.size || !toolOnly(k)) return false;
+  if (k.sources.every((s) => s === 'competitor')) return !coversSeed(k.term, seeds);
+  return !dedupeKey(k.term).split(' ').some((w) => topic.has(w));
+}
 
 /** Applies the rules, then merges near-duplicates into the most searched spelling. */
 export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = []): KeywordWorkspace {
-  const ctx = { locations: ws.seeds.locations, brands: ws.seeds.brands, competitorStems: brandStems(competitorNames) };
+  const ctx = { locations: ws.seeds.locations, brands: ws.seeds.brands, competitorStems: brandStems(competitorNames), country: ws.country };
   const topic = topicWords(ws.seeds);
+  const ownStem = ws.domain.split('.')[0]!.replace(/[^a-z0-9]/g, '');
+  const ownBrandWords = ws.seeds.brands.map((b) => normTerm(b));
+  // Phrases the user typed themselves: kept even with no recorded searches.
+  const typed = new Set([...ws.seeds.services, ...ws.seeds.extra].map(normTerm));
   const ruled: KeywordRecord[] = ws.keywords.map((k) => {
     if (k.statusLocked) return k;
-    const reason = removalReason(k.term, ctx) ?? (offTopic(k, topic) ? 'Not about your services' : null);
+    const t = normTerm(k.term);
+    const shop = !k.sources.some((s) => s === 'manual' || s === 'import' || s === 'gsc') && RETAILERS.test(t) && !ownBrandWords.some((b) => b && RETAILERS.test(b) && t.includes(b));
+    const elsewhere = k.intent === 'navigational' && toolOnly(k) && !t.replace(/[^a-z0-9]/g, '').includes(ownStem);
+    const generated = k.volume === 0 && k.sources.every((s) => s === 'seed') && !typed.has(t);
+    const reason =
+      removalReason(k.term, ctx) ??
+      (shop || elsewhere ? 'Looking for another shop or site' : null) ??
+      (offTopic(k, topic, ws.seeds) ? 'Not about your services' : null) ??
+      (generated ? 'No one searches this' : null);
     return reason ? { ...k, status: 'removed', removeReason: reason, clusterId: null } : { ...k, status: 'kept', removeReason: null };
   });
   const groups = new Map<string, KeywordRecord[]>();

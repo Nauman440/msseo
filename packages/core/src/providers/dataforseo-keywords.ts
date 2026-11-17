@@ -114,8 +114,8 @@ export function createKeywordClient(cfg: DfsConfig) {
   const auth = `Basic ${Buffer.from(`${cfg.login}:${cfg.password}`).toString('base64')}`;
   const base = cfg.baseUrl.replace(/\/$/, '');
 
-  async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>): Promise<{ items: z.infer<T>[]; cost: number }> {
-    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [task], timeoutMs: 60_000, log: cfg.log });
+  async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>, opts: { timeoutMs?: number; retries?: number } = {}): Promise<{ items: z.infer<T>[]; cost: number }> {
+    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [task], timeoutMs: opts.timeoutMs ?? 60_000, retries: opts.retries, log: cfg.log });
     const parsed = envelope(items).parse(json);
     if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
     const t = parsed.tasks[0];
@@ -163,12 +163,28 @@ export function createKeywordClient(cfg: DfsConfig) {
       return { cost, suggestions: items.filter((i) => i.type === 'autocomplete' && i.suggestion).map((i) => i.suggestion!.toLowerCase()) };
     },
 
-    /** Top 10 organic URLs for a keyword. */
-    async serpUrls(keyword: string, l: Locale): Promise<{ urls: string[]; cost: number }> {
-      const { items, cost } = await live('/v3/serp/google/organic/live/regular', organicItem, { keyword, ...where(l), depth: 10, device: 'desktop', resolve_goto_urls: true });
+    /** Top 10 organic URLs for a keyword (short timeout: clustering works without a slow one). */
+    async serpUrls(keyword: string, l: Locale, timeoutMs = 30_000): Promise<{ urls: string[]; cost: number }> {
+      const { items, cost } = await live('/v3/serp/google/organic/live/regular', organicItem, { keyword, ...where(l), depth: 10, device: 'desktop', resolve_goto_urls: true }, { timeoutMs, retries: 0 });
       return { cost, urls: items.filter((i) => i.type === 'organic' && i.url).map((i) => i.url!).slice(0, 10) };
     },
   };
 }
 
 export type KeywordClient = ReturnType<typeof createKeywordClient>;
+
+/**
+ * Account balance (free call). The per-call `cost` DataForSEO reports for Labs live calls has been
+ * well below what is charged (live test 2026-11-17: $0.054 reported, $0.24 charged), so paid runs
+ * record the balance difference when it is larger.
+ */
+export async function dataforseoBalance(cfg: DfsConfig): Promise<number | null> {
+  try {
+    const auth = `Basic ${Buffer.from(`${cfg.login}:${cfg.password}`).toString('base64')}`;
+    const json = await requestJson<unknown>(`${cfg.baseUrl.replace(/\/$/, '')}/v3/appendix/user_data`, { provider: 'dataforseo-account', method: 'GET', headers: { authorization: auth }, timeoutMs: 10_000, retries: 0 });
+    const balance = z.object({ tasks: z.array(z.object({ result: z.array(z.object({ money: z.object({ balance: z.number() }).passthrough() }).passthrough()).nullable().optional() }).passthrough()) }).parse(json).tasks[0]?.result?.[0]?.money.balance;
+    return typeof balance === 'number' ? balance : null;
+  } catch {
+    return null;
+  }
+}

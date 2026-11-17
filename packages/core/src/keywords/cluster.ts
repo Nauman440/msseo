@@ -10,6 +10,8 @@ import type { ClusterPageType, KeywordCluster, KeywordRecord, KeywordWorkspace }
  * SERP (beyond the paid budget) join the cluster whose words they share. 4.6 scores each cluster.
  */
 export const MAX_CLUSTER_SERPS = 60;
+/** Google checks start only within this window, so "Research keywords" answers in about a minute. */
+export const CLUSTER_DEADLINE_MS = 60_000;
 const OVERLAP = 3;
 const SIMILAR = 0.6;
 
@@ -54,15 +56,23 @@ export function pageTypeFor(head: KeywordRecord, locations: string[]): ClusterPa
         ? 'blog_post'
         : path.some((p) => /^(areas?|locations?|service-areas?|cities)$/.test(p)) || KNOWN_CITIES.some((c) => last.includes(c.replace(/ /g, '-')))
           ? 'location'
-          : 'service';
+          : path.some((p) => /^(products?|p|dp|item|buy)$/.test(p))
+            ? 'product'
+            : path.some((p) => /^(collections?|category|categories|c|shop|department|range|browse)$/.test(p))
+              ? 'category'
+              : 'service';
     votes[kind] = (votes[kind] ?? 0) + 1;
   }
   const top = (Object.entries(votes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'service') as ClusterPageType;
   return top === 'location' && !local ? 'location' : top === 'location' || (top === 'service' && local) ? 'service_location' : top;
 }
 
-// Ready-to-buy searches are worth most; +1 when advertisers pay $10+ a click (CPC), +1 for 1,000+ searches a month.
-const INTENT_VALUE: Record<KeywordIntent, number> = { transactional: 4, commercial: 3, informational: 2, navigational: 1 };
+// Ready-to-buy searches are worth most; +1 for 1,000+ and +1 for 10,000+ searches a month, +1 when
+// advertisers pay $10+ a click, +1 for searches naming a place the business serves.
+const INTENT_VALUE: Record<KeywordIntent, number> = { transactional: 3, commercial: 2, informational: 1, navigational: 1 };
+/** Big retailers and marketplaces: page 1 full of them is hard for a small site to break into. */
+const BIG_SITES = new Set(['dunelm.com', 'johnlewis.com', 'next.co.uk', 'marksandspencer.com', 'argos.co.uk', 'ikea.com', 'wayfair.co.uk', 'wayfair.com', 'very.co.uk', 'matalan.co.uk', 'tesco.com', 'sainsburys.co.uk', 'asda.com', 'debenhams.com', 'target.com', 'homedepot.com', 'lowes.com', 'kohls.com', 'macys.com', 'bedbathandbeyond.com', 'costco.com', 'wikipedia.org', 'youtube.com', 'reddit.com']);
+const isBig = (host: string) => isDirectory(host) || [...BIG_SITES].some((d) => host === d || host.endsWith(`.${d}`));
 const clamp = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
 
 /** 4.6 Seasonal peak (1–12) and the date the page should be live (two months before it). */
@@ -94,9 +104,12 @@ export function defaultScores(members: KeywordRecord[], head: KeywordRecord, bes
   // A local business wins calls from searches that name its area ("… dallas", "… near me").
   const t = normTerm(head.term);
   const local = locations.length > 0 && (/\bnear me\b/.test(t) || locations.some((l) => hasPhrase(t, normTerm(l))));
-  const businessValue = clamp((intent ? INTENT_VALUE[intent] : 2) + (cpc >= 10 ? 1 : 0) + (volume >= 1000 ? 1 : 0) + (local ? 1 : 0));
+  const businessValue = clamp((intent ? INTENT_VALUE[intent] : 1) + (volume >= 1000 ? 1 : 0) + (volume >= 10_000 ? 1 : 0) + (cpc >= 10 ? 1 : 0) + (local ? 1 : 0));
   const kd = head.difficulty ?? members.find((m) => m.difficulty !== null)?.difficulty ?? null;
   let chance = kd === null ? 3 : kd < 15 ? 5 : kd < 30 ? 4 : kd < 50 ? 3 : kd < 70 ? 2 : 1;
+  // Difficulty scores miss who is on page 1: big retailers, marketplaces and directories are hard to beat.
+  const big = (head.serpUrls ?? []).filter((u) => isBig(hostOf(u))).length;
+  chance -= big >= 6 ? 2 : big >= 3 ? 1 : 0;
   if (bestPosition !== null) chance = bestPosition <= 3 ? 5 : chance + (bestPosition <= 20 ? 1 : 0);
   return { businessValue, rankingChance: clamp(chance) };
 }
@@ -124,7 +137,7 @@ export function summarise(head: KeywordRecord, members: KeywordRecord[], pageTyp
     bestPosition: best?.position ?? null,
     bestUrl: best?.url ?? null,
     quickWin,
-    longTerm: !quickWin && scores.rankingChance <= 2 && scores.businessValue >= 4,
+    longTerm: !quickWin && scores.rankingChance <= 2 && scores.businessValue >= 3,
     seasonalPeak: season.peak,
     seasonalDeadline: season.deadline,
   };
@@ -143,7 +156,8 @@ async function pool<T>(items: T[], limit: number, fn: (t: T) => Promise<void>) {
 export async function clusterKeywords(
   client: KeywordClient | null,
   ws: KeywordWorkspace,
-  opts: { maxSerps?: number; now?: Date } = {},
+  /** deadlineMs: stop starting Google checks after this long (the rest group by shared words; a later run fills them in). */
+  opts: { maxSerps?: number; now?: Date; deadlineMs?: number } = {},
 ): Promise<{ workspace: KeywordWorkspace; cost: number; errors: string[]; serps: number }> {
   const now = opts.now ?? new Date();
   const locale: Locale = { country: ws.country, language: ws.language };
@@ -154,8 +168,10 @@ export async function clusterKeywords(
   let cost = 0;
   let serps = 0;
   const missing = kept.slice(0, opts.maxSerps ?? MAX_CLUSTER_SERPS).filter((k) => !serp.has(k.term));
+  const stopAt = Date.now() + (opts.deadlineMs ?? CLUSTER_DEADLINE_MS);
   if (client) {
     await pool(missing, 10, async (k) => {
+      if (Date.now() > stopAt) return;
       try {
         const r = await client.serpUrls(k.term, locale);
         cost += r.cost;
@@ -241,7 +257,7 @@ export function updateCluster(ws: KeywordWorkspace, id: string, patch: { name?: 
           rankingChance,
           scoresLocked: true,
           priority: businessValue * rankingChance,
-          longTerm: !c.quickWin && rankingChance <= 2 && businessValue >= 4,
+          longTerm: !c.quickWin && rankingChance <= 2 && businessValue >= 3,
         };
       }),
     ),

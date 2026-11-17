@@ -32,7 +32,7 @@ export type KeywordRecord = {
   addedAt: string;
 };
 
-export type ClusterPageType = 'home' | 'service' | 'location' | 'service_location' | 'blog_post' | 'directory';
+export type ClusterPageType = 'home' | 'service' | 'location' | 'service_location' | 'blog_post' | 'directory' | 'product' | 'category';
 
 export type KeywordCluster = {
   id: string;

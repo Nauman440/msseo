@@ -111,7 +111,11 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     }
   });
 
-  const fullText = clean(root.querySelector('body')?.text ?? root.text);
+  // Visible text only: scripts carry data (Shopify ships translations with Cyrillic/CJK
+  // language names) that would look like injected foreign-language spam (rule 1.10.4).
+  const visible = parse((root.querySelector('body') ?? root).toString());
+  visible.querySelectorAll('script, style, noscript, template').forEach((n) => n.remove());
+  const fullText = clean(visible.text);
   // Main content: <main>/<article> when present, otherwise the body minus boilerplate.
   const body = (root.querySelector('main') ?? root.querySelector('article') ?? root.querySelector('body') ?? root) as HTMLElement;
   const main = parse(body.toString());

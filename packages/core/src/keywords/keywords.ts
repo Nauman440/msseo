@@ -40,6 +40,8 @@ export function emptyKeywordWorkspace(domain: string, init: Partial<Pick<Keyword
 }
 
 const HVAC = /\b(ac|a\/c|hvac|air condition\w*|furnace|heat\w*|cooling|duct\w*|boiler|mini split)\b/i;
+/** Services people book a visit for (repairs, installs, call-outs), as opposed to products. */
+const TRADE = /\b(repairs?|install\w*|replacement|maintenance|service|servicing|cleaning|plumb\w*|electric\w*|roof\w*|lock\w*|pest|removals?|hvac|ac|furnace|boiler|heating|drain\w*|tune up|inspection|fitting|fitters?|landscaping|painting|decorating)\b/;
 const SYMPTOMS = ['ac not cooling', 'ac blowing warm air', 'furnace not turning on', 'heat pump not heating', 'ac leaking water', 'ac making noise', 'no heat in house', 'ac frozen coil'];
 
 /** 4.1 Seed list: services × places, modifiers (near me, emergency, cost, best), brands, symptoms, questions. */
@@ -48,8 +50,10 @@ export function buildSeeds(seeds: KeywordSeeds): string[] {
   const places = seeds.locations.map(normTerm).filter(Boolean);
   const out: string[] = [];
   for (const s of services) {
-    out.push(s, `${s} near me`, `emergency ${s}`, `${s} cost`, `best ${s}`, `how much does ${s} cost`);
-    for (const l of places) out.push(`${s} ${l}`, `best ${s} ${l}`, `${s} company ${l}`);
+    // Call-out trades get "near me / emergency / cost" searches; shops selling products do not.
+    const trade = TRADE.test(s);
+    out.push(s, `best ${s}`, ...(trade ? [`${s} near me`, `emergency ${s}`, `${s} cost`, `how much does ${s} cost`] : []));
+    for (const l of places) out.push(`${s} ${l}`, `best ${s} ${l}`, ...(trade ? [`${s} company ${l}`] : []));
     for (const b of seeds.brands.map(normTerm).filter(Boolean)) out.push(`${b} ${s}`);
   }
   if (services.some((s) => HVAC.test(s))) out.push(...SYMPTOMS);
