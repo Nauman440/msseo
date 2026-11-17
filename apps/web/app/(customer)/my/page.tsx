@@ -55,6 +55,12 @@ export default async function CustomerDashboard({ searchParams }: Props) {
         </section>
       )}
 
+      {account.status === 'cancelled' && (
+        <p role="status" className="rounded-panel border border-border bg-surface p-5 text-[15px] text-ink-2">
+          Your plan is cancelled: weekly checks and new audits are paused. <Link href="/my/account" className="font-semibold text-primary-text hover:underline">Restart it in your account</Link>.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">Your website</p>

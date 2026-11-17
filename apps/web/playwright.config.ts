@@ -8,6 +8,9 @@ const AUTH_PORT = PORT + 1;
 // Fresh, throwaway data folder per run so the "no accounts yet" setup flow is real.
 // Set once in the main process; test workers re-load this file but inherit the variable.
 export const AUTH_DATA = (process.env.E2E_AUTH_DATA ??= resolve(tmpdir(), `msscore-e2e-auth-${Date.now()}`));
+// The main server gets its own throwaway data folder too, so local runs never fill the real
+// .data folder (e.g. the free-audit daily cap) or depend on what is in it.
+const MAIN_DATA = (process.env.E2E_MAIN_DATA ??= resolve(tmpdir(), `msscore-e2e-main-${Date.now()}`));
 export const E2E_PREVIEW_PASSWORD = 'e2e-shared-password';
 // Test-only key for the auth server (signs the print-page token used for emailed PDFs).
 export const E2E_ENCRYPTION_KEY = Buffer.alloc(32, 42).toString('base64');
@@ -39,7 +42,8 @@ export default defineConfig({
       command: `npx next start -p ${PORT}`,
       url: `http://localhost:${PORT}`,
       reuseExistingServer: !process.env.CI,
-      env: { SHOW_DEV_PAGES: '1', NEXT_TELEMETRY_DISABLED: '1' },
+      // No real emails from tests (an empty value is not overwritten by .env).
+      env: { SHOW_DEV_PAGES: '1', NEXT_TELEMETRY_DISABLED: '1', RESEND_API_KEY: '', TEAM_NOTIFY_EMAIL: '', DATA_DIR: MAIN_DATA },
       timeout: 60_000,
     },
     {
@@ -56,6 +60,9 @@ export default defineConfig({
         REDIS_URL: '',
         // Paid APIs fail fast (closed port): e2e never spends DataForSEO credits.
         DATAFORSEO_BASE_URL: 'http://127.0.0.1:9',
+        // No real emails from tests (welcome, plan changes, team alerts).
+        RESEND_API_KEY: '',
+        TEAM_NOTIFY_EMAIL: '',
       },
       timeout: 60_000,
     },

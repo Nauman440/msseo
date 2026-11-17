@@ -288,6 +288,27 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Your password has been changed.')).toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Phone')).toHaveValue('+1 214 555 0100');
+
+  // Self-service plan: switch down and back, cancel (dashboard says so), restart.
+  await page.locator('label').filter({ hasText: 'Autopilot' }).click();
+  await page.getByRole('button', { name: 'Change plan' }).click();
+  await expect(page.getByText('You are now on Autopilot.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Autopilot · $79/month')).toBeVisible();
+  await page.locator('label').filter({ hasText: 'Growth' }).click();
+  await page.getByRole('button', { name: 'Change plan' }).click();
+  await expect(page.getByText(/You are now on Growth/)).toBeVisible();
+  await page.getByText('Cancel your plan').click();
+  await page.getByLabel(/Why are you leaving/).fill('Testing');
+  await page.getByLabel(/I understand weekly checks/).check();
+  await page.getByRole('button', { name: 'Cancel my plan' }).click();
+  // The page switches to the cancelled state.
+  await expect(page.getByText('Weekly checks and new audits are paused. Your reports are still here.')).toBeVisible();
+  await page.goto('/my');
+  await expect(page.getByText(/Your plan is cancelled: weekly checks/)).toBeVisible();
+  await page.getByRole('link', { name: 'Restart it in your account' }).click();
+  await page.getByRole('button', { name: 'Restart my plan' }).click();
+  await expect(page.getByText(/^Free trial · ends /)).toBeVisible();
   await page.goto('/my');
 
   // Customers stay in their own area and cannot open other sites' audits.

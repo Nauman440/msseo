@@ -20,7 +20,7 @@ export async function runCustomerAuditAction(site: string): Promise<RunState> {
   const account = await getAccountByUserId(user.id);
   const url = account ? accountSites(account).find((w) => domainOf(w) === domainOf(site)) : undefined;
   if (!account || !url) return { error: 'Add your website first.' };
-  if (account.status === 'cancelled') return { error: 'Your plan has ended. Contact us to start again.' };
+  if (account.status === 'cancelled') return { error: 'Your plan is cancelled. Restart it under Account to run audits again.' };
   if (!(await hit(`customer-audit:${user.id}`, PER_DAY, 24 * 60 * 60)).allowed) return { error: `You can run ${PER_DAY} audits a day. Your weekly audit also runs automatically.` };
   let id: string;
   try {

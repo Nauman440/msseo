@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ActionForm } from '@/components/forms/ActionForm';
 import { TagInput } from '@/components/signup/TagInput';
-import { accountSites, getAccountByUserId, PLANS } from '@/lib/accounts';
+import { PlanSettings } from '@/components/customer/PlanSettings';
+import { accountSites, getAccountByUserId } from '@/lib/accounts';
 import { requireCustomer } from '@/lib/session';
 import { SUPPORT_EMAIL } from '@/lib/site';
 import { changeCustomerPasswordAction, saveBusinessAction, saveDetailsAction } from './actions';
@@ -16,17 +17,13 @@ const LABEL = 'flex flex-col gap-1.5 text-sm font-semibold';
 const PANEL = 'rounded-panel border border-border bg-surface p-6';
 const COUNTRIES = ['Pakistan', 'United States', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Canada', 'Australia', 'India', 'Qatar', 'Germany'];
 const LANGUAGES = ['English', 'Urdu', 'Arabic', 'Spanish', 'French', 'Other'];
-const STATUS = { trial: 'Free trial', active: 'Active', cancelled: 'Cancelled' } as const;
-const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-/** Customer account settings: details, business answers, plan and password. */
+/** Customer account settings: plan (switch, cancel, restart), details, business answers, password. */
 export default async function CustomerAccountPage() {
   const user = await requireCustomer();
   const account = await getAccountByUserId(user.id);
   if (!account) redirect('/signup');
-  const plan = PLANS[account.plan];
   const sites = accountSites(account);
-  const trialLeft = Math.ceil((new Date(account.trialEndsAt).getTime() - Date.now()) / 86_400_000);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -38,25 +35,7 @@ export default async function CustomerAccountPage() {
         <p className="mt-2 text-[15px] text-ink-2">Signed in as {user.email}</p>
       </div>
 
-      <section className={PANEL} aria-labelledby="plan">
-        <h2 id="plan" className="font-display text-lg font-bold">Your plan</h2>
-        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[15px]">
-          <dt className="text-ink-3">Plan</dt>
-          <dd className="font-semibold">{plan.name} · {plan.price}{plan.unit}</dd>
-          <dt className="text-ink-3">Status</dt>
-          <dd className="font-semibold">
-            {STATUS[account.status]}
-            {account.status === 'trial' && <span className="font-normal text-ink-2"> · {trialLeft > 0 ? `ends ${date(account.trialEndsAt)} (${trialLeft} ${trialLeft === 1 ? 'day' : 'days'} left)` : `ended ${date(account.trialEndsAt)}`}</span>}
-          </dd>
-          <dt className="text-ink-3">Websites</dt>
-          <dd className="break-all">{sites.length} of {plan.websites}{sites.length ? ` · ${sites.map((s) => s.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')).join(', ')}` : ''}</dd>
-        </dl>
-        <p className="mt-4 text-sm text-ink-2">
-          To change plan, add websites to your plan or cancel, email{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Plan change: ${account.businessName}`)}`} className="font-semibold text-primary-text hover:underline">{SUPPORT_EMAIL}</a>
-          . {sites.length > 1 || plan.websites > 1 ? <>Manage your websites on <Link href="/my" className="font-semibold text-primary-text hover:underline">your dashboard</Link>.</> : null}
-        </p>
-      </section>
+      <PlanSettings account={account} sites={sites} />
 
       <section className={PANEL} aria-labelledby="details">
         <h2 id="details" className="mb-4 font-display text-lg font-bold">Your details</h2>
@@ -128,9 +107,9 @@ export default async function CustomerAccountPage() {
       </section>
 
       <section className={PANEL} aria-labelledby="close">
-        <h2 id="close" className="font-display text-lg font-bold">Close your account</h2>
+        <h2 id="close" className="font-display text-lg font-bold">Delete your account</h2>
         <p className="mt-2 text-sm text-ink-2">
-          Email <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Close account: ${account.businessName}`)}`} className="font-semibold text-primary-text hover:underline">{SUPPORT_EMAIL}</a> and we will close it and delete your data, as described in our <Link href="/privacy" className="font-semibold text-primary-text hover:underline">privacy policy</Link>.
+          Cancelling your plan keeps your login and reports. To delete everything, email <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Close account: ${account.businessName}`)}`} className="font-semibold text-primary-text hover:underline">{SUPPORT_EMAIL}</a> and we will close it and delete your data, as described in our <Link href="/privacy" className="font-semibold text-primary-text hover:underline">privacy policy</Link>.
         </p>
       </section>
     </div>
