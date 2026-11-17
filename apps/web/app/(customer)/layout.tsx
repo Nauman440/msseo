@@ -21,8 +21,11 @@ export default async function CustomerLayout({ children }: { children: React.Rea
           <Link href="/my" aria-label="Your dashboard" className="shrink-0">
             <Logo height={30} />
           </Link>
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="hidden truncate text-sm text-ink-2 sm:inline">{account?.businessName ?? user.name}</span>
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <span className="hidden truncate text-sm text-ink-2 md:inline">{account?.businessName ?? user.name}</span>
+            <Link href="/my/account" className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-semibold text-ink hover:text-primary-text">
+              Account
+            </Link>
             <form action={signOutAction}>
               <button type="submit" className="min-h-10 rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
                 Log out

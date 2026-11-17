@@ -267,6 +267,29 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/keywords/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
+  // Account settings from the header: plan, details and password.
+  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Account settings', level: 1 })).toBeVisible();
+  await expect(page.getByText(/^Free trial · ends /)).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Phone').fill('+1 214 555 0100');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  await expect(page.getByText('Your details have been saved.')).toBeVisible();
+  await page.getByLabel('Current password').fill('not-my-password');
+  await page.getByLabel('New password', { exact: true }).fill('summit-air-2027');
+  await page.getByLabel('Repeat new password').fill('summit-air-2027');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Your current password is not right.')).toBeVisible();
+  // The form clears after each try (React form actions), so every field is filled again.
+  await page.getByLabel('Current password').fill('summit-air-2026');
+  await page.getByLabel('New password', { exact: true }).fill('summit-air-2027');
+  await page.getByLabel('Repeat new password').fill('summit-air-2027');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Your password has been changed.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Phone')).toHaveValue('+1 214 555 0100');
+  await page.goto('/my');
+
   // Customers stay in their own area and cannot open other sites' audits.
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/my$/);

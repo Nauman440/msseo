@@ -70,6 +70,17 @@ export async function changePasswordAction(_prev: ActionState, form: FormData): 
   return { ok: 'Your password has been changed.' };
 }
 
+/** Anyone on the team: change the name shown in the app and on audits they run. */
+export async function updateOwnNameAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const me = await requireUser();
+  if (!me.id) return { error: 'Login is not switched on in this environment.' };
+  const name = String(form.get('name') ?? '').trim().slice(0, 100);
+  if (!name) return { error: 'Enter your name.' };
+  await updateUser(me.id, { name });
+  revalidatePath('/', 'layout');
+  return { ok: 'Your name has been saved.' };
+}
+
 /** Admin: remove the Search Console connection (audits then skip GSC checks). */
 export async function disconnectGscAction(): Promise<ActionState> {
   await requireAdmin();

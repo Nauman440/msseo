@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ActionForm } from '@/components/forms/ActionForm';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { requireUser } from '@/lib/session';
-import { changePasswordAction } from '../actions';
+import { changePasswordAction, updateOwnNameAction } from '../actions';
 
 export const metadata: Metadata = { title: 'Your account' };
 export const dynamic = 'force-dynamic';
@@ -15,6 +15,16 @@ export default async function AccountPage() {
   return (
     <Container className="flex max-w-2xl flex-col gap-8 py-12">
       <SectionHeader as="h1" align="left" eyebrow="Settings" title="Your account" intro={me.email ? `Signed in as ${me.email} (${me.role}).` : 'Login is not switched on in this environment.'} />
+      {me.id && (
+        <section className="rounded-panel border border-border bg-surface p-6">
+          <h2 className="mb-4 font-display text-lg font-bold">Your details</h2>
+          <ActionForm action={updateOwnNameAction} submit="Save name" tone="secondary">
+            <label className={LABEL}>
+              Your name
+              <input name="name" required maxLength={100} autoComplete="name" defaultValue={me.name} className={INPUT} />
+            </label>          </ActionForm>
+        </section>
+      )}
       {me.id && (
         <section className="rounded-panel border border-border bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Change password</h2>
