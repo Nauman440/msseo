@@ -15,6 +15,7 @@ const ROUTES = [
   { path: '/competitors/example.com', heading: 'example.com' },
   { path: '/competitors/example.com?view=listings', heading: 'example.com' },
   { path: '/competitors/example.com?view=where', heading: 'example.com' },
+  { path: '/competitors/example.com?view=analysis', heading: 'example.com' },
   { path: '/keywords/example.com', heading: 'example.com' },
   { path: '/keywords/example.com?view=all', heading: 'example.com' },
   { path: '/keywords/example.com?view=questions', heading: 'example.com' },

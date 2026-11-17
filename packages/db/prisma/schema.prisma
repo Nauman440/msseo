@@ -262,3 +262,11 @@ model ActionWorkspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Module 6: the latest deep competitor analysis per website (JSON document).
+model CompetitorAnalysis {
+  domain    String   @id
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -3,6 +3,7 @@ import { gapByCompetitor } from '@seo/core';
 import { CompetitorWorkspaceView } from '@/components/competitors/CompetitorWorkspaceView';
 import { COMPETITOR_VIEWS, type CompetitorView } from '@/components/competitors/labels';
 import { SiteHeader } from '@/components/customer/SiteHeader';
+import { getAnalysis, nextCustomerRun } from '@/lib/analysis';
 import { getWorkspace } from '@/lib/competitors';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { getKeywordWorkspace } from '@/lib/keywords';
@@ -16,7 +17,7 @@ type Props = { searchParams: Promise<{ site?: string; view?: string }> };
 export default async function CustomerCompetitorsPage({ searchParams }: Props) {
   const { site, view } = await searchParams;
   const s = await loadCustomerSite(site);
-  const [ws, keywords] = await Promise.all([getWorkspace(s.domain), getKeywordWorkspace(s.domain)]);
+  const [ws, keywords, analysis] = await Promise.all([getWorkspace(s.domain), getKeywordWorkspace(s.domain), getAnalysis(s.domain)]);
   const q = `site=${encodeURIComponent(s.domain)}`;
   return (
     <>
@@ -27,6 +28,8 @@ export default async function CustomerCompetitorsPage({ searchParams }: Props) {
         base={`/my/competitors?${q}`}
         view={COMPETITOR_VIEWS.includes(view as CompetitorView) ? (view as CompetitorView) : 'competitors'}
         gaps={gapByCompetitor(keywords)}
+        analysis={analysis}
+        nextRun={nextCustomerRun(analysis)}
         gapHref={`/my/keywords?${q}&view=all&from=gap`}
       />
     </>

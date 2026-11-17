@@ -259,6 +259,12 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('heading', { name: 'You vs your shortlist' })).toBeVisible();
   await compSections.getByRole('link', { name: /^Listings and links/ }).click();
   await expect(page.getByRole('heading', { name: 'Listings and link targets' })).toBeVisible();
+  // Module 6: the analysis compares the shortlist (not run in e2e: it would fetch real sites).
+  await compSections.getByRole('link', { name: 'Analysis' }).click();
+  await expect(page.getByText('Compares you with 1 shortlisted competitor: rival-hvac.com')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run the analysis' })).toBeVisible();
+  expect((await page.request.get('/api/analysis/summitairhvac.com/csv')).status()).toBe(404);
+  expect((await page.request.get('/api/analysis/rival-hvac.com/csv')).status()).toBe(404);
   // The team's competitor pages are not for customers.
   await page.goto('/competitors/rival-hvac.com');
   await expect(page).toHaveURL(/\/my$/);

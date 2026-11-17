@@ -150,7 +150,7 @@ export default async function GeneralSettingsPage() {
               <label className={LABEL}>
                 Monthly cap (USD)
                 <input name="autopilot.monthlyCap" type="number" min={0} max={1000} step={1} defaultValue={s['autopilot.monthlyCap']} className={`${INPUT} tabular`} />
-                <span className={HINT}>Autopilot pauses until next month when reached; the team is emailed once. Manual runs still work.</span>
+                <span className={HINT}>Covers autopilot and the competitor analyses customers start themselves (about $0.55 each). Autopilot pauses and customer analyses wait until next month when reached; the team is emailed once. Team runs are not limited.</span>
               </label>
               {spent !== null && (
                 <p className="text-sm sm:col-span-2 sm:self-end">

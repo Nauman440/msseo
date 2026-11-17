@@ -5,6 +5,7 @@ import { gapByCompetitor, normDomain } from '@seo/core';
 import { CompetitorWorkspaceView } from '@/components/competitors/CompetitorWorkspaceView';
 import { COMPETITOR_VIEWS, type CompetitorView } from '@/components/competitors/labels';
 import { Container, SectionHeader } from '@/components/landing/primitives';
+import { getAnalysis } from '@/lib/analysis';
 import { getWorkspace } from '@/lib/competitors';
 import { getKeywordWorkspace } from '@/lib/keywords';
 import { requireUser } from '@/lib/session';
@@ -23,7 +24,7 @@ export default async function TeamCompetitorsPage({ params, searchParams }: Prop
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
   const { view } = await searchParams;
-  const [ws, keywords] = await Promise.all([getWorkspace(domain), getKeywordWorkspace(domain)]);
+  const [ws, keywords, analysis] = await Promise.all([getWorkspace(domain), getKeywordWorkspace(domain), getAnalysis(domain)]);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">
@@ -40,6 +41,7 @@ export default async function TeamCompetitorsPage({ params, searchParams }: Prop
         base={`/competitors/${domain}`}
         view={COMPETITOR_VIEWS.includes(view as CompetitorView) ? (view as CompetitorView) : 'competitors'}
         gaps={gapByCompetitor(keywords)}
+        analysis={analysis}
         gapHref={`/keywords/${domain}?view=all&from=gap`}
       />
     </Container>

@@ -1,4 +1,5 @@
-import { hiddenReason, type CompetitorWorkspace } from '@seo/core';
+import { analysisTargets, hiddenReason, type CompetitorAnalysis, type CompetitorWorkspace } from '@seo/core';
+import { AnalysisView } from '@/components/analysis/AnalysisView';
 import { SubTabs, withView } from '@/components/ui/SubTabs';
 import { AddCompetitorForm, CompetitorSettings, RunButtons } from './forms';
 import { FoundTable } from './FoundTable';
@@ -14,7 +15,7 @@ import { ShortlistCard, VersusTable } from './Shortlist';
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null);
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export function CompetitorWorkspaceView({ ws, audience, base, view, gaps, gapHref }: {
+export function CompetitorWorkspaceView({ ws, audience, base, view, gaps, gapHref, analysis = null, nextRun = null }: {
   ws: CompetitorWorkspace;
   audience: 'team' | 'customer';
   base: string;
@@ -22,6 +23,9 @@ export function CompetitorWorkspaceView({ ws, audience, base, view, gaps, gapHre
   /** Kept searches each competitor ranks for and the site does not (Module 4 keyword gap). */
   gaps: Record<string, number>;
   gapHref: string;
+  /** Module 6: the latest deep analysis, and (customers) when the next run is allowed. */
+  analysis?: CompetitorAnalysis | null;
+  nextRun?: Date | null;
 }) {
   const href = (v: CompetitorView) => withView(base, v, 'competitors');
   const listings = ws.competitors.filter(isListing);
@@ -42,6 +46,7 @@ export function CompetitorWorkspaceView({ ws, audience, base, view, gaps, gapHre
         tabs={[
           { key: 'competitors', label: 'Competitors', count: rivals.length, href: href('competitors') },
           { key: 'listings', label: 'Listings and links', count: listings.length, href: href('listings') },
+          { key: 'analysis', label: 'Analysis', href: href('analysis') },
           { key: 'where', label: 'Where to look', href: href('where') },
         ]}
       />
@@ -81,6 +86,10 @@ export function CompetitorWorkspaceView({ ws, audience, base, view, gaps, gapHre
       )}
 
       {view === 'listings' && <ListingsView ws={ws} />}
+
+      {view === 'analysis' && (
+        <AnalysisView a={analysis} domain={ws.domain} audience={audience} targets={analysisTargets(ws).map((c) => c.domain)} nextRun={nextRun} shortlistHref={href('competitors')} />
+      )}
 
       {view === 'where' && (
         <section aria-labelledby="where-title" className="flex flex-col gap-5 rounded-card border border-border bg-surface p-[22px]">

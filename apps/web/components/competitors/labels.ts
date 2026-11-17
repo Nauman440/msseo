@@ -1,8 +1,8 @@
 import type { CompetitorRecord, ListingKind, ListingStatus } from '@seo/core';
 
 /** Competitors design (design-reference/Competitors tab *.zip): labels and chip colours, shared by server and client components. */
-export type CompetitorView = 'competitors' | 'listings' | 'where';
-export const COMPETITOR_VIEWS: CompetitorView[] = ['competitors', 'listings', 'where'];
+export type CompetitorView = 'competitors' | 'listings' | 'analysis' | 'where';
+export const COMPETITOR_VIEWS: CompetitorView[] = ['competitors', 'listings', 'analysis', 'where'];
 
 export const CHIP = 'whitespace-nowrap rounded-full px-[9px] py-[3px] text-[12px] font-bold';
 

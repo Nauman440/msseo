@@ -34,3 +34,6 @@ export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } fr
 export * from './mapping/mapping';
 export { draftableRows, writeDrafts } from './mapping/drafts';
 export * from './actions/actions';
+export * from './analysis/analysis';
+export { analysisDeps, sitemapCount } from './analysis/deps';
+export { ANALYSIS_LLM_MODEL, COUNTRY_ISO, createAnalysisClient, type AnalysisClient, type BusinessInfo, type ChatAnswer, type GridEntry } from './providers/dataforseo-analysis';

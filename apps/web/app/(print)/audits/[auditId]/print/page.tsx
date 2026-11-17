@@ -4,6 +4,9 @@ import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { canViewAudit } from '@/lib/access';
 import { getSavedWorkspace } from '@/lib/competitors';
 import { getActions } from '@/lib/actions';
+import { getAnalysis } from '@/lib/analysis';
+import { Recommendations } from '@/components/analysis/AiAndAdvice';
+import { ComparisonTable } from '@/components/analysis/ComparisonTable';
 import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
 import { getReport, parseMode, reportSummary } from '@/lib/reports';
 import { PdfCover } from '@/components/pdf/PdfCover';
@@ -32,7 +35,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
   const report = await getReport(auditId);
   if (!report) notFound();
   const mode = parseMode(query.mode, report.audience);
-  const [competitors, actions] = report.auditId === 'demo' ? [null, null] : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain)]);
+  const [competitors, actions, analysis] = report.auditId === 'demo' ? [null, null, null] : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain)]);
   const summary = reportSummary(report)[mode];
   const footer = `${report.brand} · ${report.project.domain}`;
 
@@ -48,6 +51,15 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
         {competitors?.competitors.some((c) => c.shortlist !== 'none') && (
           <section className="pdf-section pdf-avoid">
             <CompetitorSummary ws={competitors} />
+          </section>
+        )}
+        {analysis && (
+          <section className="pdf-section flex flex-col gap-6">
+            <div className="pdf-avoid rounded-card border border-border bg-surface p-6">
+              <h2 className="mb-3 font-display text-xl font-bold">You and your competitors, side by side</h2>
+              <ComparisonTable a={analysis} compact />
+            </div>
+            <Recommendations a={analysis} />
           </section>
         )}
         {actions?.actions.some((a) => a.status !== 'dismissed') && (
