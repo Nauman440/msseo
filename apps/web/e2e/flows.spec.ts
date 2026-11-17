@@ -83,6 +83,10 @@ test('landing page is public, indexable and sends the URL into the free audit', 
   await page.goto('/');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /index, follow/);
   await expect(page.getByText('Coming soon').first()).toBeVisible();
+  // Returning customers can log in, new ones sign up, from the top menu.
+  const menu = page.getByRole('navigation', { name: 'Main' });
+  await expect(menu.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
+  if ((page.viewportSize()?.width ?? 0) >= 640) await expect(menu.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/signup');
   await page.getByLabel('Enter your website to start').fill('clientsite.com');
   await page.getByRole('button', { name: 'Show me what to fix' }).click();
   await expect(page).toHaveURL(/\/free\?url=clientsite\.com/);

@@ -36,15 +36,22 @@ export function TopBar() {
             <Logo height={28} priority className="sm:hidden" />
             <Logo height={36} priority className="hidden sm:block" />
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-x-[22px] text-[15px]">
+          <nav aria-label="Main" className="flex items-center gap-x-3 text-[15px] sm:gap-x-[18px]">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href} className="hidden font-medium text-ink-2 hover:text-ink md:inline">
+              <a key={n.href} href={n.href} className="hidden font-medium text-ink-2 hover:text-ink xl:inline">
                 {n.label}
               </a>
             ))}
             <CtaLink size="sm">
               Get my free audit
             </CtaLink>
+            {/* Returning customers and the team sign in here; new customers start the 7-day trial. */}
+            <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-ink hover:text-primary-text">
+              Log in
+            </Link>
+            <Link href="/signup" className="hidden min-h-11 items-center rounded-button border border-border-strong px-4 font-semibold text-ink hover:border-ink-3 sm:inline-flex">
+              Sign up
+            </Link>
           </nav>
         </Container>
       </header>
