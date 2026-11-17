@@ -43,9 +43,14 @@ export default async function ProjectPage({ params }: Props) {
     <Container className="flex flex-col gap-10 py-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader as="h1" align="left" eyebrow="Project" title={project.domain} intro={`${audits.length} ${audits.length === 1 ? 'audit' : 'audits'} since ${project.createdAt.toISOString().slice(0, 10)}.`} />
+        <div className="flex flex-wrap gap-3">
+          <Link href={`/competitors/${project.domain}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
+            Competitors
+          </Link>
         <Link href={`/audits/new?url=${encodeURIComponent(`https://${project.domain}/`)}`} className={BUTTON}>
           Re-audit
         </Link>
+        </div>
       </div>
 
       <Card title="Score trend">

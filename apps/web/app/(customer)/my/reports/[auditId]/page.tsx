@@ -6,7 +6,9 @@ import { ReportBanner } from '@/components/report/Banner';
 import { DownloadPdfButton } from '@/components/report/DownloadPdfButton';
 import { ReportOverview } from '@/components/report/ReportOverview';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
+import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { canViewAudit } from '@/lib/access';
+import { getSavedWorkspace } from '@/lib/competitors';
 import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
 import { requireCustomer } from '@/lib/session';
 
@@ -30,6 +32,7 @@ export default async function CustomerReportPage({ params }: Props) {
   }
 
   const report = view.report;
+  const competitors = await getSavedWorkspace(report.project.domain);
   return (
     <>
       <div className="border-b border-border bg-surface">
@@ -60,6 +63,7 @@ export default async function CustomerReportPage({ params }: Props) {
             <CheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode="client" />
           </>
         )}
+        {competitors && <CompetitorSummary ws={competitors} href={`/my/competitors?site=${competitors.domain}`} />}
       </div>
     </>
   );

@@ -20,3 +20,5 @@ export { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema, ty
 export { deliverReportEmail, emailConfig, reportEmail, type EmailEnv } from './report/email';
 export { sendEmail, type EmailMessage } from './providers/resend';
 export { type AiCache, type AiFindings } from './audit/ai-checks';
+export * from './competitors/competitors';
+export { createCompetitorClient, type CompetitorClient, type MonthPoint } from './providers/dataforseo-competitors';

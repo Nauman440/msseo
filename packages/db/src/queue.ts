@@ -35,6 +35,8 @@ export async function auditWorkerCount(): Promise<number> {
 /** Scheduled jobs (step 8): the weekly customer re-audit, Mondays 06:00 UTC. */
 export const SCHEDULE_QUEUE = 'schedules';
 export const WEEKLY_CUSTOMER_AUDITS = 'weekly-customer-audits';
+/** Module 3.9: competitor refresh on the 1st of Jan, Apr, Jul and Oct, 07:00 UTC. */
+export const QUARTERLY_COMPETITORS = 'quarterly-competitors';
 
 /** Creates or updates the weekly schedule (idempotent; called when the worker starts). */
 export async function ensureWeeklySchedule(): Promise<void> {
@@ -43,6 +45,7 @@ export async function ensureWeeklySchedule(): Promise<void> {
   const queue = new Queue(SCHEDULE_QUEUE, { connection: redisConnection(url) });
   try {
     await queue.upsertJobScheduler(WEEKLY_CUSTOMER_AUDITS, { pattern: '0 6 * * 1', tz: 'UTC' }, { name: WEEKLY_CUSTOMER_AUDITS });
+    await queue.upsertJobScheduler(QUARTERLY_COMPETITORS, { pattern: '0 7 1 1,4,7,10 *', tz: 'UTC' }, { name: QUARTERLY_COMPETITORS });
   } finally {
     await queue.close();
   }

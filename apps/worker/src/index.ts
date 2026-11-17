@@ -2,7 +2,8 @@ import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
 import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { refreshCompetitors } from './competitors';
 import { renderPdfBytes } from './pdf/render';
 
 /**
@@ -65,6 +66,10 @@ worker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'audit job 
 const scheduler = new Worker(
   SCHEDULE_QUEUE,
   async (job) => {
+    if (job.name === QUARTERLY_COMPETITORS) {
+      await refreshCompetitors(log);
+      return;
+    }
     if (job.name !== WEEKLY_CUSTOMER_AUDITS) return;
     const due = await dueCustomerSites();
     for (const account of due) {

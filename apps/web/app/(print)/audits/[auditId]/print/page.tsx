@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { canViewAudit } from '@/lib/access';
+import { getSavedWorkspace } from '@/lib/competitors';
 import { getReport, parseMode, reportSummary } from '@/lib/reports';
 import { PdfCover } from '@/components/pdf/PdfCover';
 import { PdfChecks, PdfNextSteps, PdfSummary, PdfTopIssues } from '@/components/pdf/PdfSections';
@@ -28,6 +30,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
   const report = await getReport(auditId);
   if (!report) notFound();
   const mode = parseMode(query.mode, report.audience);
+  const competitors = report.auditId === 'demo' ? null : await getSavedWorkspace(report.project.domain);
   const summary = reportSummary(report)[mode];
   const footer = `${report.brand} · ${report.project.domain}`;
 
@@ -40,6 +43,11 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
         <PdfSummary report={report} summary={summary} mode={mode} />
         <PdfTopIssues report={report} mode={mode} />
         <PdfChecks report={report} mode={mode} />
+        {competitors?.competitors.some((c) => c.shortlist !== 'none') && (
+          <section className="pdf-section pdf-avoid">
+            <CompetitorSummary ws={competitors} />
+          </section>
+        )}
         <PdfNextSteps report={report} />
       </div>
     </>

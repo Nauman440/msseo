@@ -60,7 +60,14 @@ export default async function CustomerDashboard({ searchParams }: Props) {
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary-text">Your website</p>
           <h1 className="mt-1 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{current ? domainOf(current) : account.businessName}</h1>
         </div>
-        {current && <RunAuditButton disabled={Boolean(running)} site={domainOf(current)} />}
+        <div className="flex flex-wrap items-start gap-3">
+          {current && (
+            <Link href={`/my/competitors?site=${encodeURIComponent(domainOf(current))}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-bold hover:border-ink-3">
+              Competitors
+            </Link>
+          )}
+          {current && <RunAuditButton disabled={Boolean(running)} site={domainOf(current)} />}
+        </div>
       </div>
 
       {(sites.length > 1 || limit > 1) && (

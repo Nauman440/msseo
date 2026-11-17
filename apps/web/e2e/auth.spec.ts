@@ -222,6 +222,26 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my$/);
   await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
 
+  // Module 3 for customers: searches come from onboarding; add, shortlist, persist.
+  await page.goto('/my');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await expect(page.getByRole('heading', { name: 'Your competitors', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove ac repair dallas' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove ac repair plano' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Website', { exact: true }).fill('https://www.rival-hvac.com/');
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await expect(page.getByText('rival-hvac.com added.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'rival-hvac.com' }).filter({ visible: true })).toBeVisible();
+  // The table (desktop) and the cards (phones) both exist; use whichever is visible.
+  await page.getByLabel('Shortlist rival-hvac.com').filter({ visible: true }).selectOption('direct');
+  await expect(page.getByText('1 direct · 0 aspirational')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Shortlist rival-hvac.com').filter({ visible: true })).toHaveValue('direct');
+  // The team's competitor pages are not for customers.
+  await page.goto('/competitors/rival-hvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+
   // Customers stay in their own area and cannot open other sites' audits.
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/my$/);

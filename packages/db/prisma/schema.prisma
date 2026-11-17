@@ -210,3 +210,14 @@ model AiCache {
   value     Json
   createdAt DateTime @default(now())
 }
+
+/// Module 3 competitor workspace for one website (keyed by its domain, without www):
+/// settings, core searches and the competitor list as one document (see @seo/core
+/// CompetitorWorkspace). Shared by the team's project pages and the customer's /my area.
+model CompetitorWorkspace {
+  domain    String    @id
+  data      Json
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

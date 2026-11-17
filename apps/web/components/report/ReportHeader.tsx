@@ -89,6 +89,11 @@ export function ReportHeader({ report, mode, projectHref }: { report: ReportMode
             <ButtonLink href={`/audits/new?url=${encodeURIComponent(report.url)}&audience=${report.audience}`} variant="secondary" className="min-h-10">
               Re-run audit
             </ButtonLink>
+            {report.auditId !== 'demo' && (
+              <ButtonLink href={`/competitors/${report.project.domain}`} variant="secondary" className="min-h-10">
+                Competitors
+              </ButtonLink>
+            )}
           </div>
         </div>
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] sm:flex sm:flex-wrap sm:gap-x-8">
