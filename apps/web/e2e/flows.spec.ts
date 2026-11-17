@@ -157,7 +157,8 @@ test('a visitor runs a free audit from the landing page', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Run my free audit' }).click();
   // The address cannot exist, so the audit stops at the first DNS lookup (no paid API is called).
-  await expect(page).toHaveURL(/\/free\/[0-9a-f-]{36}$/);
+  // Generous: without a database the daily-cap check reads every stored audit file.
+  await expect(page).toHaveURL(/\/free\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Try again' })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole('button', { name: /Retry/ })).toHaveCount(0);
 });
