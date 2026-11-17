@@ -40,10 +40,10 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
           <p className="mt-2 text-[13px] text-ink-3">We collect the searches your customers use (from Google, your rankings and your competitors), remove the ones that will not bring you work, and group the rest into topics. One page should target each topic.</p>
         </Card>
       )}
-      {fold('Your services, places and searches', (
-      <Card title="What you offer and where" eyebrow={customer ? undefined : `Last research: ${day(ws.lastRunAt)}`}>
+      {fold(ws.businessType === 'shop' ? 'Your products and searches' : 'Your services, places and searches', (
+      <Card title={ws.businessType === 'shop' ? 'What you sell' : 'What you offer and where'} eyebrow={customer ? undefined : `Last research: ${day(ws.lastRunAt)}`}>
         <div className="flex flex-col gap-6">
-          <SeedsForm domain={ws.domain} country={ws.country} language={ws.language} seeds={ws.seeds} />
+          <SeedsForm domain={ws.domain} businessType={ws.businessType ?? 'services'} country={ws.country} language={ws.language} seeds={ws.seeds} />
           {!customer && (
           <div className="border-t border-border pt-5">
             <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />

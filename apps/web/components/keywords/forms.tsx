@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useRef } from 'react';
-import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, SEED_LIMITS, type KeywordSeeds } from '@seo/core';
+import { useActionState, useRef, useState } from 'react';
+import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, SEED_LIMITS, type BusinessType, type KeywordSeeds } from '@seo/core';
 import {
   addKeywordsAction, clusterKeywordsAction, generatePromptsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
   type KeywordState,
@@ -9,11 +9,32 @@ import {
 import { INPUT, Message, SELECT_SM, Submit } from '@/components/competitors/forms';
 import { TagInput } from '@/components/signup/TagInput';
 
-/** 4.1 seeds: country, language, services, places, brands and extra topics. */
-export function SeedsForm({ domain, country, language, seeds }: { domain: string; country: string; language: string; seeds: KeywordSeeds }) {
+const KINDS: { value: BusinessType; label: string; hint: string }[] = [
+  { value: 'services', label: 'Services', hint: 'Visits, repairs or bookings in an area' },
+  { value: 'shop', label: 'Products', hint: 'An online shop' },
+];
+
+/** 4.1 seeds: what kind of business, country, language, services or products, places, brands and extra topics. */
+export function SeedsForm({ domain, businessType, country, language, seeds }: { domain: string; businessType: BusinessType; country: string; language: string; seeds: KeywordSeeds }) {
   const [state, action] = useActionState<KeywordState, FormData>(saveKeywordSeedsAction.bind(null, domain), {});
+  const [kind, setKind] = useState<BusinessType>(businessType);
+  const shop = kind === 'shop';
   return (
     <form action={action} className="flex flex-col gap-4">
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold">What do you sell?</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {KINDS.map((k) => (
+            <label key={k.value} className="cursor-pointer">
+              <input type="radio" name="businessType" value={k.value} checked={kind === k.value} onChange={() => setKind(k.value)} className="peer sr-only" />
+              <span className="flex flex-col rounded-tile border border-border p-3.5 peer-checked:border-night peer-checked:bg-sunken peer-focus-visible:ring-2 peer-focus-visible:ring-primary">
+                <span className="font-semibold">{k.label}</span>
+                <span className="text-[13px] text-ink-3">{k.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Country
@@ -32,10 +53,33 @@ export function SeedsForm({ domain, country, language, seeds }: { domain: string
           </select>
         </label>
       </div>
-      <TagInput name="services" label="Services" hint={`What you sell, e.g. "AC repair". Up to ${SEED_LIMITS.services}.`} placeholder="For example: furnace installation" initial={seeds.services} />
-      <TagInput name="locations" label="Places you serve" hint="Cities or areas. Searches for other places are removed." placeholder="For example: Dallas" initial={seeds.locations} optional />
-      <TagInput name="brands" label="Brands and equipment" hint="Brands you install or repair, e.g. Trane, Carrier." placeholder="For example: Trane" initial={seeds.brands} optional />
-      <TagInput name="extra" label="Other words customers use" hint="Anything your sales team hears: problems, questions, offers." placeholder="For example: ac blowing warm air" initial={seeds.extra} optional />
+      <TagInput
+        name="services"
+        label={shop ? 'Products and categories' : 'Services'}
+        hint={shop ? `What you sell, e.g. "duvet covers". Up to ${SEED_LIMITS.services}.` : `What you sell, e.g. "AC repair". Up to ${SEED_LIMITS.services}.`}
+        placeholder={shop ? 'For example: duvet covers' : 'For example: furnace installation'}
+        initial={seeds.services}
+      />
+      {/* Shops sell everywhere they deliver: the country above is enough. */}
+      <div hidden={shop}>
+        <TagInput name={shop ? 'locations-unused' : 'locations'} label="Places you serve" hint="Cities or areas. Searches for other places are removed." placeholder="For example: Dallas" initial={seeds.locations} optional />
+      </div>
+      <TagInput
+        name="brands"
+        label={shop ? 'Brands you sell' : 'Brands and equipment'}
+        hint={shop ? 'Leave empty if you only sell your own brand.' : 'Brands you install or repair, e.g. Trane, Carrier.'}
+        placeholder={shop ? 'For example: Christy' : 'For example: Trane'}
+        initial={seeds.brands}
+        optional
+      />
+      <TagInput
+        name="extra"
+        label="Other words customers use"
+        hint={shop ? 'Materials, styles, sizes or problems your customers mention.' : 'Anything your sales team hears: problems, questions, offers.'}
+        placeholder={shop ? 'For example: cooling bedding' : 'For example: ac blowing warm air'}
+        initial={seeds.extra}
+        optional
+      />
       <div className="flex flex-wrap items-center gap-3">
         <Submit label="Save" busy="Saving…" tone="secondary" />
         <Message state={state} />

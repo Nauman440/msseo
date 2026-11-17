@@ -248,6 +248,12 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('button', { name: 'Remove AC repair', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
   await page.waitForLoadState('networkidle');
+  // Product shop mode: product wording, no places; then back to services.
+  await page.getByText('An online shop').click();
+  await expect(page.getByLabel('Products and categories', { exact: true })).toBeVisible();
+  await expect(page.getByText('Places you serve')).toBeHidden();
+  await page.getByText('Visits, repairs or bookings in an area').click();
+  await expect(page.getByText('Places you serve')).toBeVisible();
   await page.getByLabel('Keywords', { exact: true }).fill('ac repair plano\nEmergency AC repair, ac repair plano');
   await page.getByRole('button', { name: 'Add keywords' }).click();
   await expect(page.getByText('2 keywords added.')).toBeVisible();

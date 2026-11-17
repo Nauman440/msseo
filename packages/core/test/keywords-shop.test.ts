@@ -99,3 +99,25 @@ describe('more shop clean-up', () => {
     expect(by['duvet covers for us']).toBe('kept');
   });
 });
+
+describe('product shop mode', () => {
+  it('uses buying phrases, no places, category pages and shopping questions', async () => {
+    const { buildSeeds: seedsFor, clusterKeywords: cluster, emptyKeywordWorkspace: empty, templatePrompts, generatePrompts } = await import('../src');
+    const ws = empty('foldandfeel.co.uk', { businessType: 'shop', country: 'United Kingdom', seeds: { services: ['duvet covers'], locations: ['London'], brands: ['Christy'] } });
+    expect(ws.seeds.locations).toEqual([]); // a shop has no service area
+    expect(seedsFor(ws.seeds, 'shop')).toEqual(['duvet covers', 'best duvet covers', 'buy duvet covers', 'duvet covers online', 'duvet covers sale', 'luxury duvet covers', 'christy duvet covers']);
+
+    const r = await cluster(null, { ...ws, keywords: [rec('buy duvet covers'), rec('how to wash duvet covers', { intent: 'informational' })] });
+    expect(Object.fromEntries(r.workspace.clusters.map((c) => [c.head, c.pageType]))).toEqual({ 'buy duvet covers': 'category', 'how to wash duvet covers': 'blog_post' });
+
+    const t = templatePrompts(ws.seeds, 'shop', 'United Kingdom');
+    expect(t[0]).toMatchObject({ text: 'Where can I buy good duvet covers online in the United Kingdom?', service: 'duvet covers', location: null });
+    let sent = '';
+    const ai = { async generateJson(req: { user: string; system: string }) { sent = req.system + req.user; throw new Error('offline'); } } as never;
+    const g = await generatePrompts(ai, ws.seeds, 'foldandfeel.co.uk', { businessType: 'shop', country: 'United Kingdom' });
+    expect(sent).toContain('want to buy products online');
+    expect(sent).toContain('"products":["duvet covers"]');
+    expect(g).toMatchObject({ usedAi: false }); // falls back to the shop templates
+    expect(g.prompts[0]?.text).toContain('buy good duvet covers online');
+  });
+});

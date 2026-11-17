@@ -3,7 +3,7 @@ import { csvCell } from '../report/csv';
 import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale } from '../providers/dataforseo-keywords';
 import { brandStems, cleanKeywords, dedupeKey, normTerm, removalReason, topicWords } from './clean';
 import { namesPlace } from './cluster';
-import type { KeywordRecord, KeywordSeeds, KeywordSource, KeywordStatus, KeywordWorkspace } from './types';
+import type { BusinessType, KeywordRecord, KeywordSeeds, KeywordSource, KeywordStatus, KeywordWorkspace } from './types';
 
 /**
  * Module 4 · Keyword research: 4.1 seeds, 4.2 sources, 4.3 metrics, 4.4 cleaning (clean.ts),
@@ -16,17 +16,19 @@ export const REUSE_DAYS = 7;
 const LOCAL_VARIANTS = 15;
 export const SEED_LIMITS = { services: 12, locations: 10, brands: 10, extra: 30 } as const;
 
-export function emptyKeywordWorkspace(domain: string, init: Partial<Pick<KeywordWorkspace, 'country' | 'language'>> & { seeds?: Partial<KeywordSeeds> } = {}): KeywordWorkspace {
+export function emptyKeywordWorkspace(domain: string, init: Partial<Pick<KeywordWorkspace, 'country' | 'language' | 'businessType'>> & { seeds?: Partial<KeywordSeeds> } = {}): KeywordWorkspace {
+  const businessType: BusinessType = init.businessType === 'shop' ? 'shop' : 'services';
   const country = (COMPETITOR_COUNTRIES as readonly string[]).includes(init.country ?? '') ? init.country! : 'United States';
   const language = init.language && init.language in COMPETITOR_LANGUAGES ? init.language : 'en';
   const clip = (l: string[] | undefined, n: number) => [...new Set((l ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, n);
   return {
     domain: normDomain(domain),
+    businessType,
     country,
     language,
     seeds: {
       services: clip(init.seeds?.services, SEED_LIMITS.services),
-      locations: clip(init.seeds?.locations, SEED_LIMITS.locations),
+      locations: businessType === 'shop' ? [] : clip(init.seeds?.locations, SEED_LIMITS.locations),
       brands: clip(init.seeds?.brands, SEED_LIMITS.brands),
       extra: clip(init.seeds?.extra, SEED_LIMITS.extra),
     },
@@ -45,10 +47,19 @@ const TRADE = /\b(repairs?|install\w*|replacement|maintenance|service|servicing|
 const SYMPTOMS = ['ac not cooling', 'ac blowing warm air', 'furnace not turning on', 'heat pump not heating', 'ac leaking water', 'ac making noise', 'no heat in house', 'ac frozen coil'];
 
 /** 4.1 Seed list: services × places, modifiers (near me, emergency, cost, best), brands, symptoms, questions. */
-export function buildSeeds(seeds: KeywordSeeds): string[] {
+export function buildSeeds(seeds: KeywordSeeds, businessType: BusinessType = 'services'): string[] {
   const services = seeds.services.map(normTerm).filter(Boolean);
-  const places = seeds.locations.map(normTerm).filter(Boolean);
   const out: string[] = [];
+  if (businessType === 'shop') {
+    // Online shop: how people look for products to buy (no places, no call-out phrases).
+    for (const p of services) {
+      out.push(p, `best ${p}`, `buy ${p}`, `${p} online`, `${p} sale`, `luxury ${p}`);
+      for (const b of seeds.brands.map(normTerm).filter(Boolean)) out.push(`${b} ${p}`);
+    }
+    out.push(...seeds.extra.map(normTerm));
+    return [...new Set(out)].filter(validKeyword).slice(0, 300);
+  }
+  const places = seeds.locations.map(normTerm).filter(Boolean);
   for (const s of services) {
     // Call-out trades get "near me / emergency / cost" searches; shops selling products do not.
     const trade = TRADE.test(s);
@@ -136,7 +147,7 @@ export async function researchKeywords(
   };
   const services = ws.seeds.services.map(normTerm).filter(Boolean);
   const places = ws.seeds.locations.map(normTerm).filter(Boolean);
-  for (const s of buildSeeds(ws.seeds)) c.add(s, 'seed');
+  for (const s of buildSeeds(ws.seeds, ws.businessType)) c.add(s, 'seed');
   for (const q of (opts.gsc ?? []).sort((a, b) => b.impressions - a.impressions).slice(0, 300)) {
     c.add(q.query, 'gsc', { position: Math.round(q.position * 10) / 10, url: q.page ?? null });
     const k = c.map.get(normTerm(q.query));

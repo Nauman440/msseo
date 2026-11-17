@@ -6,8 +6,6 @@ import type { SessionUser } from '@/lib/session';
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/settings/customers', label: 'Customers' },
-  { href: '/audits/demo', label: 'Sample report' },
-  { href: '/audits/demo/print', label: 'PDF layout' },
 ];
 
 const initials = (name: string) =>
@@ -22,13 +20,15 @@ const initials = (name: string) =>
 export function AppHeader({ user }: { user: SessionUser }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface print:hidden">
-      <div className="mx-auto flex h-16 max-w-page items-center gap-6 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-page items-center gap-3 px-4 sm:gap-6 sm:px-6">
         <Link href="/dashboard" aria-label="MS SCORE dashboard" className="shrink-0 rounded-control">
-          <Logo height={32} priority />
+          {/* Smaller on phones so the logo, "New audit" and the account button fit at 375 px. */}
+          <Logo height={26} priority className="sm:hidden" />
+          <Logo height={32} priority className="hidden sm:block" />
         </Link>
         <nav aria-label="Main" className="hidden md:block">
           <ul className="flex items-center gap-[22px] text-[15px]">
-            {[...NAV, ...(user.role === 'admin' ? [{ href: '/settings/users', label: 'Users' }] : [])].map((item) => (
+            {NAV.map((item) => (
               <li key={item.href}>
                 <Link href={item.href} className="font-medium text-ink-2 transition-colors hover:text-ink">
                   {item.label}
@@ -40,7 +40,7 @@ export function AppHeader({ user }: { user: SessionUser }) {
         <div className="ml-auto flex items-center gap-3">
           <Link
             href="/audits/new"
-            className="inline-flex min-h-[42px] items-center rounded-control bg-primary px-4 text-sm font-extrabold text-primary-ink transition-colors hover:bg-primary-hover sm:px-5"
+            className="inline-flex min-h-[42px] items-center whitespace-nowrap rounded-control bg-primary px-4 text-sm font-extrabold text-primary-ink transition-colors hover:bg-primary-hover sm:px-5"
           >
             New audit
           </Link>
@@ -53,8 +53,17 @@ export function AppHeader({ user }: { user: SessionUser }) {
             </summary>
             <div className="absolute right-0 top-12 w-60 rounded-panel border border-border bg-surface p-2 shadow-lift">
               <p className="truncate px-3 py-2 text-[13px] text-ink-3">{user.email ?? user.name}</p>
+              {/* Phones: the main menu is hidden, so its links live here too. */}
+              {NAV.map((item) => (
+                <Link key={item.href} href={item.href} className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken md:hidden">
+                  {item.label}
+                </Link>
+              ))}
               <Link href="/settings/account" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
                 Your account
+              </Link>
+              <Link href="/audits/demo" className="block rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-sunken">
+                Sample report
               </Link>
               {user.role === 'admin' && (
                 <>

@@ -64,11 +64,15 @@ export type KeywordCluster = {
 export type AiPrompt = { id: string; text: string; service: string | null; location: string | null };
 
 export type KeywordSeeds = { services: string[]; locations: string[]; brands: string[]; extra: string[] };
+/** services: visits, repairs and bookings in an area. shop: products sold online (no places; product and category pages). */
+export type BusinessType = 'services' | 'shop';
 
 export type KeywordWorkspace = {
   domain: string;
   country: string;
   language: string;
+  /** Missing on workspaces saved before shop mode: treated as "services". */
+  businessType?: BusinessType;
   seeds: KeywordSeeds;
   keywords: KeywordRecord[];
   clusters: KeywordCluster[];

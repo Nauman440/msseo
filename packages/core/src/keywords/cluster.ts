@@ -40,10 +40,10 @@ export const namesPlace = (term: string, locations: string[]) => {
 export const clusterId = (head: string) => normTerm(head).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'cluster';
 
 /** What kind of page ranks for the head keyword (from its SERP), or a guess from intent. */
-export function pageTypeFor(head: KeywordRecord, locations: string[]): ClusterPageType {
-  const local = namesPlace(head.term, locations);
+export function pageTypeFor(head: KeywordRecord, locations: string[], shop = false): ClusterPageType {
+  const local = !shop && namesPlace(head.term, locations);
   const urls = head.serpUrls ?? [];
-  if (!urls.length) return head.intent === 'informational' ? 'blog_post' : local ? 'service_location' : 'service';
+  if (!urls.length) return head.intent === 'informational' ? 'blog_post' : shop ? 'category' : local ? 'service_location' : 'service';
   if (urls.filter((u) => isDirectory(hostOf(u))).length >= 5) return 'directory';
   const votes: Record<string, number> = {};
   for (const u of urls) {
@@ -63,7 +63,9 @@ export function pageTypeFor(head: KeywordRecord, locations: string[]): ClusterPa
               : 'service';
     votes[kind] = (votes[kind] ?? 0) + 1;
   }
-  const top = (Object.entries(votes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'service') as ClusterPageType;
+  const top = (Object.entries(votes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? (shop ? 'category' : 'service')) as ClusterPageType;
+  // A shop's answer to a page 1 of other shops' home or service pages is a category page.
+  if (shop) return top === 'home' || top === 'service' || top === 'location' ? 'category' : top;
   return top === 'location' && !local ? 'location' : top === 'location' || (top === 'service' && local) ? 'service_location' : top;
 }
 
@@ -223,7 +225,7 @@ export async function clusterKeywords(
   const prevById = new Map(ws.clusters.map((c) => [c.id, c]));
   const idOf = new Map<string, string>();
   const clusters = final.map((g) => {
-    const c = summarise(g.head, g.members, pageTypeFor(g.head, ws.seeds.locations), prevById.get(clusterId(g.head.term)), now, ws.seeds.locations);
+    const c = summarise(g.head, g.members, pageTypeFor(g.head, ws.seeds.locations, ws.businessType === 'shop'), prevById.get(clusterId(g.head.term)), now, ws.seeds.locations);
     for (const m of g.members) idOf.set(m.term, c.id);
     return c;
   });

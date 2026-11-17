@@ -65,15 +65,16 @@ export async function saveKeywordSeedsAction(rawDomain: string, _prev: KeywordSt
   const language = String(form.get('language') ?? '');
   if (!(COMPETITOR_COUNTRIES as readonly string[]).includes(country)) return { error: 'Choose a country from the list.' };
   if (!(language in COMPETITOR_LANGUAGES)) return { error: 'Choose a language from the list.' };
+  const businessType = form.get('businessType') === 'shop' ? 'shop' : 'services';
   const seeds = {
     services: list(form, 'services', SEED_LIMITS.services),
-    locations: list(form, 'locations', SEED_LIMITS.locations),
+    locations: businessType === 'shop' ? [] : list(form, 'locations', SEED_LIMITS.locations),
     brands: list(form, 'brands', SEED_LIMITS.brands),
     extra: list(form, 'extra', SEED_LIMITS.extra),
   };
-  if (!seeds.services.length) return { error: 'Add at least one service (press Enter after each).' };
+  if (!seeds.services.length) return { error: businessType === 'shop' ? 'Add at least one product or category (press Enter after each).' : 'Add at least one service (press Enter after each).' };
   const ws = await getKeywordWorkspace(domain);
-  await saveKeywordWorkspace({ ...ws, country, language, seeds });
+  await saveKeywordWorkspace({ ...ws, businessType, country, language, seeds });
   pathsFor(domain);
   return { ok: 'Saved.' };
 }
@@ -82,7 +83,7 @@ export async function saveKeywordSeedsAction(rawDomain: string, _prev: KeywordSt
 export async function researchKeywordsAction(rawDomain: string): Promise<KeywordState> {
   const { domain, customer } = await guard(rawDomain);
   const ws = await getKeywordWorkspace(domain);
-  if (!ws.seeds.services.length) return { error: 'Add your services first, then save.' };
+  if (!ws.seeds.services.length) return { error: ws.businessType === 'shop' ? 'Add your products first, then save.' : 'Add your services first, then save.' };
   if (!(await allowed(customer, `keywords-research:${domain}`, 1))) return { error: 'Keyword research runs once a day. Please try again tomorrow.' };
   const c = await dfs();
   if (!c) return { error: 'Keyword research is not available right now.' };
@@ -117,10 +118,10 @@ export async function clusterKeywordsAction(rawDomain: string): Promise<KeywordS
 export async function generatePromptsAction(rawDomain: string): Promise<KeywordState> {
   const { domain, customer } = await guard(rawDomain);
   const ws = await getKeywordWorkspace(domain);
-  if (!ws.seeds.services.length) return { error: 'Add your services first, then save.' };
+  if (!ws.seeds.services.length) return { error: ws.businessType === 'shop' ? 'Add your products first, then save.' : 'Add your services first, then save.' };
   if (!(await allowed(customer, `keywords-prompts:${domain}`, 2))) return { error: 'Prompts can be written twice a day.' };
   const openai = providerConfig().env?.openai;
-  const r = await generatePrompts(openai ? createOpenAiClient(openai) : null, ws.seeds, domain);
+  const r = await generatePrompts(openai ? createOpenAiClient(openai) : null, ws.seeds, domain, { businessType: ws.businessType, country: ws.country });
   await saveKeywordWorkspace({ ...ws, prompts: r.prompts, promptsAt: new Date().toISOString() });
   await logUsage('openai', r.tokens);
   pathsFor(domain);

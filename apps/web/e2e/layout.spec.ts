@@ -6,7 +6,7 @@ const ROUTES = [
   { path: '/privacy', heading: 'Privacy Policy' },
   { path: '/free', heading: 'See what is holding your website back' },
   { path: '/terms', heading: 'Terms of Service' },
-  { path: '/dashboard', heading: /holding a site back/i },
+  { path: '/dashboard', heading: 'Dashboard' },
   { path: '/audits/demo', heading: 'summitairhvac.com' },
   { path: '/audits/demo?mode=expert', heading: 'summitairhvac.com' },
   { path: '/audits/new', heading: 'Audit a website' },
