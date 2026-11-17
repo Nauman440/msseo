@@ -1,6 +1,5 @@
 import 'server-only';
 import { executeAudit, type AiCache, type NewAuditInput } from '@seo/core';
-import { gscAuditAccess } from '@seo/db';
 import { enqueueAudit } from '@seo/db/queue';
 import { createAudit, getAudit, saveAudit, usingDatabase, type AuditRecord } from './audit-store';
 import { providerConfig } from './providers-config';
@@ -14,12 +13,18 @@ import { appSettings } from './settings';
  */
 const running = ((globalThis as { __auditJobs?: Set<string> }).__auditJobs ??= new Set<string>());
 
-/** Per-run settings for in-process audits (the worker reads the same ones). */
-async function runSettings() {
+/**
+ * Per-run settings for in-process audits (the worker reads the same ones). Search Console:
+ * customer audits use the customer's own Google connection and chosen property.
+ */
+async function runSettings(record: AuditRecord) {
   const s = await appSettings();
-  const cache = usingDatabase() ? (await import('@seo/db')).dbAiCache : memoryAiCache;
+  const db = usingDatabase() ? await import('@seo/db') : null;
+  const cache = db ? db.dbAiCache : memoryAiCache;
+  const access = db ? await db.auditGscAccess(record) : {};
+  if (access.property && !record.input.gscProperty) record.input = { ...record.input, gscProperty: access.property };
   return {
-    gsc: usingDatabase() ? gscAuditAccess() : undefined,
+    gsc: access.gsc,
     maxTemplates: s['lighthouse.maxTemplates'],
     aiChecks: s['ai.checks'] ? { maxPages: s['ai.maxPages'], maxTokens: s['ai.maxTokens'], cache } : undefined,
   };
@@ -43,7 +48,7 @@ export async function startAudit(input: NewAuditInput, createdById?: string | nu
     return record;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, ...(await runSettings()) }, saveAudit)
+  void executeAudit(record, { ...env, ...(await runSettings(record)) }, saveAudit)
     .then(() => emailReportIfRequested(record))
     .finally(() => running.delete(record.id));
   return record;
@@ -67,7 +72,7 @@ export async function retryAudit(id: string): Promise<boolean> {
     return true;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, ...(await runSettings()) }, saveAudit)
+  void executeAudit(record, { ...env, ...(await runSettings(record)) }, saveAudit)
     .then(() => emailReportIfRequested(record))
     .finally(() => running.delete(record.id));
   return true;

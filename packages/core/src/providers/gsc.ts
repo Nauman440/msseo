@@ -16,12 +16,15 @@ const API = 'https://www.googleapis.com/webmasters/v3';
 
 export type GoogleOAuth = { clientId: string; clientSecret: string; redirectUri: string };
 
-export function gscAuthUrl(o: GoogleOAuth, state: string): string {
+/** Customers connect their own Google account: Search Console and Analytics 4, both read-only. */
+export const CUSTOMER_GOOGLE_SCOPES = [...GSC_SCOPES, 'https://www.googleapis.com/auth/analytics.readonly'];
+
+export function gscAuthUrl(o: GoogleOAuth, state: string, scopes: string[] = GSC_SCOPES): string {
   const qs = new URLSearchParams({
     client_id: o.clientId,
     redirect_uri: o.redirectUri,
     response_type: 'code',
-    scope: GSC_SCOPES.join(' '),
+    scope: scopes.join(' '),
     // offline + consent: Google returns a refresh token every time the admin connects.
     access_type: 'offline',
     prompt: 'consent',

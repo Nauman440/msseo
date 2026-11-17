@@ -75,12 +75,25 @@ export async function researchCompetitors(domain: string): Promise<{ domains: st
 export async function gscQueries(domain: string): Promise<GscQuery[]> {
   if (!usingDatabase()) return [];
   try {
-    const { getGscConnection, gscAccessToken, gscProperties, gscSetup } = await import('@seo/db');
-    if (!gscSetup().ready || !(await getGscConnection())) return [];
-    const property = matchGscProperties(await gscProperties(), `https://${domain}/`)[0];
-    if (!property) return [];
+    const db = await import('@seo/db');
+    // The site's customer connected their own Google: use their chosen property first.
+    const owner = await accountFor(domain);
+    const own = owner && db.customerGoogleReady() ? await db.getCustomerGoogle(owner.userId).catch(() => null) : null;
+    const ownProperty = own?.sites[domain]?.gscProperty ?? null;
+    let token: string;
+    let property: string | undefined;
+    if (own && ownProperty) {
+      token = await db.customerGoogleToken(owner!.userId);
+      property = ownProperty;
+    } else {
+      // Otherwise the team's agency connection, when it can see the site.
+      if (!db.gscSetup().ready || !(await db.getGscConnection())) return [];
+      property = matchGscProperties(await db.gscProperties(), `https://${domain}/`)[0];
+      if (!property) return [];
+      token = await db.gscAccessToken();
+    }
     const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
-    const rows = await gscSearchAnalytics(await gscAccessToken(), property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
+    const rows = await gscSearchAnalytics(token, property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
     const best = new Map<string, GscQuery>();
     for (const r of rows) {
       const [query, page] = r.keys;

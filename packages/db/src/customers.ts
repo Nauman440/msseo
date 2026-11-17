@@ -1,4 +1,5 @@
 import { newAuditRecord, newAuditSchema } from '@seo/core';
+import { customerGscProperty } from './customer-google';
 import { insertAuditRecord } from './audits';
 import { prisma } from './client';
 
@@ -25,7 +26,8 @@ export async function createWeeklyCustomerAudits(account: { id: string; userId: 
   const sites = [...new Set([account.website, ...account.extraWebsites].filter((w): w is string => Boolean(w)))].slice(0, 3);
   const ids: string[] = [];
   for (const url of sites) {
-    const input = newAuditSchema.parse({ url, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
+    const gscProperty = await customerGscProperty(account.userId, url);
+    const input = newAuditSchema.parse({ url, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer', gscProperty });
     const record = newAuditRecord(input, account.userId);
     await insertAuditRecord(record);
     ids.push(record.id);

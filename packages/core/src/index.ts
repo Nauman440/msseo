@@ -12,7 +12,8 @@ export { reportToMarkdown } from './report/markdown';
 export { DEFAULT_OPENAI_MODEL } from './providers/openai';
 export { aiInput } from './audit/ai-recommendations';
 export { sampleReport } from './report/sample';
-export { exchangeGscCode, gscAuthUrl, gscSearchAnalytics, listGscSites, matchGscProperties, refreshGscToken, type GoogleOAuth } from './providers/gsc';
+export { CUSTOMER_GOOGLE_SCOPES, exchangeGscCode, gscAuthUrl, gscSearchAnalytics, listGscSites, matchGscProperties, refreshGscToken, type GoogleOAuth, type GscRow } from './providers/gsc';
+export { ga4Summary, ga4WebStreamHosts, listGa4Properties, matchGa4Properties, type Ga4Property, type Ga4Summary } from './providers/ga4';
 export { diffReports, type IssueChange, type ReportDiff } from './report/diff';
 export { issuesToCsv } from './report/csv';
 export { sitemapXml } from './report/sitemap';
@@ -29,3 +30,4 @@ export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, updateCl
 export { generatePrompts, PROMPT_RANGE, templatePrompts } from './keywords/prompts';
 export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
 export { createOpenAiClient, type OpenAiClient } from './providers/openai';
+export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } from './customer/plan';

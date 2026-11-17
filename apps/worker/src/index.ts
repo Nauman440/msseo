@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
+import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { refreshCompetitors } from './competitors';
 import { renderPdfBytes } from './pdf/render';
@@ -38,7 +38,10 @@ const worker = new Worker<AuditJobData>(
     const http = (e: { provider: string; url: string; status?: number; ms: number; attempt: number; error?: string }) => log.debug(e, 'http');
     const settings = await getSettings();
     const aiChecks = settings['ai.checks'] ? { maxPages: settings['ai.maxPages'], maxTokens: settings['ai.maxTokens'], cache: dbAiCache } : undefined;
-    await executeAudit(record, { ...env, gsc: gscAuditAccess(), maxTemplates: settings['lighthouse.maxTemplates'], aiChecks, log: http }, saveAuditRecord);
+    // Customer audits use the customer's own Google connection; team audits the agency one.
+    const access = await auditGscAccess(record);
+    if (access.property && !record.input.gscProperty) record.input = { ...record.input, gscProperty: access.property };
+    await executeAudit(record, { ...env, gsc: access.gsc, maxTemplates: settings['lighthouse.maxTemplates'], aiChecks, log: http }, saveAuditRecord);
     log.info({ auditId: record.id, status: record.status, score: record.report?.overall.score, error: record.error }, 'audit finished');
 
     // "Email me the full report": never fails the job; the result is logged.

@@ -206,26 +206,37 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('heading', { name: /You are all set, Ghazanfar/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'summitairhvac.com', level: 1 })).toBeVisible();
   await expect(page.getByText(/Free trial: \d+ days? left/)).toBeVisible();
-  await page.getByRole('link', { name: 'Open the full report' }).click();
+  // Before Google is connected: the connect card, locked tabs, and the audit that is available now.
+  await expect(page.getByRole('heading', { name: 'Connect Google to unlock your dashboard' })).toBeVisible();
+  await expect(page.getByText('Connecting Google is not switched on yet', { exact: false }).first()).toBeVisible(); // no Google client in e2e
+  await expect(page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: /Weekly plan/ })).toHaveAttribute('href', /\/my\/connections\?site=summitairhvac\.com/);
+  await page.getByRole('link', { name: /See all \d+ issues/ }).click();
   await expect(page).toHaveURL(new RegExp(`/my/reports/${id}$`));
   await expect(page.getByRole('link', { name: 'Download .md' })).toBeVisible();
+  // Locked tabs lead to Connections; the Google sign-in says it is not available on this server.
+  await page.goto('/my/plan');
+  await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com$/);
+  await page.goto('/api/google/connect?site=summitairhvac.com');
+  await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com&error=/);
+  await expect(page.getByRole('alert').filter({ hasText: 'Connecting Google is not available yet' })).toBeVisible();
 
   // Growth covers up to 3 websites: add one (an address that cannot exist, so its audit stops at DNS), switch, remove.
-  await page.goto('/my');
+  await page.goto('/my/sites');
   await page.waitForLoadState('networkidle');
   await page.getByLabel(/Add a website/).fill('https://second-site.invalid/');
   await page.getByRole('button', { name: 'Add website' }).click();
   await expect(page).toHaveURL(/\/my\?site=second-site\.invalid$/);
   await expect(page.getByRole('heading', { name: 'second-site.invalid', level: 1 })).toBeVisible();
+  await page.goto('/my/sites');
   await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(2);
   await page.getByRole('button', { name: 'Remove second-site.invalid' }).click();
-  await expect(page).toHaveURL(/\/my$/);
+  await expect(page).toHaveURL(/\/my\/sites$/);
   await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
 
   // Module 3 for customers: searches come from onboarding; add, shortlist, persist.
   await page.goto('/my');
-  await page.getByRole('link', { name: 'Competitors' }).click();
-  await expect(page.getByRole('heading', { name: 'Your competitors', level: 1 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Competitors' }).click();
+  await expect(page.getByRole('heading', { name: 'Your competitors', level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove ac repair dallas' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove ac repair plano' })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -243,8 +254,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my$/);
 
   // Module 4 for customers: seeds come from onboarding; add keywords, remove one, export CSV.
-  await page.getByRole('link', { name: 'Keywords' }).click();
-  await expect(page.getByRole('heading', { name: 'Your keywords', level: 1 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
+  await expect(page.getByRole('heading', { name: 'Your keywords', level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove AC repair', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -273,8 +284,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/keywords/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
-  // Account settings from the header: plan, details and password.
-  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  // Account settings from the site tabs: plan, details and password.
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Account settings', level: 1 })).toBeVisible();
   await expect(page.getByText(/^Free trial · ends /)).toBeVisible();
   await page.waitForLoadState('networkidle');

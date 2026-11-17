@@ -35,11 +35,11 @@ export default async function CustomerReportPage({ params }: Props) {
   const competitors = await getSavedWorkspace(report.project.domain);
   return (
     <>
-      <div className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-page flex-col gap-4 px-4 py-8 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+      <div className="rounded-[18px] border border-border bg-surface">
+        <div className="flex flex-col gap-4 px-5 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-7">
           <div className="min-w-0">
             <p className="text-[13px] font-medium text-ink-3">
-              <Link href="/my" className="hover:text-ink">Your dashboard</Link>
+              <Link href={`/my?site=${encodeURIComponent(report.project.domain)}`} className="hover:text-ink">← {report.project.domain} overview</Link>
             </p>
             <h1 className="mt-2 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{report.project.domain}</h1>
             <p className="mt-1 text-[14px] text-ink-2">{report.pagesCrawled} pages checked · {new Date(report.crawledAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -52,7 +52,7 @@ export default async function CustomerReportPage({ params }: Props) {
           </div>
         </div>
       </div>
-      <div className="mx-auto max-w-page space-y-6 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="space-y-6">
         <ReportBanner report={report} mode="client" />
         <ReportOverview report={report} mode="client" />
         <SectionTitle n="01" title="Technical SEO checks" note="Only cards with issues are shown" />

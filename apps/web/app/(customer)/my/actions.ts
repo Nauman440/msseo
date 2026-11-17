@@ -57,5 +57,5 @@ export async function removeWebsiteAction(site: string): Promise<void> {
   if (!account) redirect('/my');
   await updateAccount(user.id, { extraWebsites: account.extraWebsites.filter((w) => domainOf(w) !== domainOf(site)) });
   revalidatePath('/my');
-  redirect('/my');
+  redirect('/my/sites');
 }

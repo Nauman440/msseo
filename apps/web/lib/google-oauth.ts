@@ -24,3 +24,5 @@ export function publicOrigin(headers: Headers): string {
 }
 
 export const GSC_STATE_COOKIE = 'gsc_oauth_state';
+/** "customer:<domain>" while a customer connects their own Google account (absent for the team's connection). */
+export const GOOGLE_FLOW_COOKIE = 'google_oauth_flow';

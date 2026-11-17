@@ -231,3 +231,17 @@ model KeywordWorkspace {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
+
+/// A customer's own Google connection (Search Console + Analytics 4, read-only), one per
+/// customer user. The refresh token is AES-256-GCM encrypted with ENCRYPTION_KEY (like the
+/// agency GscConnection). `sites` holds the chosen properties per website domain:
+/// { "example.com": { gscProperty, ga4Property, ga4Name, chosenAt } }.
+model CustomerGoogle {
+  userId          String   @id
+  googleEmail     String
+  refreshTokenEnc String
+  scopes          String
+  sites           Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
