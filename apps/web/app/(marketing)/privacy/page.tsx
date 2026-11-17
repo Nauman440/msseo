@@ -5,7 +5,7 @@ import { COMPANY, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { absolute: 'Privacy Policy | MSScore by Morosoft' },
-  description: 'How MSScore by Morosoft Technologies collects, uses, stores and protects data, including data from Google Search Console.',
+  description: 'How MSScore by Morosoft Technologies collects, uses, stores and protects data, including data from Google Search Console and Google Analytics.',
   alternates: { canonical: '/privacy' },
   robots: { index: true, follow: true },
 };
@@ -41,8 +41,8 @@ export default function PrivacyPage() {
             We do not log in to the audited website.
           </li>
           <li>
-            <strong>Google Search Console data</strong>, only when an administrator connects a Google account and chooses a property for an audit.
-            See section 4.
+            <strong>Google Search Console and Google Analytics data</strong>, only when a customer connects their own Google account and chooses
+            properties for their website, or when an MSScore administrator connects the team’s Google account. See section 4.
           </li>
           <li>
             <strong>Technical logs.</strong> Server logs (time, address requested, errors) used to run and secure the service.
@@ -59,30 +59,39 @@ export default function PrivacyPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection id="google" title="4. Google user data (Search Console)">
+      <LegalSection id="google" title="4. Google user data (Search Console and Analytics)">
         <p>
-          If an MSScore administrator chooses “Connect Search Console”, Google asks them to allow MSScore to <strong>view</strong> Search Console data
-          (scope <code>webmasters.readonly</code>) and to see the Google account’s email address (scopes <code>openid</code> and <code>email</code>).
-          MSScore cannot change anything in Search Console.
+          A customer can choose “Connect with Google” on their dashboard, and an MSScore administrator can connect the team’s Google account in
+          Settings. Google then asks for permission to <strong>view</strong> Search Console data (scope <code>webmasters.readonly</code>), to
+          <strong> view</strong> Google Analytics data (scope <code>analytics.readonly</code>, customers only) and to see the Google account’s email
+          address (scopes <code>openid</code> and <code>email</code>). MSScore cannot change anything in Search Console or Google Analytics.
         </p>
         <p>
-          <strong>What we access:</strong> the list of Search Console properties the account can see; for a property selected in an audit, search
-          performance data (clicks, impressions, click-through rate and average position by page and by query), the sitemaps submitted for it and
-          URL Inspection results (index status) for the pages in the audit.
+          <strong>What we access from Search Console:</strong> the list of properties the account can see; for the property chosen for a website,
+          search performance data (clicks, impressions, click-through rate and average position by page and by query), the sitemaps submitted for it
+          and URL Inspection results (index status) for audited pages.
         </p>
         <p>
-          <strong>How we use it:</strong> only to produce the audit report for that property: index coverage, pages Google has not indexed, low
-          click-through pages, queries close to the top of the results, pages losing traffic and pages competing for the same query.
+          <strong>What we access from Google Analytics:</strong> the list of Analytics accounts and properties the account can see and the website
+          address of each property’s web data stream (so the customer can pick the property for their website); for the chosen property, two totals
+          for the last 28 days: sessions and key events (such as calls and form submissions).
         </p>
         <p>
-          <strong>Storage and protection:</strong> the Google refresh token is stored encrypted (AES-256-GCM). The Search Console results used in a
-          report are stored with that audit in our database so the report can be viewed and exported later.
+          <strong>How we use it:</strong> only to show that website’s own results to the people allowed to see them: audit reports (index coverage,
+          pages Google has not indexed, low click-through pages, pages losing traffic, pages competing for the same query), the customer’s dashboard
+          (clicks from Google, average position, leads tracked, rankings and the weekly list of searches closest to Google’s first page) and keyword
+          research for that website.
+        </p>
+        <p>
+          <strong>Storage and protection:</strong> Google refresh tokens are stored encrypted (AES-256-GCM). Search Console results used in a report
+          are stored with that audit so the report can be viewed and exported later. Dashboard figures are fetched when the dashboard is opened and
+          kept in memory for up to 30 minutes; they are not stored in our database.
         </p>
         <p>
           <strong>Sharing:</strong> Google user data is not sold, not used for advertising, not used to build user profiles and not used to train
-          artificial-intelligence or machine-learning models. It is not sent to OpenAI or any other AI service: when optional AI recommendations
-          are turned on, Search Console findings are left out of what is sent. Google user data is only shown to signed-in MSScore users and in the
-          reports they choose to download or send.
+          artificial-intelligence or machine-learning models. It is not sent to OpenAI or any other AI service: when AI features are used, Search
+          Console and Analytics data are left out of what is sent. A customer’s Google data is only shown to that customer and to the MSScore team
+          working on their website, and in the reports they choose to download or send.
         </p>
         <p>
           MSScore’s use and transfer of information received from Google APIs adheres to the{' '}
@@ -92,8 +101,8 @@ export default function PrivacyPage() {
           , including the Limited Use requirements.
         </p>
         <p>
-          <strong>Revoking access:</strong> an administrator can disconnect at any time in Settings → Search Console, which deletes the stored token.
-          Access can also be removed from the Google account at{' '}
+          <strong>Revoking access:</strong> customers can disconnect at any time on their dashboard under Connections, and administrators in
+          Settings → Search Console; disconnecting deletes the stored token. Access can also be removed from the Google account at{' '}
           <a href="https://myaccount.google.com/permissions" rel="noopener noreferrer">
             myaccount.google.com/permissions
           </a>
@@ -104,12 +113,16 @@ export default function PrivacyPage() {
       <LegalSection id="providers" title="5. Service providers">
         <p>We use these providers to run MSScore. Each receives only what it needs for its task:</p>
         <ul>
-          <li><strong>DataForSEO</strong>: checks the public pages of the website being audited.</li>
+          <li>
+            <strong>DataForSEO</strong>: checks the public pages of the website being audited and, for keyword research, looks up search volume,
+            difficulty and Google results for keywords. These keywords can include search terms taken from that website’s Search Console, sent
+            without any personal data and only to research that website.
+          </li>
           <li><strong>Google PageSpeed Insights</strong>: measures page speed of public pages.</li>
-          <li><strong>Google Search Console API</strong>: as described in section 4.</li>
+          <li><strong>Google Search Console API and Google Analytics APIs</strong>: as described in section 4.</li>
           <li>
             <strong>OpenAI</strong>: only when AI recommendations are turned on for an audit; receives the audit findings and page addresses (no
-            Search Console data, no passwords, no page HTML) to write a fix plan.
+            Search Console or Analytics data, no passwords, no page HTML) to write a fix plan.
           </li>
           <li><strong>Hostinger</strong> (servers), <strong>Cloudflare</strong> (DNS, network protection and backup storage).</li>
           <li><strong>Email delivery provider</strong>: only to send a report to an address you entered.</li>
@@ -121,7 +134,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Accounts: until the account is removed.</li>
           <li>Audits and reports, including any Search Console results in them: until deleted by an administrator or on request.</li>
-          <li>The Search Console connection: until disconnected; disconnecting deletes the stored token immediately.</li>
+          <li>Google connections (Search Console and Analytics): until disconnected; disconnecting deletes the stored token immediately.</li>
           <li>Database backups, where kept: up to 14 days, then overwritten.</li>
         </ul>
       </LegalSection>
