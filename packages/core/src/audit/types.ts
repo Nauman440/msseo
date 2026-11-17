@@ -42,6 +42,8 @@ export type AuditData = {
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];
+  /** Module 5: the primary keyword chosen for each page (normalised URL → keyword). */
+  pageKeywords?: Record<string, string>;
 };
 
 /** Derived views shared by many rules. */

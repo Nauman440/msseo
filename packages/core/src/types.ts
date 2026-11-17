@@ -182,4 +182,19 @@ export type ReportModel = {
   speedByTemplate?: TemplateSpeed[];
   /** Caveats shown above the report, e.g. when pages could not be crawled. */
   notices?: AudienceText[];
+  /** Compact list of the audited pages (Module 5 page inventory). Missing on reports saved before 2026-11-17. */
+  pages?: ReportPage[];
+};
+
+/** One audited page as Module 5 (keyword to page mapping) needs it. */
+export type ReportPage = {
+  url: string;
+  title: string | null;
+  h1: string | null;
+  words: number;
+  /** Page template (§7): home, service, location, blog_post, … */
+  pageType: string | null;
+  schemaTypes: string[];
+  /** Internal pages this page links to (absolute URLs, at most 150). */
+  links: string[];
 };

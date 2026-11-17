@@ -71,8 +71,11 @@ export async function researchCompetitors(domain: string): Promise<{ domains: st
   return { domains: domains.slice(0, 3), names };
 }
 
-/** Search Console queries (90 days, ending 3 days ago) when the team's connection can see the site. */
-export async function gscQueries(domain: string): Promise<GscQuery[]> {
+/**
+ * Search Console rows by search and page for the last 90 days (ending 3 days ago): the site's
+ * customer's own connection first, else the team's agency connection. Empty when neither can see it.
+ */
+export async function gscQueryPages(domain: string): Promise<{ query: string; page: string; clicks: number; impressions: number; position: number }[]> {
   if (!usingDatabase()) return [];
   try {
     const db = await import('@seo/db');
@@ -94,19 +97,23 @@ export async function gscQueries(domain: string): Promise<GscQuery[]> {
     }
     const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
     const rows = await gscSearchAnalytics(token, property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
-    const best = new Map<string, GscQuery>();
-    for (const r of rows) {
-      const [query, page] = r.keys;
-      if (!query) continue;
-      const prev = best.get(query);
-      const merged = { query, page, clicks: (prev?.clicks ?? 0) + r.clicks, impressions: (prev?.impressions ?? 0) + r.impressions, position: r.position };
-      // Position and page from the URL with the most impressions.
-      best.set(query, prev && prev.impressions >= r.impressions ? { ...merged, page: prev.page, position: prev.position } : merged);
-    }
-    return [...best.values()];
+    return rows.flatMap((r) => (r.keys[0] && r.keys[1] ? [{ query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position }] : []));
   } catch {
     return [];
   }
+}
+
+/** Search Console searches for keyword research: one entry per search, with its main page. */
+export async function gscQueries(domain: string): Promise<GscQuery[]> {
+  const best = new Map<string, GscQuery>();
+  for (const r of await gscQueryPages(domain)) {
+    const { query, page } = r;
+    const prev = best.get(query);
+    const merged = { query, page, clicks: (prev?.clicks ?? 0) + r.clicks, impressions: (prev?.impressions ?? 0) + r.impressions, position: r.position };
+    // Position and page from the URL with the most impressions.
+    best.set(query, prev && prev.impressions >= r.impressions ? { ...merged, page: prev.page, position: prev.position } : merged);
+  }
+  return [...best.values()];
 }
 
 /** Records paid calls in ApiUsage (database only). */

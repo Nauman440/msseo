@@ -245,3 +245,12 @@ model CustomerGoogle {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+/// Module 5 keyword-to-page mapping for one website (keyed by its domain): one row per topic
+/// with the page, action, drafts, links and schema to add (see @seo/core MappingWorkspace).
+model MappingWorkspace {
+  domain    String   @id
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

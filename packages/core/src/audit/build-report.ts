@@ -1,6 +1,6 @@
 import { CATEGORY_LABEL, SEVERITY_WEIGHT } from '../scoring/constants';
 import { categoryScores, icePriority, overallScore, scoreAfterFixes, scoreLabel, type ScoredRule } from '../scoring';
-import type { Audience, Category, TemplateSpeed, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, RuleMeta, Segment, TopIssue } from '../types';
+import type { Audience, Category, TemplateSpeed, CheckCard, CheckChart, CheckRow, CwvMetric, ReportIssue, ReportModel, ReportPage, RuleMeta, Segment, TopIssue } from '../types';
 import { assetRules } from './rules-assets';
 import { contentRules } from './rules-content';
 import { linkRules } from './rules-links';
@@ -205,6 +205,24 @@ function cwvFrom(data: AuditData): ReportModel['cwv'] {
   return metrics.length ? { source: psi.field ? 'field' : 'lab', device: 'mobile', metrics: metrics.slice(0, 3) } : null;
 }
 
+/** Module 5 page inventory: the audited pages with what keyword mapping needs. */
+function reportPages(data: AuditData): ReportPage[] | undefined {
+  if (!data.content?.length) return undefined;
+  const typeOf = new Map((data.templates ?? []).flatMap((t) => t.urls.map((u) => [u, t.type] as const)));
+  return data.content
+    .filter((c) => c.status < 400)
+    .slice(0, 100)
+    .map((c) => ({
+      url: c.url,
+      title: c.title ?? null,
+      h1: c.h1[0] ?? null,
+      words: c.words,
+      pageType: typeOf.get(c.url) ?? null,
+      schemaTypes: c.schemaTypes,
+      links: [...new Set(c.links.filter((l) => l.internal).map((l) => l.href.split('#')[0]!))].slice(0, 150),
+    }));
+}
+
 function speedByTemplate(data: AuditData): TemplateSpeed[] | undefined {
   const runs = data.lighthouse ?? [];
   if (!runs.length) return undefined;
@@ -285,6 +303,7 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
     pageHealth: { healthy: Math.max(0, ctx.ok.length - warnings - ctx.ok.filter((p) => failUrls.has(p.url)).length), warnings, errors },
     cwv: cwvFrom(data),
     speedByTemplate: speedByTemplate(data),
+    pages: reportPages(data),
     topIssues,
     robots: { found: data.preflight.robots.found, rows: byCard('robots').map(toRow), suggested: suggestedRobots(data) },
     sitemap: {

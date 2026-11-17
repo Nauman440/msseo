@@ -25,9 +25,14 @@ export default async function TeamKeywordsPage({ params }: Props) {
     <Container className="flex flex-col gap-8 py-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader as="h1" align="left" eyebrow="Keyword research" title={domain} intro="The searches this client’s customers use, cleaned, grouped into topics and ranked by value and chance to rank, plus the questions people ask AI assistants." />
+        <div className="flex flex-wrap gap-3">
+        <Link href={`/mapping/${domain}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
+          Page plan
+        </Link>
         <Link href={`/competitors/${domain}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
           Competitors
         </Link>
+        </div>
       </div>
       <KeywordWorkspaceView ws={ws} audience="team" />
     </Container>

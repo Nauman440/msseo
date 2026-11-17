@@ -1,4 +1,4 @@
-import { containsAll, hasSchema, mainTerm, readability, termDensity, termResolver } from './content-signals';
+import { containsAll, hasSchema, keywordTerm, mainTerm, readability, termDensity, termResolver } from './content-signals';
 import type { PageContent } from './page-content';
 import { countPages, plural, type RuleDef } from './types';
 
@@ -22,10 +22,10 @@ export const contentRules: RuleDef[] = [
     fix: { client: 'Start each title with the service or topic of the page.', expert: 'Move the primary term into the first 30 characters of the <title>.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
     evaluate: ({ content, data }) => {
-      const { term, source } = termResolver(data.gsc);
-      const from = source === 'gsc' ? 'top Search Console query' : 'slug/H1 term';
+      const { term, source } = termResolver(data.gsc, data.pageKeywords);
+      const from = source === 'mapping' ? 'mapped primary keyword' : source === 'gsc' ? 'top Search Console query' : 'slug/H1 term';
       return countPages(content.filter((c) => c.title && term(c).length), (c) => !(c.title ?? '').slice(0, 30).toLowerCase().includes(term(c)[0]!), (n) =>
-        n ? { client: `${plural(n, 'title')} put the main topic too late`, expert: `${n} titles lack the ${from} in the first 30 chars` } : { client: 'Titles lead with the topic', expert: `${source === 'gsc' ? 'Top query' : 'Primary term'} in the first 30 chars of every title` }, 'warn');
+        n ? { client: `${plural(n, 'title')} put the main topic too late`, expert: `${n} titles lack the ${from} in the first 30 chars` } : { client: 'Titles lead with the topic', expert: `${source === 'gsc' ? 'Top query' : source === 'mapping' ? 'Mapped keyword' : 'Primary term'} in the first 30 chars of every title` }, 'warn');
     },
   },
   {
@@ -35,9 +35,9 @@ export const contentRules: RuleDef[] = [
     fix: { client: 'Mention the main service in each page’s snippet text.', expert: 'Include the primary term in the meta description.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
     evaluate: ({ content, data }) => {
-      const { term, source } = termResolver(data.gsc);
+      const { term, source } = termResolver(data.gsc, data.pageKeywords);
       return countPages(content.filter((c) => c.description && term(c).length), (c) => !containsAll(c.description ?? '', term(c)), (n) =>
-        n ? { client: `${plural(n, 'snippet')} ${n === 1 ? 'does' : 'do'} not mention the page topic`, expert: `${n} meta descriptions lack the ${source === 'gsc' ? 'top Search Console query' : 'primary term'}` } : { client: 'Snippets mention the page topic', expert: 'Primary term in every meta description' }, 'warn');
+        n ? { client: `${plural(n, 'snippet')} ${n === 1 ? 'does' : 'do'} not mention the page topic`, expert: `${n} meta descriptions lack the ${source === 'gsc' ? 'top Search Console query' : source === 'mapping' ? 'mapped primary keyword' : 'primary term'}` } : { client: 'Snippets mention the page topic', expert: 'Primary term in every meta description' }, 'warn');
     },
   },
   {
@@ -46,9 +46,11 @@ export const contentRules: RuleDef[] = [
     explain: { client: 'The main heading tells visitors and Google what the page is about. It should match the title.', expert: 'H1 should reinforce the title/slug topic.' },
     fix: { client: 'Make the main heading say what the page offers.', expert: 'Align the H1 with the title and URL topic.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
-    evaluate: ({ content }) =>
-      countPages(withTerm(content).filter((c) => c.h1.length), (c) => !mainTerm(c).some((t) => c.h1[0]!.toLowerCase().includes(t)), (n) =>
-        n ? { client: `${plural(n, 'main heading')} ${n === 1 ? 'does' : 'do'} not match the page topic`, expert: `${n} H1s share no term with the slug/title` } : { client: 'Main headings match their pages', expert: 'Every H1 shares the page topic' }, 'warn'),
+    evaluate: ({ content, data }) => {
+      const term = keywordTerm(data.pageKeywords);
+      return countPages(content.filter((c) => c.h1.length && term(c).length), (c) => !term(c).some((t) => c.h1[0]!.toLowerCase().includes(t)), (n) =>
+        n ? { client: `${plural(n, 'main heading')} ${n === 1 ? 'does' : 'do'} not match the page topic`, expert: `${n} H1s share no term with the page's keyword (mapped, else slug/title)` } : { client: 'Main headings match their pages', expert: 'Every H1 shares the page topic' }, 'warn');
+    },
   },
   {
     id: '2.3.3', module: 2, category: 'onpage', card: 'headings', scope: 'page', severity: 'low',
@@ -80,9 +82,11 @@ export const contentRules: RuleDef[] = [
     explain: { client: 'Saying what the page is about in the first lines reassures visitors and Google.', expert: 'Early term usage confirms relevance and feeds snippets.' },
     fix: { client: 'Mention the main service in the opening sentence.', expert: 'Use the primary term within the first 100 words.' },
     ice: { impact: 2, confidence: 3, effort: 1 },
-    evaluate: ({ content }) =>
-      countPages(withTerm(content).filter((c) => c.words >= 100), (c) => !containsAll(first100(c), mainTerm(c)), (n) =>
-        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'does' : 'do'} not mention the topic early`, expert: `${n} pages lack the primary term in the first 100 words` } : { client: 'Pages mention their topic early', expert: 'Primary term in the first 100 words' }, 'warn'),
+    evaluate: ({ content, data }) => {
+      const term = keywordTerm(data.pageKeywords);
+      return countPages(content.filter((c) => c.words >= 100 && term(c).length), (c) => !containsAll(first100(c), term(c)), (n) =>
+        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'does' : 'do'} not mention the topic early`, expert: `${n} pages lack the primary term in the first 100 words` } : { client: 'Pages mention their topic early', expert: 'Primary term in the first 100 words' }, 'warn');
+    },
   },
   {
     id: '2.4.6', module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'low',

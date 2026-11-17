@@ -39,6 +39,8 @@ export type AuditEnv = {
   pagespeedKey?: string;
   /** Search Console access (agency connection); absent when not connected. */
   gsc?: { accessToken: () => Promise<string> };
+  /** Module 5: primary keyword per page (normalised URL → keyword) for rules 2.1.4, 2.2.4, 2.3.2, 2.4.3. */
+  pageKeywords?: Record<string, string>;
   /** Admin setting lighthouse.maxTemplates: page types measured with PageSpeed (1–6). */
   maxTemplates?: number;
   /** AI-judged checks (step 7): admin limits and an optional cache. Needs `openai`. */
@@ -261,6 +263,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     ai,
     parity,
     notices: [...(crawl.notices ?? []), ...gscNotices, ...aiNotices],
+    pageKeywords: env.pageKeywords,
   };
   const report = buildReport(data, { auditId, audience: input.audience, brand: env.brand });
   onProgress({ step: 'report', state: 'done', progress: 100 });

@@ -284,6 +284,16 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/keywords/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
+  // Module 5 for customers: the page plan needs keyword topics first (none researched in e2e).
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Page plan' }).click();
+  await expect(page.getByRole('heading', { name: 'Your page plan', level: 2 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Build the page plan' }).click();
+  await expect(page.getByText('Research keywords first', { exact: false })).toBeVisible();
+  expect((await page.request.get('/api/mapping/rival-hvac.com/csv')).status()).toBe(404);
+  await page.goto('/mapping/summitairhvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+
   // Account settings from the site tabs: plan, details and password.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Account settings', level: 1 })).toBeVisible();

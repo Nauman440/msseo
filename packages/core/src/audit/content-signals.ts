@@ -79,12 +79,33 @@ export function schemaValues(c: PageContent, field: string): string[] {
 
 export const hasSchema = (c: PageContent, ...types: string[]) => c.schemaTypes.some((t) => types.includes(t));
 
+const normPage = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
+
+/**
+ * Module 5 feeds Module 2: the primary keyword mapped to a page, when there is one; otherwise
+ * mainTerm() from the URL/H1. Used by 2.3.2 and 2.4.3.
+ */
+export function keywordTerm(pageKeywords: Record<string, string> | undefined): (c: PageContent) => string[] {
+  return (c) => {
+    const kw = pageKeywords?.[normPage(c.url)];
+    const t = kw ? tokens(kw).slice(0, 3) : [];
+    return t.length ? t : mainTerm(c);
+  };
+}
+
 /**
  * Main-term source for 2.1.4 / 2.2.4: the page's top Search Console query by clicks when
  * GSC data is present (spec §6.3), otherwise mainTerm() from the URL/H1.
  */
-export function termResolver(gsc: GscData | undefined): { term: (c: PageContent) => string[]; source: 'gsc' | 'url' } {
-  if (!gsc?.pageQueries.length) return { term: mainTerm, source: 'url' };
+export function termResolver(gsc: GscData | undefined, pageKeywords?: Record<string, string>): { term: (c: PageContent) => string[]; source: 'mapping' | 'gsc' | 'url' } {
+  const mapped = pageKeywords && Object.keys(pageKeywords).length ? pageKeywords : undefined;
+  const fallback = keywordTerm(mapped);
+  // A keyword chosen for the page (Module 5) wins; then the page's top Search Console query.
+  const fromMap = (c: PageContent) => {
+    const kw = mapped?.[normPage(c.url)];
+    return kw ? tokens(kw).slice(0, 3) : [];
+  };
+  if (!gsc?.pageQueries.length) return { term: fallback, source: mapped ? 'mapping' : 'url' };
   const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
   const top = new Map<string, { query: string; clicks: number }>();
   for (const r of gsc.pageQueries) {
@@ -95,10 +116,12 @@ export function termResolver(gsc: GscData | undefined): { term: (c: PageContent)
   }
   return {
     term: (c) => {
+      const m = fromMap(c);
+      if (m.length) return m;
       const q = top.get(norm(c.url));
       const t = q ? tokens(q.query).slice(0, 3) : [];
       return t.length ? t : mainTerm(c);
     },
-    source: 'gsc',
+    source: mapped ? 'mapping' : 'gsc',
   };
 }

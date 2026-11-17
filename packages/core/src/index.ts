@@ -31,3 +31,5 @@ export { generatePrompts, PROMPT_RANGE, templatePrompts } from './keywords/promp
 export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
 export { createOpenAiClient, type OpenAiClient } from './providers/openai';
 export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } from './customer/plan';
+export * from './mapping/mapping';
+export { draftableRows, writeDrafts } from './mapping/drafts';
