@@ -28,6 +28,8 @@ export type KeywordRecord = {
   statusLocked: boolean;
   /** Top-10 result URLs (clustering), kept so a re-cluster does not pay again. */
   serpUrls: string[] | null;
+  /** Google features on page 1 besides plain results (local_pack, people_also_ask, video…), from the same check. */
+  serpFeatures?: string[] | null;
   clusterId: string | null;
   addedAt: string;
 };
@@ -80,6 +82,8 @@ export type KeywordWorkspace = {
   lastRunAt: string | null;
   clusteredAt: string | null;
   promptsAt: string | null;
+  /** "People also ask" questions from Google for the checked keywords: ready-made FAQ material. */
+  questions?: { text: string; keyword: string }[];
   /** When each paid source was last fetched ("ranked:site.com", "ideas:ac repair"), for one country/language. */
   fetched?: { scope: string; at: Record<string, string> };
 };

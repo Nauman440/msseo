@@ -61,6 +61,42 @@ export const siteRules: RuleDef[] = [
         n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} not set up for phones`, expert: `${n} pages without viewport meta` } : { client: 'Every page is set up for phones', expert: 'Viewport meta on every page' }),
   },
   {
+    id: '1.9.2', module: 1, category: 'mobile', card: 'mobile', scope: 'site', severity: 'low',
+    title: { client: 'Hard to tap or read on phones', expert: 'Tap targets, zoom and font size' },
+    explain: {
+      client: 'Buttons that are too small or too close together, tiny text, or pages that cannot be zoomed frustrate phone visitors.',
+      expert: 'Lighthouse target-size (homepage, mobile), meta-viewport (zoom disabled) and font-size declarations < 12px in inline/<style> CSS.',
+    },
+    fix: {
+      client: 'Make buttons and links at least the size of a fingertip with space between them, use readable text sizes, and let visitors zoom.',
+      expert: 'Tap targets ≥ 24×24 CSS px with spacing (48px recommended); body text ≥ 16px, nothing below 12px; remove user-scalable=no / maximum-scale < 2.',
+    },
+    ice: { impact: 2, confidence: 3, effort: 2 },
+    evaluate: ({ data, content }) => {
+      const mu = data.psi?.mobileUsability;
+      if (!content.length && !mu) return null;
+      const tap = mu?.smallTapTargets ?? 0;
+      const zoomPages = content.filter((c) => c.zoomBlocked).map((c) => c.url);
+      const zoomOff = zoomPages.length > 0 || mu?.zoomDisabled === true;
+      const smallText = content.filter((c) => c.smallFonts >= 5).map((c) => c.url);
+      const problems = [
+        tap ? { client: `${tap} ${tap === 1 ? 'button or link' : 'buttons or links'} too small or too close together on the homepage`, expert: `target-size: ${tap} failing targets (homepage, mobile)` } : null,
+        zoomOff ? { client: 'zooming is turned off', expert: `zoom disabled (meta viewport)${zoomPages.length ? ` on ${zoomPages.length} pages` : ''}` } : null,
+        smallText.length ? { client: `very small text on ${plural(smallText.length, 'page')}`, expert: `≥ 5 font-size declarations < 12px on ${smallText.length} pages` } : null,
+      ].filter((p): p is { client: string; expert: string } => p !== null);
+      if (!problems.length) {
+        return { status: 'pass', message: { client: 'Easy to tap and read on phones', expert: mu ? 'Tap targets, zoom and font sizes OK' : 'Zoom and font sizes OK (tap targets not measured)' } };
+      }
+      const affected = [...new Set([...(tap && data.psi ? [data.psi.url] : []), ...zoomPages, ...smallText])];
+      return {
+        status: 'warn',
+        affected,
+        applicable: Math.max(content.length, affected.length),
+        message: { client: `On phones: ${problems.map((p) => p.client).join('; ')}`, expert: problems.map((p) => p.expert).join('; ') },
+      };
+    },
+  },
+  {
     id: '1.9.4', module: 1, category: 'mobile', card: 'mobile', scope: 'page', severity: 'medium',
     title: { client: 'Content only appears after JavaScript runs', expert: 'Raw vs rendered content differs > 50%' },
     explain: { client: 'If text only appears after scripts run, search engines may miss it.', expert: 'Rendered word count is more than double the raw HTML; indexing depends on rendering.' },
@@ -200,5 +236,49 @@ export const siteRules: RuleDef[] = [
       countPages(content.filter((c) => c.hreflang.length), (c) =>
         c.hreflang.some((h) => !HREFLANG.test(h.lang) || !/^https?:\/\//.test(h.href)) || !c.hreflang.some((h) => sameUrl(h.href, c.url)), (n) =>
         n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} language tag mistakes`, expert: `${n} pages with invalid hreflang` } : { client: 'Language tags are correct', expert: 'hreflang valid on every page' }),
+  },
+  {
+    id: '1.13.2', module: 1, category: 'technical', card: 'intl', scope: 'page', severity: 'medium',
+    title: { client: 'Language versions do not point back to each other', expert: 'Missing hreflang return links' },
+    explain: {
+      client: 'If the French page says "my English version is X" but X does not name the French page, Google ignores the pair.',
+      expert: 'hreflang annotations must be reciprocal; one-way pairs are discarded.',
+    },
+    fix: { client: 'Ask your developer to list every language version on every version, including itself.', expert: 'Make each alternate reference the page back (same cluster on every member).' },
+    ice: { impact: 3, confidence: 4, effort: 2 },
+    // Checked between pages we fetched: an alternate we did not fetch cannot be verified.
+    evaluate: ({ content }) => {
+      const withTags = content.filter((c) => c.hreflang.length);
+      if (!withTags.length) return null;
+      const byUrl = (u: string) => withTags.find((c) => sameUrl(c.url, u));
+      return countPages(withTags, (c) =>
+        c.hreflang.some((h) => {
+          const alt = sameUrl(h.href, c.url) ? undefined : byUrl(h.href);
+          return Boolean(alt && !alt.hreflang.some((back) => sameUrl(back.href, c.url)));
+        }), (n) =>
+        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'points' : 'point'} to language versions that do not point back`, expert: `${n} pages with non-reciprocal hreflang` } : { client: 'Language versions point to each other', expert: 'hreflang return links present' });
+    },
+  },
+  {
+    id: '1.13.3', module: 1, category: 'technical', card: 'intl', scope: 'page', severity: 'low',
+    title: { client: 'No default version, or the language label does not match', expert: 'Missing x-default / hreflang vs <html lang> mismatch' },
+    explain: {
+      client: 'A default version tells Google what to show everyone else; the page\'s own language label should match its language tag.',
+      expert: 'x-default covers unmatched locales; the self hreflang should agree with <html lang>.',
+    },
+    fix: { client: 'Ask your developer to add a default language version and make the language labels agree.', expert: 'Add hreflang="x-default"; align <html lang> with the self-referencing hreflang.' },
+    ice: { impact: 2, confidence: 4, effort: 1 },
+    evaluate: ({ content }) => {
+      const withTags = content.filter((c) => c.hreflang.length);
+      if (!withTags.length) return null;
+      const primary = (l: string) => l.toLowerCase().split('-')[0];
+      return countPages(withTags, (c) => {
+        const self = c.hreflang.find((h) => sameUrl(h.href, c.url) && h.lang.toLowerCase() !== 'x-default');
+        const noDefault = !c.hreflang.some((h) => h.lang.toLowerCase() === 'x-default');
+        const mismatch = Boolean(self && c.lang && primary(self.lang) !== primary(c.lang));
+        return noDefault || mismatch;
+      }, (n) =>
+        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no default version or a language label mismatch`, expert: `${n} pages without x-default or with <html lang> ≠ self hreflang` } : { client: 'Default version and language labels are right', expert: 'x-default present; lang matches hreflang' }, 'warn');
+    },
   },
 ];

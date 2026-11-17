@@ -99,7 +99,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
 
   // PageSpeed only needs the final homepage URL, so it starts now in both modes.
   const psiP: Promise<PageSpeedResult | null> = env.pagespeedKey
-    ? runPageSpeed(found.homepage.finalUrl, 'mobile', env.pagespeedKey, env.log).catch(() => null)
+    ? runPageSpeed(found.homepage.finalUrl, 'mobile', env.pagespeedKey, env.log, { accessibility: true }).catch(() => null)
     : Promise.resolve(null);
 
   let preflight: Preflight;

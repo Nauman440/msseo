@@ -54,7 +54,14 @@ const rankedItem = z
   .passthrough();
 
 const autocompleteItem = z.object({ type: z.string(), suggestion: str }).passthrough();
-const organicItem = z.object({ type: z.string(), url: str, domain: str, rank_group: num }).passthrough();
+/** Organic SERP item; "people_also_ask" items hold questions in items[].title (type people_also_ask_element). */
+const serpItem = z
+  .object({ type: z.string(), url: str, domain: str, rank_group: num, items: z.array(z.object({ type: str, title: str }).passthrough()).nullable().optional() })
+  .passthrough();
+/** domain_intersection item: the same keyword_data as ranked_keywords, plus target1's SERP element. */
+const gapItem = z
+  .object({ keyword_data: keywordData, first_domain_serp_element: z.object({ rank_group: num, url: str }).passthrough().nullable().optional() })
+  .passthrough();
 
 const envelope = (items: z.ZodTypeAny) =>
   z.object({
@@ -114,7 +121,7 @@ export function createKeywordClient(cfg: DfsConfig) {
   const auth = `Basic ${Buffer.from(`${cfg.login}:${cfg.password}`).toString('base64')}`;
   const base = cfg.baseUrl.replace(/\/$/, '');
 
-  async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>, opts: { timeoutMs?: number; retries?: number } = {}): Promise<{ items: z.infer<T>[]; cost: number }> {
+  async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>, opts: { timeoutMs?: number; retries?: number } = {}): Promise<{ items: z.infer<T>[]; cost: number; result?: Record<string, unknown> }> {
     const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [task], timeoutMs: opts.timeoutMs ?? 60_000, retries: opts.retries, log: cfg.log });
     const parsed = envelope(items).parse(json);
     if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
@@ -122,7 +129,7 @@ export function createKeywordClient(cfg: DfsConfig) {
     if (!t) throw new HttpError('DataForSEO returned no task', 0);
     if (t.status_code === 40102) return { items: [], cost: parsed.cost ?? 0 };
     if (t.status_code >= 40000) throw new HttpError(`DataForSEO task error: ${t.status_message}`, t.status_code);
-    return { items: (t.result?.[0]?.items ?? []) as z.infer<T>[], cost: parsed.cost ?? 0 };
+    return { items: (t.result?.[0]?.items ?? []) as z.infer<T>[], cost: parsed.cost ?? 0, result: t.result?.[0] as Record<string, unknown> | undefined };
   }
 
   const where = (l: Locale) => ({ location_name: l.country, language_code: l.language });
@@ -163,10 +170,32 @@ export function createKeywordClient(cfg: DfsConfig) {
       return { cost, suggestions: items.filter((i) => i.type === 'autocomplete' && i.suggestion).map((i) => i.suggestion!.toLowerCase()) };
     },
 
-    /** Top 10 organic URLs for a keyword (short timeout: clustering works without a slow one). */
-    async serpUrls(keyword: string, l: Locale, timeoutMs = 30_000): Promise<{ urls: string[]; cost: number }> {
-      const { items, cost } = await live('/v3/serp/google/organic/live/regular', organicItem, { keyword, ...where(l), depth: 10, device: 'desktop', resolve_goto_urls: true }, { timeoutMs, retries: 0 });
-      return { cost, urls: items.filter((i) => i.type === 'organic' && i.url).map((i) => i.url!).slice(0, 10) };
+    /**
+     * Page 1 for a keyword (advanced endpoint, same $0.002 as regular): top 10 organic URLs for
+     * clustering, "People also ask" questions, and which SERP features show (local pack, video…).
+     * Short timeout: clustering works without a slow one.
+     */
+    async serpUrls(keyword: string, l: Locale, timeoutMs = 30_000): Promise<{ urls: string[]; questions: string[]; features: string[]; cost: number }> {
+      const { items, cost, result } = await live('/v3/serp/google/organic/live/advanced', serpItem, { keyword, ...where(l), depth: 10, device: 'desktop', resolve_goto_urls: true }, { timeoutMs, retries: 0 });
+      const types = Array.isArray(result?.item_types) ? (result.item_types as unknown[]).filter((t): t is string => typeof t === 'string') : [...new Set(items.map((i) => i.type))];
+      return {
+        cost,
+        urls: items.filter((i) => i.type === 'organic' && i.url).map((i) => i.url!).slice(0, 10),
+        questions: [...new Set(items.filter((i) => i.type === 'people_also_ask').flatMap((i) => (i.items ?? []).map((q) => q.title?.trim() ?? '')).filter(Boolean))].slice(0, 8),
+        features: types.filter((t) => t !== 'organic').slice(0, 12),
+      };
+    },
+
+    /** 4.2 Keyword gap: keywords the competitor ranks for and the site does not (Labs domain_intersection, intersections: false). */
+    async keywordGap(competitor: string, own: string, l: Locale, limit = 150): Promise<{ keywords: RankedKeyword[]; cost: number }> {
+      const { items, cost } = await live('/v3/dataforseo_labs/google/domain_intersection/live', gapItem, {
+        target1: competitor, target2: own, intersections: false, ...where(l), item_types: ['organic'], limit, order_by: ['keyword_data.keyword_info.search_volume,desc'],
+      });
+      return {
+        cost,
+        // position/url are the competitor's, kept only to say where they rank.
+        keywords: items.map((i) => ({ ...metrics(i.keyword_data), position: i.first_domain_serp_element?.rank_group ?? null, url: i.first_domain_serp_element?.url ?? null })),
+      };
     },
   };
 }

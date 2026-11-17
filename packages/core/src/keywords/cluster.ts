@@ -10,6 +10,8 @@ import type { ClusterPageType, KeywordCluster, KeywordRecord, KeywordWorkspace }
  * SERP (beyond the paid budget) join the cluster whose words they share. 4.6 scores each cluster.
  */
 export const MAX_CLUSTER_SERPS = 60;
+/** "People also ask" questions kept per site. */
+export const MAX_QUESTIONS = 150;
 /** Google checks start only within this window, so "Research keywords" answers in about a minute. */
 export const CLUSTER_DEADLINE_MS = 60_000;
 const OVERLAP = 3;
@@ -166,6 +168,8 @@ export async function clusterKeywords(
   const byVolume = (a: KeywordRecord, b: KeywordRecord) => (b.volume ?? -1) - (a.volume ?? -1) || a.term.localeCompare(b.term);
   const kept = ws.keywords.filter((k) => k.status === 'kept').sort(byVolume);
   const serp = new Map(kept.filter((k) => k.serpUrls).map((k) => [k.term, k.serpUrls!]));
+  const features = new Map<string, string[]>();
+  const questions = new Map((ws.questions ?? []).map((q) => [q.text.toLowerCase(), q]));
   const errors: string[] = [];
   let cost = 0;
   let serps = 0;
@@ -179,12 +183,14 @@ export async function clusterKeywords(
         cost += r.cost;
         serps++;
         serp.set(k.term, r.urls);
+        features.set(k.term, r.features ?? []);
+        for (const q of r.questions ?? []) if (!questions.has(q.toLowerCase())) questions.set(q.toLowerCase(), { text: q, keyword: k.term });
       } catch (err) {
         errors.push(`"${k.term}": ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }
-  const withSerp = kept.map((k) => (serp.has(k.term) ? { ...k, serpUrls: serp.get(k.term)! } : k));
+  const withSerp = kept.map((k) => (serp.has(k.term) ? { ...k, serpUrls: serp.get(k.term)!, ...(features.has(k.term) ? { serpFeatures: features.get(k.term)! } : {}) } : k));
 
   type Group = { head: KeywordRecord; members: KeywordRecord[]; urls: Set<string> | null; tok: Set<string> };
   const groups: Group[] = [];
@@ -236,6 +242,7 @@ export async function clusterKeywords(
       keywords: ws.keywords.map((k) => ({ ...(updated.get(k.term) ?? k), clusterId: idOf.get(k.term) ?? null })),
       clusters: sortClusters(clusters),
       clusteredAt: now.toISOString(),
+      questions: [...questions.values()].slice(0, MAX_QUESTIONS),
     },
     cost,
     errors,

@@ -11,6 +11,10 @@ export type PageContent = {
   status: number;
   lang?: string;
   viewport: boolean;
+  /** Viewport stops pinch-zoom (user-scalable=no or maximum-scale below 2). */
+  zoomBlocked: boolean;
+  /** font-size declarations below 12px (or 9pt / 0.75em/rem) in the page's own styles (rule 1.9.2). */
+  smallFonts: number;
   generator?: string;
   /** <meta name="robots"> content, lowercased. */
   robots?: string;
@@ -45,7 +49,29 @@ export type PageContent = {
 
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 const clean = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
-export const wordCount = (s: string) => (s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+/** Pinch-zoom turned off: hard to read for many visitors on phones. */
+export function zoomBlocked(content: string | null | undefined): boolean {
+  const c = (content ?? '').toLowerCase().replace(/\s+/g, '');
+  const max = c.match(/maximum-scale=([\d.]+)/);
+  return /user-scalable=(no|0)(,|;|$)/.test(c) || (max !== null && Number(max[1]) < 2);
+}
+
+/**
+ * Text set smaller than 12px (9pt, 0.75em/rem) in inline styles and <style> blocks. External
+ * stylesheets are not read, so this finds the obvious cases only (Lighthouse dropped its check).
+ */
+export function smallFontCount(html: string): number {
+  const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join('\n') + '\n' + [...html.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)].map((m) => m[1]).join(';');
+  let n = 0;
+  for (const m of css.matchAll(/font-size\s*:\s*([\d.]+)(px|pt|em|rem)\b/gi)) {
+    const v = Number(m[1]);
+    const unit = m[2]!.toLowerCase();
+    if (v > 0 && ((unit === 'px' && v < 12) || (unit === 'pt' && v < 9) || ((unit === 'em' || unit === 'rem') && v < 0.75))) n++;
+  }
+  return n;
+}
+
+export const wordCount =(s: string) => (s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
 
 const HINTS: [string, RegExp][] = [
   ['wordpress', /wp-content|wp-includes/i],
@@ -135,6 +161,8 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     status,
     lang: root.querySelector('html')?.getAttribute('lang') ?? undefined,
     viewport: Boolean(root.querySelector('meta[name="viewport"]')),
+    zoomBlocked: zoomBlocked(root.querySelector('meta[name="viewport"]')?.getAttribute('content')),
+    smallFonts: smallFontCount(html),
     generator: root.querySelector('meta[name="generator"]')?.getAttribute('content') ?? undefined,
     robots: root.querySelector('meta[name="robots"]')?.getAttribute('content')?.toLowerCase() ?? undefined,
     canonical: absolute(root.querySelector('link[rel="canonical"]')?.getAttribute('href'), url),

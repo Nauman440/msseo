@@ -55,6 +55,12 @@ export type PageSpeedResult = {
   insights?: PsiInsights;
   /** Lighthouse final-screenshot as a data URL (used by the AI screenshot checks, step 7). */
   screenshot?: string;
+  /**
+   * Rule 1.9.2, from Lighthouse's accessibility checks (only when requested): 'target-size'
+   * (tap targets too small or too close; Lighthouse 12+ replaced 'tap-targets' with it) and
+   * 'meta-viewport' (pinch-zoom turned off). null when Lighthouse did not report it.
+   */
+  mobileUsability?: { smallTapTargets: number | null; zoomDisabled: boolean | null };
 };
 
 export type PsiInsights = {
@@ -116,9 +122,10 @@ export async function runPageSpeed(
   strategy: 'mobile' | 'desktop',
   apiKey: string,
   log?: HttpLog,
-  opts: { timeoutMs?: number; retries?: number } = {},
+  opts: { timeoutMs?: number; retries?: number; accessibility?: boolean } = {},
 ): Promise<PageSpeedResult> {
   const qs = new URLSearchParams({ url, strategy, category: 'performance', key: apiKey });
+  if (opts.accessibility) qs.append('category', 'accessibility');
   const json = psiSchema.parse(
     await requestJson(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${qs}`, {
       provider: 'pagespeed',
@@ -160,5 +167,17 @@ export async function runPageSpeed(
     renderBlockingMs,
     insights: readInsights(audits as Record<string, Audit>),
     screenshot: screenshotOf(audits as Record<string, Audit>),
+    ...(opts.accessibility ? { mobileUsability: readMobileUsability(audits as Record<string, Audit>) } : {}),
+  };
+}
+
+/** Lighthouse scores binary accessibility audits 0/1; score null means "not applicable". */
+export function readMobileUsability(audits: Record<string, Audit>): { smallTapTargets: number | null; zoomDisabled: boolean | null } {
+  const target = audits['target-size'] as (Audit & { score?: number | null }) | undefined;
+  const viewport = audits['meta-viewport'] as (Audit & { score?: number | null }) | undefined;
+  const failing = (target?.details as { items?: unknown[] } | undefined)?.items?.length;
+  return {
+    smallTapTargets: target && typeof target.score === 'number' ? (target.score === 1 ? 0 : failing ?? 1) : null,
+    zoomDisabled: viewport && typeof viewport.score === 'number' ? viewport.score === 0 : null,
   };
 }

@@ -5,6 +5,7 @@ import { StatTile } from '@/components/ui/StatTile';
 import { ClusterBoard } from './ClusterBoard';
 import { AddKeywordsForm, KeywordRunButtons, SeedsForm } from './forms';
 import { KeywordTable } from './KeywordTable';
+import { QuestionsCard } from './QuestionsCard';
 import { TopTopics } from './TopTopics';
 
 /**
@@ -48,7 +49,7 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
           <div className="border-t border-border pt-5">
             <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
             <p className="mt-2 text-[13px] text-ink-3">
-              {'Research: the site’s rankings, up to 3 competitors’ rankings, local keyword ideas, Google suggestions and Search Console (when connected), then metrics for new keywords, then clusters (one Google check for each of the top 60, ≈ $0.002, cached). First run about $0.15–0.30; sources fetched in the last 7 days are reused, so re-runs cost little. Prompts: OpenAI, from the services and places only.'}
+              {'Research: the site’s rankings, the keyword gap with up to 3 competitors (what they rank for and this site does not), local keyword ideas, Google suggestions and Search Console (when connected), then metrics for new keywords, then topics (one Google check for each of the top 60, ≈ $0.002, cached; it also collects "People also ask" questions and page-1 features). First run about $0.15–0.30; sources fetched in the last 7 days are reused, so re-runs cost little. Prompts: OpenAI, from the services and places only.'}
             </p>
           </div>
           )}
@@ -74,6 +75,8 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
           <ClusterBoard domain={ws.domain} clusters={ws.clusters} keywords={ws.keywords} />
         </section>
       ))}
+
+      {(ws.questions?.length ?? 0) > 0 && fold('Questions people ask Google', <QuestionsCard ws={ws} />)}
 
       {fold(stats.kept === 1 ? 'All 1 keyword' : `All ${stats.kept.toLocaleString('en-US')} keywords`, (
       <section className="flex flex-col gap-3">

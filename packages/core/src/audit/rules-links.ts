@@ -7,6 +7,19 @@ import { countPages, pathOf, plural, type Evaluation, type RuleDef } from './typ
 const KEY_SKIP = /\/(blog|news|article|category|tag|author|page|privacy|terms|cookie|legal|contact|login|cart)(\/|$)/i;
 const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
 
+/**
+ * Quick audits have no site-wide inlink counts: count, for each checked page, how many of the
+ * other checked pages link to it (distinct pages). The homepage is never a "key page" here.
+ */
+export function inlinksAmongChecked(content: PageContent[]): { url: string; inlinks: number }[] {
+  const pages = content.filter((c) => c.status < 400);
+  return pages.map((c) => ({
+    url: c.url,
+    inlinks: pages.filter((o) => o !== c && o.links.some((l) => l.internal && norm(l.href.split('#')[0]!) === norm(c.url))).length,
+  }));
+}
+const isHomeUrl = (u: string) => new URL(u).pathname.replace(/\/$/, '') === '';
+
 /** Word 5-gram shingles of the main text. */
 function shingles(text: string): Set<string> {
   const w = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -95,12 +108,21 @@ export const linkRules: RuleDef[] = [
     },
   },
   {
-    id: '1.12.7', crawlOnly: true, module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'medium',
+    id: '1.12.7', module: 1, category: 'technical', card: 'depth', scope: 'page', severity: 'medium',
     title: { client: 'Important pages get few links from your own site', expert: 'Key pages in the bottom 20% for inlinks' },
     explain: { client: 'Pages you link to often look more important to Google.', expert: 'Key pages with few internal inlinks receive less equity.' },
     fix: { client: 'Link to your main service pages from more of your pages.', expert: 'Add contextual internal links to under-linked key pages.' },
     ice: { impact: 3, confidence: 3, effort: 2 },
-    evaluate: ({ ok }) => {
+    evaluate: ({ ok, content, data }) => {
+      if (data.mode === 'quick') {
+        const pages = inlinksAmongChecked(content);
+        if (pages.length < 5) return null;
+        const sorted = pages.map((p) => p.inlinks).sort((a, b) => a - b);
+        const p20 = sorted[Math.floor(sorted.length * 0.2)]!;
+        const key = pages.filter((p) => !isHomeUrl(p.url) && !KEY_SKIP.test(new URL(p.url).pathname));
+        return countPages(key, (p) => p.inlinks <= p20, (n) =>
+          n ? { client: `${plural(n, 'important page')} ${n === 1 ? 'gets' : 'get'} few links from your site`, expert: `${n} key pages linked from ≤ ${p20} of the ${pages.length} checked pages (bottom 20%)` } : { client: 'Important pages are well linked', expert: 'No key page in the bottom 20% (checked pages)' }, 'warn');
+      }
       const counts = ok.map((p) => p.meta?.inbound_links_count).filter((n): n is number => typeof n === 'number').sort((a, b) => a - b);
       if (counts.length < 5) return null;
       const p20 = counts[Math.floor(counts.length * 0.2)]!;
@@ -110,13 +132,21 @@ export const linkRules: RuleDef[] = [
     },
   },
   {
-    id: '2.6.3', crawlOnly: true, module: 2, category: 'onpage', card: 'links', scope: 'page', severity: 'medium',
+    id: '2.6.3', module: 2, category: 'onpage', card: 'links', scope: 'page', severity: 'medium',
     title: { client: 'Key pages are linked from too few pages', expert: 'Key pages with < 3 internal inlinks' },
     explain: { client: 'Pages linked from only one or two places are easy for Google to overlook.', expert: 'Key pages need links from several relevant pages.' },
     fix: { client: 'Link to these pages from related pages and blog posts.', expert: 'Add ≥ 3 contextual inlinks from relevant pages.' },
     ice: { impact: 3, confidence: 3, effort: 2 },
-    evaluate: ({ ok }) =>
-      countPages(ok.filter((p) => (p.click_depth ?? 0) > 0 && typeof p.meta?.inbound_links_count === 'number' && !KEY_SKIP.test(new URL(p.url).pathname)), (p) => (p.meta?.inbound_links_count ?? 0) < 3, (n) =>
+    evaluate: ({ ok, content, data }) =>
+      data.mode === 'quick'
+        ? (() => {
+            const pages = inlinksAmongChecked(content);
+            if (pages.length < 4) return null;
+            const key = pages.filter((p) => !isHomeUrl(p.url) && !KEY_SKIP.test(new URL(p.url).pathname));
+            return countPages(key, (p) => p.inlinks < 3, (n) =>
+              n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} linked from fewer than 3 places`, expert: `${n} pages linked from < 3 of the ${pages.length} checked pages` } : { client: 'Key pages are linked from several places', expert: 'All key pages ≥ 3 inlinks (checked pages)' }, 'warn');
+          })()
+        : countPages(ok.filter((p) => (p.click_depth ?? 0) > 0 && typeof p.meta?.inbound_links_count === 'number' && !KEY_SKIP.test(new URL(p.url).pathname)), (p) => (p.meta?.inbound_links_count ?? 0) < 3, (n) =>
         n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} linked from fewer than 3 places`, expert: `${n} pages with < 3 internal inlinks` } : { client: 'Key pages are linked from several places', expert: 'All key pages ≥ 3 inlinks' }, 'warn'),
   },
 ];

@@ -14,8 +14,8 @@ const COLUMNS: { key: KeywordSort; label: string }[] = [
   { key: 'position', label: 'Your position' },
 ];
 const fmt = (v: number | null) => (v === null ? '–' : v.toLocaleString('en-US'));
-type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; sort: KeywordSort; desc: boolean };
-const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', sort: 'volume', desc: true };
+type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; from: string; sort: KeywordSort; desc: boolean };
+const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', from: '', sort: 'volume', desc: true };
 
 /**
  * Sortable, filterable keyword list with keep/remove per row (4.4 manual override). The server
@@ -32,7 +32,7 @@ export function KeywordTable({ domain, initial }: { domain: string; initial: { r
     async (f: Filters, offset: number, append: boolean) => {
       const id = ++request.current;
       setLoading(true);
-      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, sort: f.sort, desc: f.desc ? '1' : '0', offset: String(offset) });
+      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, from: f.from, sort: f.sort, desc: f.desc ? '1' : '0', offset: String(offset) });
       try {
         const res = await fetch(`/api/keywords/${domain}?${qs}`, { cache: 'no-store' });
         if (!res.ok || id !== request.current) return;
@@ -66,7 +66,7 @@ export function KeywordTable({ domain, initial }: { domain: string; initial: { r
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.6fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Search the list
           <input value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder="Keyword or cluster" className={INPUT} />
@@ -87,6 +87,16 @@ export function KeywordTable({ domain, initial }: { domain: string; initial: { r
             <option value="commercial">Comparing</option>
             <option value="informational">Learning</option>
             <option value="navigational">Looking for a site</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Found from
+          <select value={filters.from} onChange={(e) => set({ from: e.target.value })} className={INPUT}>
+            <option value="">Anywhere</option>
+            <option value="gap">Competitor gap</option>
+            <option value="ranked">Your rankings</option>
+            <option value="gsc">Search Console</option>
+            <option value="ideas">Ideas and suggestions</option>
           </select>
         </label>
       </div>
@@ -116,6 +126,8 @@ export function KeywordTable({ domain, initial }: { domain: string; initial: { r
                 <td className="px-4 py-2.5">
                   <span className="font-medium">{r.term}</span>
                   {r.status === 'kept' && !r.volume && <span className="ml-2 rounded-pill bg-info-bg px-1.5 py-px text-[11px] font-semibold text-info-text">Customer language</span>}
+                  {r.gap && <span className="ml-2 rounded-pill bg-primary-soft px-1.5 py-px text-[11px] font-semibold text-primary-text" title="A competitor ranks for this and you do not">Competitor gap</span>}
+                  {r.features.length > 0 && <span className="block text-[12px] text-ink-3">On Google: {r.features.join(' · ')}</span>}
                   {r.reason && <span className="block text-[12px]">{r.reason}</span>}
                 </td>
                 <td className="px-3 py-2.5 tabular">{fmt(r.volume)}</td>

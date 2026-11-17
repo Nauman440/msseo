@@ -163,8 +163,12 @@ export async function researchKeywords(
       for (const k of r.keywords) c.add(k.term, 'ranked', k);
       return r.cost;
     }, `ranked:${ws.domain}`),
+    // 4.2 Keyword gap: what each competitor ranks for and this site does not. If that call fails,
+    // fall back to the competitor's own ranked keywords (cleaning then removes the ones we cover).
     ...(opts.competitors ?? []).slice(0, 3).map((d) => () => run(`Competitor ${d}`, async () => {
-      const r = await client.rankedKeywords(normDomain(d), locale, 150);
+      const r = await Promise.resolve()
+        .then(() => client.keywordGap(normDomain(d), ws.domain, locale, 150))
+        .catch(() => client.rankedKeywords(normDomain(d), locale, 150));
       for (const k of r.keywords) c.add(k.term, 'competitor', { ...k, position: null, url: null });
       return r.cost;
     }, `competitor:${normDomain(d)}`)),
@@ -302,9 +306,25 @@ export type KeywordRow = {
   status: KeywordStatus;
   reason: string | null;
   cluster: string | null;
+  /** A competitor ranks for it and the site does not. */
+  gap: boolean;
+  /** Google features on page 1, in plain words ("Map pack", "Videos"). */
+  features: string[];
 };
 export type KeywordSort = 'term' | 'volume' | 'difficulty' | 'cpc' | 'position';
-export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number };
+export type KeywordFrom = 'gap' | 'ranked' | 'gsc' | 'ideas';
+export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number };
+
+const FEATURE_NAMES: Record<string, string> = {
+  local_pack: 'Map pack', map: 'Map', people_also_ask: 'People also ask', featured_snippet: 'Featured snippet', video: 'Videos', images: 'Images',
+  shopping: 'Shopping', popular_products: 'Products', paid: 'Ads', ai_overview: 'AI overview', top_stories: 'News', knowledge_graph: 'Knowledge panel',
+  related_searches: 'Related searches', perspectives: 'Perspectives', discussions_and_forums: 'Forums', short_videos: 'Short videos',
+};
+/** SERP feature codes in plain words (unknown ones are skipped). */
+export const featureLabels = (codes: string[] | null | undefined) => [...new Set((codes ?? []).map((c) => FEATURE_NAMES[c]).filter((x): x is string => Boolean(x)))];
+const isGap = (k: KeywordRecord) => k.sources.includes('competitor') && k.position === null;
+const fromMatches = (k: KeywordRecord, from?: KeywordFrom) =>
+  !from || (from === 'gap' ? isGap(k) : from === 'ranked' ? k.sources.includes('ranked') : from === 'gsc' ? k.sources.includes('gsc') : k.sources.some((s) => s === 'suggestion' || s === 'autocomplete' || s === 'seed'));
 export const KEYWORD_PAGE = 100;
 
 /** Filters, sorts and pages the keyword list on the server, so the browser never gets all 1,500 rows. */
@@ -315,11 +335,15 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
   const sort = query.sort ?? 'volume';
   const dir = (query.desc ?? true) ? -1 : 1;
   const rows = ws.keywords
-    .map((k): KeywordRow => ({
+    .map((k) => ({
       term: k.term, volume: k.volume, difficulty: k.difficulty, cpc: k.cpc, intent: k.intent, position: k.position, status: k.status, reason: k.removeReason,
       cluster: k.clusterId ? names.get(k.clusterId) ?? null : null,
+      gap: isGap(k),
+      features: featureLabels(k.serpFeatures),
+      _k: k,
     }))
-    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
+    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && fromMatches(r._k, query.from) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
+    .map(({ _k, ...r }) => r)
     .sort((a, b) => {
       if (sort === 'term') return a.term.localeCompare(b.term) * dir;
       const x = a[sort];
@@ -335,13 +359,13 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
 
 // ---- CSV ----------------------------------------------------------------------------------
 
-const HEADER = ['keyword', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources'];
+const HEADER = ['keyword', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources', 'competitor_gap', 'serp_features'];
 
 export function keywordsToCsv(ws: KeywordWorkspace): string {
   const names = new Map(ws.clusters.map((c) => [c.id, c.name]));
   const rows = ws.keywords.map((k) => [
     k.term, k.status, k.removeReason ?? '', k.clusterId ? names.get(k.clusterId) ?? '' : '', k.volume ?? '', k.difficulty ?? '', k.cpc === null ? '' : k.cpc.toFixed(2),
-    k.intent ?? '', k.position ?? '', k.url ?? '', k.gscClicks ?? '', k.gscImpressions ?? '', k.sources.join(' '),
+    k.intent ?? '', k.position ?? '', k.url ?? '', k.gscClicks ?? '', k.gscImpressions ?? '', k.sources.join(' '), isGap(k) ? 'yes' : '', (k.serpFeatures ?? []).join(' '),
   ]);
   return `﻿${[HEADER, ...rows].map((r) => r.map((v) => csvCell(v)).join(',')).join('\r\n')}\r\n`;
 }
