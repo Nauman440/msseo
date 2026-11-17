@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addKeywords, buildSeeds, cleanKeywords, clusterKeywords, competitorSearchesFromClusters, dedupeKey, emptyKeywordWorkspace, generatePrompts, keywordsToCsv,
-  parseKeywordCsv, removalReason, researchKeywords, seasonality, setKeywordStatus, templatePrompts, updateCluster,
+  parseKeywordCsv, queryKeywords, removalReason, researchKeywords, seasonality, setKeywordStatus, templatePrompts, updateCluster,
   type KeywordClient, type KeywordMetrics, type KeywordRecord, type OpenAiClient,
 } from '../src';
 
@@ -189,5 +189,58 @@ describe('keyword research', () => {
     expect(r.prompts).toHaveLength(35);
     expect(r.prompts[0]).toMatchObject({ service: 'ac repair', location: 'dallas' });
     expect(JSON.parse(sent)).toEqual({ website: 'myhvac.com', services: seeds.services, locations: seeds.locations, brands: [], other_topics: [] });
+  });
+  it('reuses sources fetched in the last 7 days and adds local versions of popular searches', async () => {
+    const { client, calls } = fake({
+      async rankedKeywords(target: string) {
+        calls.push(`ranked:${target}`);
+        return { cost: 0.012, keywords: [{ ...m('ac repair', 368000), position: 40, url: null }, { ...m('plumber', 600000), position: 30, url: null }] };
+      },
+    });
+    const ws = emptyKeywordWorkspace('myhvac.com', { seeds: { services: ['ac repair'], locations: ['Dallas', 'Plano'] } });
+    const now = new Date('2026-11-17T10:00:00Z');
+    const first = await researchKeywords(client, ws, { now });
+    expect(calls).toEqual(expect.arrayContaining(['sugg:ac repair dallas', 'sugg:ac repair', 'auto:ac repair dallas', 'auto:ac repair plano']));
+    const terms = first.workspace.keywords.map((k) => k.term);
+    expect(terms).toEqual(expect.arrayContaining(['ac repair dallas', 'ac repair plano']));
+    expect(terms).not.toContain('plumber plano'); // off-topic searches get no local versions
+    expect(first.reused).toBe(0);
+
+    calls.length = 0;
+    const again = await researchKeywords(client, first.workspace, { now: new Date('2026-11-20T10:00:00Z') });
+    expect(calls.filter((c) => !c.startsWith('overview'))).toEqual([]);
+    expect(again.reused).toBeGreaterThan(0);
+    expect(again.cost).toBe(0);
+
+    calls.length = 0;
+    await researchKeywords(client, { ...first.workspace, country: 'Canada' }, { now: new Date('2026-11-20T10:00:00Z') });
+    expect(calls).toContain('ranked:myhvac.com'); // another country: fetched again
+  });
+
+  it('folds one-keyword topics into their parent and values local searches higher', async () => {
+    const ws = {
+      ...emptyKeywordWorkspace('myhvac.com', { seeds: { services: ['ac repair'], locations: ['Dallas'] } }),
+      keywords: [
+        rec('ac repair dallas', { volume: 1000, serpUrls: ['https://a.com/1', 'https://b.com/1', 'https://c.com/1'] }),
+        rec('ac repair', { volume: 2000, serpUrls: ['https://x.com/1', 'https://y.com/1', 'https://z.com/1'] }),
+        rec('cheap ac repair dallas tx', { volume: 10 }),
+      ],
+    };
+    const r = await clusterKeywords(null, ws);
+    expect(r.workspace.clusters.map((c) => [c.head, c.size])).toEqual([['ac repair dallas', 2], ['ac repair', 1]]);
+    const [local, generic] = r.workspace.clusters;
+    expect(local!.businessValue).toBe(generic!.businessValue + 1);
+  });
+
+  it('serves the keyword table a page at a time', () => {
+    const keywords = Array.from({ length: 250 }, (_, i) => rec(`kw ${String(i).padStart(3, '0')}`, { volume: i, status: i % 10 === 0 ? 'removed' : 'kept' }));
+    const ws = { ...emptyKeywordWorkspace('myhvac.com'), keywords };
+    const page = queryKeywords(ws, {});
+    expect(page.total).toBe(225);
+    expect(page.rows).toHaveLength(100);
+    expect(page.rows[0]?.term).toBe('kw 249');
+    expect(queryKeywords(ws, { offset: 200 }).rows).toHaveLength(25);
+    expect(queryKeywords(ws, { show: 'removed', sort: 'volume', desc: false }).rows[0]?.term).toBe('kw 000');
+    expect(queryKeywords(ws, { q: 'kw 12', show: 'all' }).total).toBe(10);
   });
 });

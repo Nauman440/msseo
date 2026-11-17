@@ -76,4 +76,6 @@ export type KeywordWorkspace = {
   lastRunAt: string | null;
   clusteredAt: string | null;
   promptsAt: string | null;
+  /** When each paid source was last fetched ("ranked:site.com", "ideas:ac repair"), for one country/language. */
+  fetched?: { scope: string; at: Record<string, string> };
 };

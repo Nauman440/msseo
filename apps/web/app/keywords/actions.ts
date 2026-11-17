@@ -67,7 +67,7 @@ export async function saveKeywordSeedsAction(rawDomain: string, _prev: KeywordSt
   return { ok: 'Saved.' };
 }
 
-/** 4.2–4.4 Collect, measure and clean. Customers: once a day per site. */
+/** 4.2–4.6 Collect, measure, clean, then group into clusters, in one click. Customers: once a day per site. */
 export async function researchKeywordsAction(rawDomain: string): Promise<KeywordState> {
   const { domain, customer } = await guard(rawDomain);
   const ws = await getKeywordWorkspace(domain);
@@ -77,12 +77,15 @@ export async function researchKeywordsAction(rawDomain: string): Promise<Keyword
   if (!c) return { error: 'Keyword research is not available right now.' };
   const [competitors, gsc] = await Promise.all([researchCompetitors(domain), gscQueries(domain)]);
   const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc });
-  await saveKeywordWorkspace(r.workspace);
-  await logUsage('dataforseo', c.calls(), r.cost);
-  pathsFor(domain);
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
+  const cl = kept ? await clusterKeywords(c.api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
+  await saveKeywordWorkspace(cl?.workspace ?? r.workspace);
+  await logUsage('dataforseo', c.calls(), r.cost + (cl?.cost ?? 0));
+  pathsFor(domain);
   if (!r.workspace.keywords.length && r.errors.length) return { error: customer ? 'Keyword research is not available right now. Please try again later.' : `Research did not work: ${r.errors[0]}` };
-  return { ok: `${r.added} new keywords, ${kept} kept after cleaning.${gsc.length ? ` Search Console: ${gsc.length} searches.` : ''}${problems(r.errors, customer, 'sources could not be read')} Next: group them into clusters.` };
+  const errors = [...r.errors, ...(cl?.errors ?? [])];
+  const reused = !customer && r.reused ? ` ${r.reused} sources reused from the last 7 days.` : '';
+  return { ok: `${r.added} new keywords, ${kept} kept after cleaning, ${cl?.workspace.clusters.length ?? 0} topics.${gsc.length ? ` Search Console: ${gsc.length} searches.` : ''}${reused}${problems(errors, customer, 'checks could not be read')}` };
 }
 
 /** 4.5–4.6 Group by shared Google results and score. Customers: twice a day. */

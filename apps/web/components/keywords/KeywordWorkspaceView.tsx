@@ -1,43 +1,62 @@
-import { keywordStats, type KeywordWorkspace } from '@seo/core';
+import type { ReactNode } from 'react';
+import { keywordStats, queryKeywords, type KeywordWorkspace } from '@seo/core';
 import { Card } from '@/components/ui/Card';
 import { StatTile } from '@/components/ui/StatTile';
 import { ClusterBoard } from './ClusterBoard';
 import { AddKeywordsForm, KeywordRunButtons, SeedsForm } from './forms';
-import { KeywordTable, type KeywordRow } from './KeywordTable';
+import { KeywordTable } from './KeywordTable';
+import { TopTopics } from './TopTopics';
 
 /**
  * Module 4 workspace (spec §16.2), the same for the team (any client) and for customers
- * (their own sites). `audience` only changes the wording.
+ * (their own sites). Customers see their top topics first, with the details folded away.
  */
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'never');
 
 export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; audience: 'team' | 'customer' }) {
   const stats = keywordStats(ws);
-  const names = new Map(ws.clusters.map((c) => [c.id, c.name]));
-  const rows: KeywordRow[] = ws.keywords.map((k) => ({
-    term: k.term, volume: k.volume, difficulty: k.difficulty, cpc: k.cpc, intent: k.intent, position: k.position, status: k.status, reason: k.removeReason,
-    cluster: k.clusterId ? names.get(k.clusterId) ?? null : null,
-  }));
+  const customer = audience === 'customer';
+  const ready = ws.keywords.length > 0;
+  // Customers: once there are results, settings and the full lists open on demand. Always the same
+  // elements (only `open` changes), so forms keep their messages when results arrive.
+  const fold = (summary: string, children: ReactNode) =>
+    customer ? (
+      <details open={!ready} className="group rounded-panel border border-border bg-surface">
+        <summary className="flex min-h-12 cursor-pointer items-center px-5 font-display text-[17px] font-bold">{summary}</summary>
+        <div className="border-t border-border p-5">{children}</div>
+      </details>
+    ) : (
+      children
+    );
   const byService = new Map<string, typeof ws.prompts>();
   for (const p of ws.prompts) byService.set(p.service ?? 'General', [...(byService.get(p.service ?? 'General') ?? []), p]);
 
   return (
     <div className="flex flex-col gap-6">
-      <Card title="What you offer and where" eyebrow={`Last research: ${day(ws.lastRunAt)}`}>
+      {customer && <TopTopics clusters={ws.clusters} />}
+      {customer && (
+        <Card title={ready ? 'Keep your keywords up to date' : 'Find your keywords'} eyebrow={`Last research: ${day(ws.lastRunAt)}`}>
+          <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
+          <p className="mt-2 text-[13px] text-ink-3">We collect the searches your customers use (from Google, your rankings and your competitors), remove the ones that will not bring you work, and group the rest into topics. One page should target each topic.</p>
+        </Card>
+      )}
+      {fold('Your services, places and searches', (
+      <Card title="What you offer and where" eyebrow={customer ? undefined : `Last research: ${day(ws.lastRunAt)}`}>
         <div className="flex flex-col gap-6">
           <SeedsForm domain={ws.domain} country={ws.country} language={ws.language} seeds={ws.seeds} />
+          {!customer && (
           <div className="border-t border-border pt-5">
-            <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} />
+            <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
             <p className="mt-2 text-[13px] text-ink-3">
-              {audience === 'team'
-                ? 'Research: the site’s rankings, up to 3 competitors’ rankings, keyword ideas, Google suggestions and Search Console (when connected), then metrics for every keyword: about $0.10–0.20. Clusters: one Google check per keyword for the top 60 (≈ $0.002 each, cached). Prompts: OpenAI, from the services and places only.'
-                : 'We collect the searches your customers use (from Google, your rankings and your competitors), remove the ones that will not bring you work, and group the rest into topics. One page should target each topic.'}
+              {'Research: the site’s rankings, up to 3 competitors’ rankings, local keyword ideas, Google suggestions and Search Console (when connected), then metrics for new keywords, then clusters (one Google check for each of the top 60, ≈ $0.002, cached). First run about $0.15–0.30; sources fetched in the last 7 days are reused, so re-runs cost little. Prompts: OpenAI, from the services and places only.'}
             </p>
           </div>
+          )}
         </div>
       </Card>
+      ))}
 
-      {ws.keywords.length > 0 && (
+      {ready && !customer && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile value={stats.kept.toLocaleString('en-US')} label="Keywords kept" hint={`${stats.removed.toLocaleString('en-US')} removed`} variant="raised" />
           <StatTile value={stats.volume.toLocaleString('en-US')} label="Searches / month" hint="All kept keywords" variant="raised" />
@@ -46,7 +65,7 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
         </div>
       )}
 
-      {ws.clusters.length > 0 && (
+      {ws.clusters.length > 0 && fold(ws.clusters.length === 1 ? 'Your topic' : `All ${ws.clusters.length} topics`, (
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="font-display text-xl font-bold">Clusters by priority</h2>
@@ -54,8 +73,9 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
           </div>
           <ClusterBoard domain={ws.domain} clusters={ws.clusters} keywords={ws.keywords} />
         </section>
-      )}
+      ))}
 
+      {fold(stats.kept === 1 ? 'All 1 keyword' : `All ${stats.kept.toLocaleString('en-US')} keywords`, (
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h2 className="font-display text-xl font-bold">Keywords</h2>
@@ -68,10 +88,12 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
         {ws.keywords.length === 0 ? (
           <p className="rounded-panel border border-border bg-surface p-6 text-sm text-ink-2">No keywords yet. Add your services and places, save, then press “Research keywords”.</p>
         ) : (
-          <KeywordTable domain={ws.domain} rows={rows} />
+          <KeywordTable key={`${ws.lastRunAt}|${ws.clusteredAt}|${ws.keywords.length}`} domain={ws.domain} initial={queryKeywords(ws, {})} />
         )}
       </section>
+      ))}
 
+      {fold('Questions people ask AI assistants', (
       <Card title="Questions people ask AI assistants" eyebrow={ws.promptsAt ? `Written ${day(ws.promptsAt)}` : undefined}>
         {ws.prompts.length === 0 ? (
           <p className="text-sm text-ink-2">Press “Write AI prompts” for 30–50 questions customers ask ChatGPT, Gemini or Perplexity where you want to be the answer. They are saved for AI search tracking.</p>
@@ -90,6 +112,7 @@ export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; a
           </div>
         )}
       </Card>
+      ))}
 
       <Card title="Add keywords you know">
         <AddKeywordsForm domain={ws.domain} />

@@ -30,7 +30,7 @@ function jaccard(a: Set<string>, b: Set<string>) {
   return shared / (a.size + b.size - shared || 1);
 }
 const hasPhrase = (term: string, phrase: string) => phrase.length > 0 && ` ${term} `.includes(` ${phrase} `);
-const namesPlace = (term: string, locations: string[]) => {
+export const namesPlace = (term: string, locations: string[]) => {
   const t = normTerm(term);
   return locations.some((l) => hasPhrase(t, normTerm(l))) || KNOWN_CITIES.some((c) => hasPhrase(t, c));
 };
@@ -86,12 +86,15 @@ export function seasonality(members: KeywordRecord[], now: Date): { peak: number
   return { peak: peakIdx + 1, deadline: (due.getTime() < now.getTime() ? now : due).toISOString().slice(0, 10) };
 }
 
-export function defaultScores(members: KeywordRecord[], head: KeywordRecord, bestPosition: number | null): { businessValue: number; rankingChance: number } {
+export function defaultScores(members: KeywordRecord[], head: KeywordRecord, bestPosition: number | null, locations: string[] = []): { businessValue: number; rankingChance: number } {
   const intent = head.intent ?? members.find((m) => m.intent)?.intent ?? null;
   const cpcs = members.map((m) => m.cpc).filter((c): c is number => c !== null);
   const cpc = cpcs.length ? cpcs.reduce((s, c) => s + c, 0) / cpcs.length : 0;
   const volume = members.reduce((s, m) => s + (m.volume ?? 0), 0);
-  const businessValue = clamp((intent ? INTENT_VALUE[intent] : 2) + (cpc >= 10 ? 1 : 0) + (volume >= 1000 ? 1 : 0));
+  // A local business wins calls from searches that name its area ("… dallas", "… near me").
+  const t = normTerm(head.term);
+  const local = locations.length > 0 && (/\bnear me\b/.test(t) || locations.some((l) => hasPhrase(t, normTerm(l))));
+  const businessValue = clamp((intent ? INTENT_VALUE[intent] : 2) + (cpc >= 10 ? 1 : 0) + (volume >= 1000 ? 1 : 0) + (local ? 1 : 0));
   const kd = head.difficulty ?? members.find((m) => m.difficulty !== null)?.difficulty ?? null;
   let chance = kd === null ? 3 : kd < 15 ? 5 : kd < 30 ? 4 : kd < 50 ? 3 : kd < 70 ? 2 : 1;
   if (bestPosition !== null) chance = bestPosition <= 3 ? 5 : chance + (bestPosition <= 20 ? 1 : 0);
@@ -99,10 +102,10 @@ export function defaultScores(members: KeywordRecord[], head: KeywordRecord, bes
 }
 
 /** Builds (or rebuilds) one cluster's numbers from its keywords; hand-set scores are kept. */
-export function summarise(head: KeywordRecord, members: KeywordRecord[], pageType: ClusterPageType, prev: KeywordCluster | undefined, now: Date): KeywordCluster {
+export function summarise(head: KeywordRecord, members: KeywordRecord[], pageType: ClusterPageType, prev: KeywordCluster | undefined, now: Date, locations: string[] = []): KeywordCluster {
   const ranked = members.filter((m) => m.position !== null).sort((a, b) => a.position! - b.position!);
   const best = ranked[0] ?? null;
-  const scores = prev?.scoresLocked ? { businessValue: prev.businessValue, rankingChance: prev.rankingChance } : defaultScores(members, head, best?.position ?? null);
+  const scores = prev?.scoresLocked ? { businessValue: prev.businessValue, rankingChance: prev.rankingChance } : defaultScores(members, head, best?.position ?? null, locations);
   const intents = members.map((m) => m.intent).filter(Boolean) as KeywordIntent[];
   const intent = head.intent ?? (intents.sort((a, b) => intents.filter((x) => x === b).length - intents.filter((x) => x === a).length)[0] ?? null);
   const quickWin = best !== null && best.position! >= 4 && best.position! <= 20;
@@ -152,7 +155,7 @@ export async function clusterKeywords(
   let serps = 0;
   const missing = kept.slice(0, opts.maxSerps ?? MAX_CLUSTER_SERPS).filter((k) => !serp.has(k.term));
   if (client) {
-    await pool(missing, 5, async (k) => {
+    await pool(missing, 10, async (k) => {
       try {
         const r = await client.serpUrls(k.term, locale);
         cost += r.cost;
@@ -187,10 +190,24 @@ export async function clusterKeywords(
     else groups.push({ head: k, members: [k], urls, tok });
   }
 
+  // One-keyword groups without their own Google check join the topic whose head words they all
+  // contain ("ac repair cost dallas" → "ac repair dallas"), choosing the most specific head.
+  const merged = new Set<Group>();
+  for (const g of groups) {
+    if (g.members.length !== 1 || g.urls) continue;
+    const parent = groups
+      .filter((p) => p !== g && !merged.has(p) && p.tok.size > 0 && p.tok.size < g.tok.size && [...p.tok].every((w) => g.tok.has(w)))
+      .sort((a, b) => b.tok.size - a.tok.size || (b.head.volume ?? 0) - (a.head.volume ?? 0))[0];
+    if (!parent) continue;
+    parent.members.push(g.head);
+    merged.add(g);
+  }
+  const final = groups.filter((g) => !merged.has(g));
+
   const prevById = new Map(ws.clusters.map((c) => [c.id, c]));
   const idOf = new Map<string, string>();
-  const clusters = groups.map((g) => {
-    const c = summarise(g.head, g.members, pageTypeFor(g.head, ws.seeds.locations), prevById.get(clusterId(g.head.term)), now);
+  const clusters = final.map((g) => {
+    const c = summarise(g.head, g.members, pageTypeFor(g.head, ws.seeds.locations), prevById.get(clusterId(g.head.term)), now, ws.seeds.locations);
     for (const m of g.members) idOf.set(m.term, c.id);
     return c;
   });

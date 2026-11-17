@@ -251,6 +251,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByLabel('Keywords', { exact: true }).fill('ac repair plano\nEmergency AC repair, ac repair plano');
   await page.getByRole('button', { name: 'Add keywords' }).click();
   await expect(page.getByText('2 keywords added.')).toBeVisible();
+  // With results, customers see their top topics first; the full list opens on demand.
+  await page.getByText('All 2 keywords').click();
   await expect(page.getByRole('button', { name: 'Remove emergency ac repair' })).toBeVisible();
   await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
   await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();

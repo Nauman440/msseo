@@ -44,8 +44,8 @@ export function SeedsForm({ domain, country, language, seeds }: { domain: string
   );
 }
 
-/** 4.2–4.7 runs, in order: research → clusters → prompts. */
-export function KeywordRunButtons({ domain, hasKeywords, hasClusters }: { domain: string; hasKeywords: boolean; hasClusters: boolean }) {
+/** 4.2–4.7 runs: research (which also builds the clusters) and prompts; the team can rebuild clusters after edits. */
+export function KeywordRunButtons({ domain, hasKeywords, hasClusters, audience }: { domain: string; hasKeywords: boolean; hasClusters: boolean; audience: 'team' | 'customer' }) {
   const [research, runResearch] = useActionState<KeywordState>(researchKeywordsAction.bind(null, domain), {});
   const [cluster, runCluster] = useActionState<KeywordState>(clusterKeywordsAction.bind(null, domain), {});
   const [prompts, runPrompts] = useActionState<KeywordState>(generatePromptsAction.bind(null, domain), {});
@@ -54,11 +54,11 @@ export function KeywordRunButtons({ domain, hasKeywords, hasClusters }: { domain
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-3">
         <form action={runResearch}>
-          <Submit label="Research keywords" busy="Researching… (about a minute)" />
+          <Submit label={hasKeywords ? 'Update keywords' : 'Research keywords'} busy="Researching and grouping… (about a minute)" />
         </form>
-        {hasKeywords && (
+        {hasKeywords && audience === 'team' && (
           <form action={runCluster}>
-            <Submit label="Group into clusters" busy="Checking Google…" tone="secondary" />
+            <Submit label="Rebuild clusters" busy="Checking Google…" tone="secondary" />
           </form>
         )}
         <form action={runPrompts}>
