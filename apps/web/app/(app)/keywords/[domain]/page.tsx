@@ -11,7 +11,7 @@ import { requireUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ domain: string }>; searchParams: Promise<{ view?: string; sort?: string; topics?: string }> };
+type Props = { params: Promise<{ domain: string }>; searchParams: Promise<{ view?: string; sort?: string; topics?: string; from?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Keywords · ${normDomain(decodeURIComponent((await params).domain))}` };
@@ -22,7 +22,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
-  const { view, sort, topics } = await searchParams;
+  const { view, sort, topics, from } = await searchParams;
   const ws = await getKeywordWorkspace(domain);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
@@ -42,6 +42,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
           view: KEYWORD_VIEWS.includes(view as KeywordView) ? (view as KeywordView) : 'overview',
           order: TOPIC_ORDERS.some((o) => o.value === sort) ? (sort as TopicOrder) : 'priority',
           allTopics: topics === 'all',
+          from: from === 'gap' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
         }}
       />
     </Container>

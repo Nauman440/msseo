@@ -25,8 +25,8 @@ const BUTTON = 'inline-flex min-h-10 items-center rounded-control border border-
  * Sortable, filterable keyword list with keep/remove per row (4.4 manual override). The server
  * sends one page at a time (`/api/keywords/<domain>`); the first page comes with the HTML.
  */
-export function KeywordTable({ domain, business, topics, initial }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number } }) {
-  const [filters, setFilters] = useState<Filters>(DEFAULTS);
+export function KeywordTable({ domain, business, topics, initial, initialFrom = '' }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number }; initialFrom?: string }) {
+  const [filters, setFilters] = useState<Filters>({ ...DEFAULTS, from: initialFrom });
   const [data, setData] = useState(initial);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);

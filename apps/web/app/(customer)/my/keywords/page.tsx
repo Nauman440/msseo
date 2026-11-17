@@ -9,11 +9,11 @@ import { getKeywordWorkspace } from '@/lib/keywords';
 export const metadata: Metadata = { title: 'Your keywords' };
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ site?: string; view?: string; sort?: string; topics?: string }> };
+type Props = { searchParams: Promise<{ site?: string; view?: string; sort?: string; topics?: string; from?: string }> };
 
 /** Module 4 for customers: their own websites only (Keywords tab, design: Keywords tab *.zip). */
 export default async function CustomerKeywordsPage({ searchParams }: Props) {
-  const { site, view, sort, topics } = await searchParams;
+  const { site, view, sort, topics, from } = await searchParams;
   const s = await loadCustomerSite(site);
   const ws = await getKeywordWorkspace(s.domain);
   return (
@@ -27,6 +27,7 @@ export default async function CustomerKeywordsPage({ searchParams }: Props) {
           view: KEYWORD_VIEWS.includes(view as KeywordView) ? (view as KeywordView) : 'overview',
           order: TOPIC_ORDERS.some((o) => o.value === sort) ? (sort as TopicOrder) : 'priority',
           allTopics: topics === 'all',
+          from: from === 'gap' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
         }}
       />
     </>

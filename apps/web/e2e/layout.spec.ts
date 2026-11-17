@@ -13,6 +13,8 @@ const ROUTES = [
   { path: '/settings/general', heading: 'Audit settings' },
   { path: '/settings/customers', heading: 'Trials and plans' },
   { path: '/competitors/example.com', heading: 'example.com' },
+  { path: '/competitors/example.com?view=listings', heading: 'example.com' },
+  { path: '/competitors/example.com?view=where', heading: 'example.com' },
   { path: '/keywords/example.com', heading: 'example.com' },
   { path: '/keywords/example.com?view=all', heading: 'example.com' },
   { path: '/keywords/example.com?view=questions', heading: 'example.com' },

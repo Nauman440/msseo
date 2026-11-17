@@ -59,7 +59,7 @@ const envelope = (items: z.ZodTypeAny) =>
   });
 
 export type CompetitorDomain = { domain: string; avgPosition: number | null; intersections: number | null; etv: number | null; keywords: number | null };
-export type SerpEntry = { kind: 'organic' | 'local'; domain: string; title: string | null; position: number | null };
+export type SerpEntry = { kind: 'organic' | 'local'; domain: string; title: string | null; position: number | null; /** Map listing stars and review count (local pack only). */ rating?: number | null; reviews?: number | null };
 export type RankOverview = { etv: number | null; keywords: number | null; top3: number | null };
 export type MonthPoint = { month: string; etv: number };
 
@@ -122,7 +122,7 @@ export function createCompetitorClient(cfg: DfsConfig) {
       const entries = items.flatMap((i): SerpEntry[] => {
         if (!i.domain) return [];
         if (i.type === 'organic') return [{ kind: 'organic', domain: i.domain, title: i.title ?? null, position: i.rank_group ?? null }];
-        if (i.type === 'local_pack' && !i.is_paid) return [{ kind: 'local', domain: i.domain, title: i.title ?? null, position: i.rank_group ?? null }];
+        if (i.type === 'local_pack' && !i.is_paid) return [{ kind: 'local', domain: i.domain, title: i.title ?? null, position: i.rank_group ?? null, rating: i.rating?.value ?? null, reviews: i.rating?.votes_count ?? null }];
         return [];
       });
       return { entries, cost };

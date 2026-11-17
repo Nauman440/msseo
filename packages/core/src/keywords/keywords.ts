@@ -169,7 +169,12 @@ export async function researchKeywords(
       const r = await Promise.resolve()
         .then(() => client.keywordGap(normDomain(d), ws.domain, locale, 150))
         .catch(() => client.rankedKeywords(normDomain(d), locale, 150));
-      for (const k of r.keywords) c.add(k.term, 'competitor', { ...k, position: null, url: null });
+      for (const k of r.keywords) {
+        c.add(k.term, 'competitor', { ...k, position: null, url: null });
+        // Remember which competitor ranks for it ("Biggest gap" on the Competitors tab).
+        const rec = c.map.get(normTerm(k.term));
+        if (rec) c.map.set(rec.term, { ...rec, gapFrom: [...new Set([...(rec.gapFrom ?? []), normDomain(d)])].slice(0, 5) });
+      }
       return r.cost;
     }, `competitor:${normDomain(d)}`)),
     ...ideaSeeds.map((s) => () => run(`Ideas for "${s}"`, async () => {
@@ -287,6 +292,13 @@ export function keywordStats(ws: KeywordWorkspace) {
     quickWins: ws.clusters.filter((c) => c.quickWin).length,
     volume: kept.reduce((s, k) => s + (k.volume ?? 0), 0),
   };
+}
+
+/** Kept searches each competitor ranks for and the site does not (from the keyword gap), per domain. */
+export function gapByCompetitor(ws: KeywordWorkspace): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of ws.keywords) if (k.status === 'kept' && k.position === null) for (const d of k.gapFrom ?? []) out[d] = (out[d] ?? 0) + 1;
+  return out;
 }
 
 /** The best commercial clusters as competitor searches (Module 3.3 core searches). */

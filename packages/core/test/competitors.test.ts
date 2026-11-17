@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addManualCompetitor, classify, defaultSearches, discoverCompetitors, emptyWorkspace, normDomain, refreshStrength, removeCompetitor, shortlistStatus, updateCompetitor,
+  addManualCompetitor, classify, defaultSearches, hiddenReason, listingKind, discoverCompetitors, emptyWorkspace, normDomain, refreshStrength, removeCompetitor, shortlistStatus, updateCompetitor,
   type CompetitorClient,
 } from '../src';
 
 /** Fake DataForSEO: Labs list, one SERP per search, rank overview and history. */
-function fake(serps: Record<string, { kind: 'organic' | 'local'; domain: string; title?: string }[]>, labs = [{ domain: 'carrier.com', intersections: 3500, etv: 330000, keywords: 75000 }]) {
+function fake(serps: Record<string, { kind: 'organic' | 'local'; domain: string; title?: string; rating?: number; reviews?: number }[]>, labs = [{ domain: 'carrier.com', intersections: 3500, etv: 330000, keywords: 75000 }]) {
   const calls: string[] = [];
   const client = {
     async competitorsDomain() {
@@ -50,7 +50,7 @@ describe('competitor identification', () => {
 
   it('discovers from Labs and the core searches, excluding the client site and Google', async () => {
     const { client, calls } = fake({
-      'ac repair dallas': [{ kind: 'local', domain: 'www.rival.com', title: 'Rival Heating & Air' }, { kind: 'organic', domain: 'rival.com' }, { kind: 'organic', domain: 'www.yelp.com' }, { kind: 'organic', domain: 'google.com' }, { kind: 'organic', domain: 'myhvac.com' }],
+      'ac repair dallas': [{ kind: 'local', domain: 'www.rival.com', title: 'Rival Heating & Air', rating: 4.8, reviews: 212 }, { kind: 'local', domain: 'myhvac.com', title: 'MyHVAC', rating: 4.6, reviews: 38 }, { kind: 'organic', domain: 'rival.com' }, { kind: 'organic', domain: 'www.yelp.com' }, { kind: 'organic', domain: 'google.com' }, { kind: 'organic', domain: 'myhvac.com' }],
       'ac repair plano': [{ kind: 'organic', domain: 'other.com' }, { kind: 'organic', domain: 'rival.com' }],
     });
     const ws = { ...emptyWorkspace('www.myhvac.com'), searches: ['ac repair dallas', 'ac repair plano'] };
@@ -60,13 +60,16 @@ describe('competitor identification', () => {
     expect(workspace.lastRunAt).not.toBeNull();
     const by = Object.fromEntries(workspace.competitors.map((c) => [c.domain, c]));
     expect(Object.keys(by).sort()).toEqual(['carrier.com', 'other.com', 'rival.com', 'yelp.com']);
-    expect(by['rival.com']).toMatchObject({ type: 'direct', name: 'Rival Heating & Air', seenIn: 2, etv: 1200 });
+    expect(by['rival.com']).toMatchObject({ type: 'direct', name: 'Rival Heating & Air', seenIn: 2, etv: 1200, rating: 4.8, reviews: 212, rejected: false, listing: 'unchecked' });
+    // The client's own site: the "You" row (map rating, positions, Labs visits).
+    expect(workspace.own).toMatchObject({ seenIn: 1, rating: 4.6, reviews: 38, etv: 1200, keywords: 300 });
+    expect(workspace.own?.avgPosition).toBe(4); // map pack #2 and result #6
     expect(by['yelp.com']?.type).toBe('directory');
     expect(by['carrier.com']).toMatchObject({ type: 'search', sharedKeywords: 3500, etv: 330000 });
     expect(by['other.com']?.type).toBe('search'); // seen in one search only
     // Rank overview only for searched domains without Labs metrics, never for directories.
-    expect(calls.filter((c) => c.startsWith('rank:')).sort()).toEqual(['rank:other.com', 'rank:rival.com']);
-    expect(cost).toBeCloseTo(0.01 + 2 * 0.002 + 2 * 0.012);
+    expect(calls.filter((c) => c.startsWith('rank:')).sort()).toEqual(['rank:myhvac.com', 'rank:other.com', 'rank:rival.com']);
+    expect(cost).toBeCloseTo(0.01 + 2 * 0.002 + 3 * 0.012);
   });
 
   it('keeps hand-made choices and flags domains that are new on a refresh', async () => {
@@ -118,5 +121,29 @@ describe('autopilot shortlist', () => {
     // A shortlist someone made by hand is left alone.
     const manual = updateCompetitor(ws, 'f.com', { shortlist: 'direct' });
     expect(autoShortlist(manual).competitors.filter((c) => c.shortlist !== 'none').map((c) => c.domain)).toEqual(['f.com']);
+  });
+
+  it('hides job boards, retailers and information sites, unless someone moved them back', () => {
+    expect(hiddenReason({ domain: 'indeed.com', typeLocked: false })).toBe('Job board');
+    expect(hiddenReason({ domain: 'homedepot.com', typeLocked: false })).toBe('Retailer');
+    expect(hiddenReason({ domain: 'energy.gov', typeLocked: false })).toBe('Information');
+    expect(hiddenReason({ domain: 'rival-hvac.com', typeLocked: false })).toBeNull();
+    expect(hiddenReason({ domain: 'indeed.com', typeLocked: true })).toBeNull();
+    expect(listingKind({ domain: 'yelp.com', type: 'directory' })).toBe('review');
+    expect(listingKind({ domain: 'facebook.com', type: 'directory' })).toBe('social');
+    expect(listingKind({ domain: 'amazon.co.uk', type: 'directory' })).toBe('marketplace');
+    expect(listingKind({ domain: 'angi.com', type: 'directory' })).toBe('directory');
+    expect(listingKind({ domain: 'reddit.com', type: 'publisher' })).toBe('publisher');
+  });
+
+  it('"Not a competitor" clears the shortlist; picking a shortlist clears it again; listings keep their status', () => {
+    let ws = addManualCompetitor(emptyWorkspace('myhvac.com'), { domain: 'rival.com' });
+    ws = updateCompetitor(ws, 'rival.com', { shortlist: 'direct' });
+    ws = updateCompetitor(ws, 'rival.com', { rejected: true });
+    expect(ws.competitors[0]).toMatchObject({ shortlist: 'none', rejected: true });
+    ws = updateCompetitor(ws, 'rival.com', { shortlist: 'aspirational' });
+    expect(ws.competitors[0]).toMatchObject({ shortlist: 'aspirational', rejected: false });
+    ws = updateCompetitor(ws, 'rival.com', { listing: 'listed' });
+    expect(ws.competitors[0]?.listing).toBe('listed');
   });
 });

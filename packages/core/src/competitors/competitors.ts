@@ -34,7 +34,19 @@ export type CompetitorRecord = {
   isNew: boolean;
   firstSeenAt: string;
   refreshedAt: string | null;
+  /** Map listing stars and number of reviews (from the map pack in the core searches). */
+  rating?: number | null;
+  reviews?: number | null;
+  /** Reviewed and marked "Not a competitor". */
+  rejected?: boolean;
+  /** Directories and publishers: is the business listed there (set by hand until Module 9 checks it)? */
+  listing?: ListingStatus;
 };
+
+export type ListingStatus = 'unchecked' | 'listed' | 'not_listed' | 'wrong' | 'irrelevant';
+
+/** The client's own site in the same searches (the "You" row). */
+export type OwnSnapshot = { seenIn: number; avgPosition: number | null; rating: number | null; reviews: number | null; etv: number | null; keywords: number | null };
 
 export type CompetitorWorkspace = {
   domain: string;
@@ -45,6 +57,8 @@ export type CompetitorWorkspace = {
   lastRunAt: string | null;
   strengthAt: string | null;
   competitors: CompetitorRecord[];
+  /** The client's own site on the last run (missing before 2026-11-17). */
+  own?: OwnSnapshot | null;
 };
 
 export const MAX_SEARCHES = 15;
@@ -78,6 +92,31 @@ export const PUBLISHERS = new Set([
 /** Never competitors: search engines and Google surfaces. */
 const IGNORE = new Set(['google.com', 'google.co.uk', 'maps.google.com', 'bing.com', 'apple.com', 'gstatic.com']);
 
+/** Show up for the searches but are not businesses like the client's: kept out of the list and reports. */
+const HIDDEN: [RegExp, string][] = [
+  [/(^|\.)(indeed|ziprecruiter|glassdoor|monster|simplyhired|careerbuilder|snagajob|reed|totaljobs|rozee)\.(com|co\.uk|pk)$/, 'Job board'],
+  [/(^|\.)(homedepot|lowes|menards|acehardware|bestbuy|costco|target|wayfair|ikea|argos|screwfix|toolstation|bunnings)\.(com|ca|co\.uk|com\.au)$/, 'Retailer'],
+  [/\.gov(\.[a-z]{2})?$|(^|\.)(wikipedia\.org|wikihow\.com|britannica\.com)$/, 'Information'],
+];
+/** Why a site is kept out of the competitors (null = it is a competitor candidate). */
+export function hiddenReason(c: Pick<CompetitorRecord, 'domain' | 'typeLocked'>): string | null {
+  if (c.typeLocked) return null;
+  return HIDDEN.find(([re]) => re.test(c.domain))?.[1] ?? null;
+}
+
+const REVIEW_SITES = new Set(['yelp.com', 'bbb.org', 'trustpilot.com', 'tripadvisor.com', 'checkatrade.com', 'trustatrader.com', 'ratedpeople.com', 'homestars.com', 'threebestrated.com', 'expertise.com']);
+const SOCIAL = new Set(['facebook.com', 'instagram.com', 'linkedin.com', 'x.com', 'twitter.com', 'tiktok.com', 'nextdoor.com']);
+const MARKETPLACES = /(^|\.)(amazon|ebay|etsy|onbuy|fruugo|temu|aliexpress|walmart|notonthehighstreet|wish|noon|shein|daraz)\./;
+export type ListingKind = 'review' | 'directory' | 'social' | 'marketplace' | 'publisher';
+/** What kind of listing or link target a site is (Listings and links). */
+export function listingKind(c: Pick<CompetitorRecord, 'domain' | 'type'>): ListingKind {
+  if (c.type === 'publisher') return 'publisher';
+  if (ends(c.domain, REVIEW_SITES)) return 'review';
+  if (ends(c.domain, SOCIAL)) return 'social';
+  if (MARKETPLACES.test(c.domain)) return 'marketplace';
+  return 'directory';
+}
+
 /** 3.5 Auto-type (a locked, hand-picked type is kept). */
 export function classify(c: Pick<CompetitorRecord, 'domain' | 'sources' | 'seenIn' | 'type' | 'typeLocked'>): CompetitorType {
   if (c.typeLocked) return c.type;
@@ -109,7 +148,7 @@ export function emptyWorkspace(domain: string, init: Partial<Pick<CompetitorWork
 
 const isOwn = (domain: string, own: string) => domain === own || domain.endsWith(`.${own}`) || own.endsWith(`.${domain}`);
 
-type Found = { domain: string; name: string | null; sources: Set<CompetitorSource>; searches: Set<number>; positions: number[]; shared: number | null; labsAvg: number | null; etv: number | null; keywords: number | null };
+type Found = { domain: string; name: string | null; sources: Set<CompetitorSource>; searches: Set<number>; positions: number[]; shared: number | null; labsAvg: number | null; etv: number | null; keywords: number | null; rating: number | null; reviews: number | null };
 
 async function pool<T>(items: T[], limit: number, fn: (t: T, i: number) => Promise<void>) {
   const queue = items.map((t, i) => [t, i] as const);
@@ -128,10 +167,12 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
   const found = new Map<string, Found>();
   const errors: string[] = [];
   let cost = 0;
+  // The client's own site in the same searches: the "You" row.
+  const own = { searches: new Set<number>(), positions: [] as number[], rating: null as number | null, reviews: null as number | null };
   const touch = (raw: string) => {
     const domain = normDomain(raw);
     if (!domain || IGNORE.has(domain) || isOwn(domain, ws.domain)) return null;
-    const f = found.get(domain) ?? { domain, name: null, sources: new Set(), searches: new Set(), positions: [], shared: null, labsAvg: null, etv: null, keywords: null };
+    const f = found.get(domain) ?? { domain, name: null, sources: new Set(), searches: new Set(), positions: [], shared: null, labsAvg: null, etv: null, keywords: null, rating: null, reviews: null };
     found.set(domain, f);
     return f;
   };
@@ -156,8 +197,15 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
       const r = await client.serp(q, locale);
       cost += r.cost;
       for (const e of r.entries) {
+        if (isOwn(normDomain(e.domain), ws.domain)) {
+          own.searches.add(i);
+          if (e.position) own.positions.push(e.position);
+          if (e.kind === 'local' && e.rating != null) Object.assign(own, { rating: e.rating, reviews: e.reviews ?? null });
+          continue;
+        }
         const f = touch(e.domain);
         if (!f) continue;
+        if (e.kind === 'local' && e.rating != null) Object.assign(f, { rating: e.rating, reviews: e.reviews ?? null });
         f.sources.add(e.kind === 'local' ? 'local' : 'serp');
         f.searches.add(i);
         if (e.position) f.positions.push(e.position);
@@ -167,7 +215,14 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
       errors.push(`"${q}": ${err instanceof Error ? err.message : String(err)}`);
     }
   });
-  await Promise.all([labs, serps]);
+  const ownRank = client.rankOverview(ws.domain, locale).then(
+    (r) => {
+      cost += r.cost;
+      return r.overview;
+    },
+    () => null,
+  );
+  const [, , ownOverview] = await Promise.all([labs, serps, ownRank]);
 
   // 3.8 basics for domains seen in the searches but not in the Labs list (cheap rank overview, top 10).
   const missing = [...found.values()].filter((f) => f.etv === null && !ends(f.domain, DIRECTORIES) && !ends(f.domain, PUBLISHERS)).sort((a, b) => b.searches.size - a.searches.size).slice(0, 10);
@@ -207,6 +262,10 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
       isNew: prev ? prev.isNew : !firstRun,
       firstSeenAt: prev?.firstSeenAt ?? iso,
       refreshedAt: iso,
+      rating: f.rating ?? prev?.rating ?? null,
+      reviews: f.reviews ?? prev?.reviews ?? null,
+      rejected: prev?.rejected ?? false,
+      listing: prev?.listing ?? 'unchecked',
     };
     base.type = classify(base);
     if (!prev && !firstRun) newDomains.push(f.domain);
@@ -215,7 +274,16 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
   // Domains not seen this time stay (with seenIn 0) so hand-made choices are never lost.
   for (const [domain, c] of byDomain) if (!found.has(domain) && !c.sources.includes('manual')) byDomain.set(domain, { ...c, seenIn: 0 });
 
-  return { workspace: { ...ws, lastRunAt: iso, competitors: sortCompetitors([...byDomain.values()]) }, cost, errors, newDomains };
+  const ownAvg = own.positions.length ? Math.round((own.positions.reduce((s, p) => s + p, 0) / own.positions.length) * 10) / 10 : null;
+  const ownSnapshot: OwnSnapshot = {
+    seenIn: own.searches.size,
+    avgPosition: ownAvg,
+    rating: own.rating ?? ws.own?.rating ?? null,
+    reviews: own.reviews ?? ws.own?.reviews ?? null,
+    etv: ownOverview?.etv ?? ws.own?.etv ?? null,
+    keywords: ownOverview?.keywords ?? ws.own?.keywords ?? null,
+  };
+  return { workspace: { ...ws, lastRunAt: iso, own: ownSnapshot, competitors: sortCompetitors([...byDomain.values()]) }, cost, errors, newDomains };
 }
 
 /** 3.8 Strength snapshot for the shortlist: traffic, keywords and a 12-month trend. */
@@ -267,7 +335,7 @@ export function addManualCompetitor(ws: CompetitorWorkspace, input: { domain: st
 }
 
 /** 3.5 override / 3.6 shortlist / notes for one competitor. Reviewing it clears "new". */
-export function updateCompetitor(ws: CompetitorWorkspace, domain: string, patch: { type?: CompetitorType; shortlist?: Shortlist; notes?: string | null }): CompetitorWorkspace {
+export function updateCompetitor(ws: CompetitorWorkspace, domain: string, patch: { type?: CompetitorType; shortlist?: Shortlist; notes?: string | null; rejected?: boolean; listing?: ListingStatus }): CompetitorWorkspace {
   return {
     ...ws,
     competitors: sortCompetitors(
@@ -276,8 +344,10 @@ export function updateCompetitor(ws: CompetitorWorkspace, domain: string, patch:
           ? c
           : {
               ...c,
-              ...(patch.type && patch.type !== c.type ? { type: patch.type, typeLocked: true } : {}),
-              ...(patch.shortlist ? { shortlist: patch.shortlist } : {}),
+              ...(patch.type ? { type: patch.type, typeLocked: true } : {}),
+              ...(patch.shortlist ? { shortlist: patch.shortlist, rejected: patch.shortlist === 'none' ? (patch.rejected ?? c.rejected ?? false) : false } : {}),
+              ...(patch.rejected !== undefined && !patch.shortlist ? { rejected: patch.rejected, ...(patch.rejected ? { shortlist: 'none' as const } : {}) } : {}),
+              ...(patch.listing ? { listing: patch.listing } : {}),
               ...(patch.notes !== undefined ? { notes: patch.notes?.slice(0, 500) || null } : {}),
               isNew: false,
             },
@@ -310,8 +380,9 @@ const GIANT_ETV = 1_000_000;
 /** The strongest direct rivals, shortlisted only when no person has shortlisted any yet. */
 export function autoShortlist(ws: CompetitorWorkspace): CompetitorWorkspace {
   if (ws.competitors.some((c) => c.shortlist !== 'none')) return ws;
-  const direct = ws.competitors.filter((c) => c.type === 'direct' || c.type === 'local').sort((a, b) => b.seenIn - a.seenIn || (b.etv ?? 0) - (a.etv ?? 0)).slice(0, 5).map((c) => c.domain);
-  const aspirational = ws.competitors
+  const candidates = ws.competitors.filter((c) => !c.rejected && !hiddenReason(c));
+  const direct = candidates.filter((c) => c.type === 'direct' || c.type === 'local').sort((a, b) => b.seenIn - a.seenIn || (b.etv ?? 0) - (a.etv ?? 0)).slice(0, 5).map((c) => c.domain);
+  const aspirational = candidates
     .filter((c) => c.type === 'search' && !direct.includes(c.domain) && (c.etv ?? 0) > 0 && (c.etv ?? 0) <= GIANT_ETV)
     .sort((a, b) => (b.etv ?? 0) - (a.etv ?? 0))
     .slice(0, 2)

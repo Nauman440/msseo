@@ -236,19 +236,29 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Module 3 for customers: searches come from onboarding; add, shortlist, persist.
   await page.goto('/my');
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Competitors' }).click();
-  await expect(page.getByRole('heading', { name: 'Your competitors', level: 2 })).toBeVisible();
+  const compSections = page.getByRole('navigation', { name: 'Competitor sections' });
+  await expect(page.getByRole('heading', { name: 'Your shortlist' })).toBeVisible();
+  await compSections.getByRole('link', { name: 'Where to look' }).click();
   await expect(page.getByRole('button', { name: 'Remove ac repair dallas' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove ac repair plano' })).toBeVisible();
+  await compSections.getByRole('link', { name: /^Competitors/ }).click();
+  await expect(page.getByText('No competitors yet.')).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Website', { exact: true }).fill('https://www.rival-hvac.com/');
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await expect(page.getByText('rival-hvac.com added.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'rival-hvac.com' }).filter({ visible: true })).toBeVisible();
-  // The table (desktop) and the cards (phones) both exist; use whichever is visible.
-  await page.getByLabel('Shortlist rival-hvac.com').filter({ visible: true }).selectOption('direct');
-  await expect(page.getByText('1 direct · 0 aspirational')).toBeVisible();
+  // Added as direct: on the shortlist and pressed in the table.
+  await expect(page.getByRole('button', { name: 'Remove rival-hvac.com from shortlist' })).toBeVisible();
+  await expect(page.getByText('1 of 5 to 8')).toBeVisible();
+  const choice = page.getByRole('group', { name: 'Shortlist rival-hvac.com' });
+  await expect(choice.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true');
+  await choice.getByRole('button', { name: 'Aspirational' }).click();
+  await expect(page.getByText('1 of 2 to 3')).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Shortlist rival-hvac.com').filter({ visible: true })).toHaveValue('direct');
+  await expect(page.getByRole('group', { name: 'Shortlist rival-hvac.com' }).getByRole('button', { name: 'Aspirational' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'You vs your shortlist' })).toBeVisible();
+  await compSections.getByRole('link', { name: /^Listings and links/ }).click();
+  await expect(page.getByRole('heading', { name: 'Listings and link targets' })).toBeVisible();
   // The team's competitor pages are not for customers.
   await page.goto('/competitors/rival-hvac.com');
   await expect(page).toHaveURL(/\/my$/);

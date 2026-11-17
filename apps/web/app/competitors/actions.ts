@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   addManualCompetitor, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, createCompetitorClient, discoverCompetitors, MAX_SEARCHES, normDomain, refreshStrength,
-  removeCompetitor, updateCompetitor, type CompetitorType, type Shortlist,
+  removeCompetitor, updateCompetitor, type CompetitorType, type ListingStatus, type Shortlist,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, logCompetitorCost, saveWorkspace } from '@/lib/competitors';
 import { providerConfig } from '@/lib/providers-config';
@@ -14,6 +14,7 @@ export type CompetitorState = { error?: string; ok?: string };
 
 const TYPES: CompetitorType[] = ['direct', 'search', 'local', 'directory', 'publisher'];
 const SHORTLISTS: Shortlist[] = ['none', 'direct', 'aspirational'];
+const LISTINGS: ListingStatus[] = ['unchecked', 'listed', 'not_listed', 'wrong', 'irrelevant'];
 const pathsFor = (domain: string) => {
   revalidatePath(`/competitors/${domain}`);
   revalidatePath('/my/competitors');
@@ -87,12 +88,16 @@ export async function updateCompetitorAction(rawDomain: string, competitor: stri
   const type = form.get('type') as CompetitorType | null;
   const shortlist = form.get('shortlist') as Shortlist | null;
   const notes = form.get('notes');
+  const rejected = form.get('rejected');
+  const listing = form.get('listing') as ListingStatus | null;
   const ws = await getWorkspace(domain);
   await saveWorkspace(
     updateCompetitor(ws, competitor, {
       ...(type && TYPES.includes(type) ? { type } : {}),
       ...(shortlist && SHORTLISTS.includes(shortlist) ? { shortlist } : {}),
       ...(typeof notes === 'string' ? { notes } : {}),
+      ...(rejected === '1' || rejected === '0' ? { rejected: rejected === '1' } : {}),
+      ...(listing && LISTINGS.includes(listing) ? { listing } : {}),
     }),
   );
   pathsFor(domain);
@@ -106,8 +111,10 @@ export async function addCompetitorAction(rawDomain: string, _prev: CompetitorSt
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(competitor)) return { error: 'Enter a website, for example rival.com' };
   if (competitor === domain) return { error: 'That is your own website.' };
   const type = form.get('type') as CompetitorType | null;
-  const ws = await getWorkspace(domain);
-  await saveWorkspace(addManualCompetitor(ws, { domain: competitor, name: String(form.get('name') ?? '').trim() || null, ...(type && TYPES.includes(type) ? { type } : {}) }));
+  const shortlist = form.get('shortlist') as Shortlist | null;
+  let ws = addManualCompetitor(await getWorkspace(domain), { domain: competitor, name: String(form.get('name') ?? '').trim().slice(0, 80) || null, ...(type && TYPES.includes(type) ? { type } : {}) });
+  if (shortlist === 'direct' || shortlist === 'aspirational') ws = updateCompetitor(ws, competitor, { shortlist });
+  await saveWorkspace(ws);
   pathsFor(domain);
   return { ok: `${competitor} added.` };
 }
@@ -116,4 +123,31 @@ export async function removeCompetitorAction(rawDomain: string, competitor: stri
   const { domain } = await guard(rawDomain);
   await saveWorkspace(removeCompetitor(await getWorkspace(domain), competitor));
   pathsFor(domain);
+}
+
+/** Shortlist buttons: Direct, Aspirational, Not a competitor, or back to not reviewed (`none`). */
+export async function setShortlistAction(rawDomain: string, competitor: string, choice: 'direct' | 'aspirational' | 'rejected' | 'none'): Promise<CompetitorState> {
+  const { domain } = await guard(rawDomain);
+  const ws = await getWorkspace(domain);
+  const patch = choice === 'rejected' ? { rejected: true } : choice === 'none' ? { shortlist: 'none' as const, rejected: false } : { shortlist: choice };
+  await saveWorkspace(updateCompetitor(ws, competitor, patch));
+  pathsFor(domain);
+  return { ok: 'Saved.' };
+}
+
+/** Listings and links: listed, not listed, details wrong, not relevant. */
+export async function setListingAction(rawDomain: string, site: string, status: ListingStatus): Promise<CompetitorState> {
+  const { domain } = await guard(rawDomain);
+  if (!LISTINGS.includes(status)) return { error: 'Choose a status.' };
+  await saveWorkspace(updateCompetitor(await getWorkspace(domain), site, { listing: status }));
+  pathsFor(domain);
+  return { ok: 'Saved.' };
+}
+
+/** A hidden site (job board, retailer, information) that is a competitor after all. */
+export async function moveToCompetitorsAction(rawDomain: string, site: string): Promise<CompetitorState> {
+  const { domain } = await guard(rawDomain);
+  await saveWorkspace(updateCompetitor(await getWorkspace(domain), site, { type: 'direct' }));
+  pathsFor(domain);
+  return { ok: `${site} moved to competitors.` };
 }

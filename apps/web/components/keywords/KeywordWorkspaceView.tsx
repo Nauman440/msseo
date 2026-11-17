@@ -1,4 +1,4 @@
-import { keywordStats, queryKeywords, type KeywordWorkspace } from '@seo/core';
+import { keywordStats, queryKeywords, type KeywordFrom, type KeywordWorkspace } from '@seo/core';
 import { cn } from '@/lib/tones';
 import { ClusterBoard } from './ClusterBoard';
 import { AddKeywordsForm, KeywordRunButtons, SeedsForm } from './forms';
@@ -16,7 +16,7 @@ import { TopTopics } from './TopTopics';
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null);
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export type KeywordPageState = { view: KeywordView; order: TopicOrder; allTopics: boolean };
+export type KeywordPageState = { view: KeywordView; order: TopicOrder; allTopics: boolean; from?: KeywordFrom };
 
 /** "142 keywords in 18 topics for 6 services in Dallas" */
 function summary(ws: KeywordWorkspace, kept: number) {
@@ -97,7 +97,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state }: { ws: Keywor
             domain={ws.domain}
             business={ws.businessType ?? 'services'}
             topics={ws.clusters.map((c) => ({ id: c.id, name: c.name }))}
-            initial={queryKeywords(ws, {})}
+            initial={queryKeywords(ws, { from: state.from })}
+            initialFrom={state.from ?? ''}
           />
           <section aria-labelledby="add-keywords" className="flex flex-col gap-3.5 rounded-card border border-border bg-surface p-[22px]">
             <div>

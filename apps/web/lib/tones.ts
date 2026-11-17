@@ -96,3 +96,6 @@ export function lighthouseTone(score: number): Tone {
   if (score >= 50) return 'primary';
   return 'fail';
 }
+
+/** Sparkline strokes (competitor trends): teal up, red down; mirror `teal.DEFAULT` and `high` in tailwind.config.ts. */
+export const TREND_HEX = { up: '#0F766E', down: '#B91C1C' } as const;

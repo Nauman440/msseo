@@ -30,6 +30,8 @@ export type KeywordRecord = {
   serpUrls: string[] | null;
   /** Google features on page 1 besides plain results (local_pack, people_also_ask, video…), from the same check. */
   serpFeatures?: string[] | null;
+  /** Competitors (domains) whose keyword gap brought this keyword in. */
+  gapFrom?: string[];
   clusterId: string | null;
   addedAt: string;
 };

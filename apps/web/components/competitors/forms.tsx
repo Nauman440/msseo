@@ -1,11 +1,10 @@
 'use client';
 
-import { useActionState, useRef } from 'react';
+import Link from 'next/link';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, MAX_SEARCHES, type CompetitorType, type Shortlist } from '@seo/core';
-import {
-  addCompetitorAction, findCompetitorsAction, refreshStrengthAction, removeCompetitorAction, saveCompetitorSettingsAction, updateCompetitorAction, type CompetitorState,
-} from '@/app/competitors/actions';
+import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, MAX_SEARCHES } from '@seo/core';
+import { addCompetitorAction, findCompetitorsAction, refreshStrengthAction, saveCompetitorSettingsAction, type CompetitorState } from '@/app/competitors/actions';
 import { TagInput } from '@/components/signup/TagInput';
 
 export const INPUT = 'min-h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
@@ -69,21 +68,24 @@ export function CompetitorSettings({ domain, country, language, searches }: { do
   );
 }
 
-/** 3.2–3.4 run discovery, 3.8 refresh strength. */
-export function RunButtons({ domain, canRefresh }: { domain: string; canRefresh: boolean }) {
+/** 3.2–3.4 run discovery, 3.8 refresh strength (team), and a link to change the searches. */
+export function RunButtons({ domain, canRefresh, hasRun, changeHref }: { domain: string; canRefresh: boolean; hasRun: boolean; changeHref: string }) {
   const [found, find] = useActionState<CompetitorState>(findCompetitorsAction.bind(null, domain), {});
   const [strength, refresh] = useActionState<CompetitorState>(refreshStrengthAction.bind(null, domain), {});
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3">
-        <form action={find}>
-          <Submit label="Find competitors" busy="Searching… (about a minute)" />
-        </form>
+      <div className="flex flex-wrap gap-2.5">
+        <Link href={changeHref} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
+          Change searches
+        </Link>
         {canRefresh && (
           <form action={refresh}>
             <Submit label="Refresh strength" busy="Measuring…" tone="secondary" />
           </form>
         )}
+        <form action={find}>
+          <Submit label={hasRun ? 'Find competitors again' : 'Find competitors'} busy="Searching… (about a minute)" />
+        </form>
       </div>
       <Message state={found} />
       <Message state={strength} />
@@ -91,54 +93,31 @@ export function RunButtons({ domain, canRefresh }: { domain: string; canRefresh:
   );
 }
 
-const TYPE_LABEL: Record<CompetitorType, string> = { direct: 'Direct', local: 'Local (map)', search: 'Search only', directory: 'Directory', publisher: 'Publisher' };
-const SHORT_LABEL: Record<Shortlist, string> = { none: 'Not shortlisted', direct: 'Direct shortlist', aspirational: 'Aspirational' };
-
-/** 3.5 type override and 3.6 shortlist, saved as soon as a value changes. */
-export function CompetitorControls({ domain, competitor, type, shortlist, layout = 'table' }: { domain: string; competitor: string; type: CompetitorType; shortlist: Shortlist; layout?: 'table' | 'card' }) {
-  const id = `${layout}-${competitor}`;
-  const form = useRef<HTMLFormElement>(null);
-  const [, action] = useActionState<CompetitorState, FormData>(updateCompetitorAction.bind(null, domain, competitor), {});
-  return (
-    <form ref={form} action={action} className="flex flex-wrap items-center gap-2">
-      <label className="sr-only" htmlFor={`type-${id}`}>Type of {competitor}</label>
-      <select id={`type-${id}`} name="type" defaultValue={type} onChange={() => form.current?.requestSubmit()} className={SELECT_SM}>
-        {Object.entries(TYPE_LABEL).map(([v, l]) => (
-          <option key={v} value={v}>{l}</option>
-        ))}
-      </select>
-      <label className="sr-only" htmlFor={`short-${id}`}>Shortlist {competitor}</label>
-      <select id={`short-${id}`} name="shortlist" defaultValue={shortlist} onChange={() => form.current?.requestSubmit()} className={SELECT_SM}>
-        {Object.entries(SHORT_LABEL).map(([v, l]) => (
-          <option key={v} value={v}>{l}</option>
-        ))}
-      </select>
-      <button type="submit" formAction={removeCompetitorAction.bind(null, domain, competitor)} aria-label={`Remove ${competitor}`} className="min-h-10 rounded-control px-2 text-sm text-ink-3 hover:text-fail-text">
-        Remove
-      </button>
-    </form>
-  );
-}
-
-/** 3.1 add a competitor by hand. */
+/** 3.1 add a competitor by hand, straight onto the shortlist. */
 export function AddCompetitorForm({ domain }: { domain: string }) {
   const [state, action] = useActionState<CompetitorState, FormData>(addCompetitorAction.bind(null, domain), {});
+  const field = 'flex flex-col gap-1.5 text-[13px] font-bold';
   return (
-    <form action={action} className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Website
-          <input name="domain" placeholder="rival.com" className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Name <span className="sr-only">(optional)</span>
-          <input name="name" placeholder="Optional" className={INPUT} />
-        </label>
-        <div className="flex items-end">
-          <Submit label="Add competitor" busy="Adding…" tone="secondary" />
-        </div>
+    <form action={action} className="flex flex-wrap items-end gap-3">
+      <label className={`${field} min-w-[200px] flex-[2]`}>
+        Website
+        <input name="domain" placeholder="rival.com" className={`${INPUT} text-sm font-normal`} />
+      </label>
+      <label className={`${field} min-w-[180px] flex-[2]`}>
+        <span>Business name <span className="font-normal text-ink-2">(optional)</span></span>
+        <input name="name" className={`${INPUT} text-sm font-normal`} />
+      </label>
+      <label className={`${field} min-w-[150px] flex-1`}>
+        Add as
+        <select name="shortlist" defaultValue="direct" className={`${INPUT} text-sm font-normal`}>
+          <option value="direct">Direct</option>
+          <option value="aspirational">Aspirational</option>
+        </select>
+      </label>
+      <Submit label="Add competitor" busy="Adding…" />
+      <div className="w-full empty:hidden">
+        <Message state={state} />
       </div>
-      <Message state={state} />
     </form>
   );
 }
