@@ -53,6 +53,8 @@ export type PageSpeedResult = {
   renderBlockingMs: number | null;
   /** Lighthouse 13 insights used by rules 1.8.3, 1.8.5, 1.8.7, 1.8.8 and 2.5.3 (null when not reported). */
   insights?: PsiInsights;
+  /** Lighthouse final-screenshot as a data URL (used by the AI screenshot checks, step 7). */
+  screenshot?: string;
 };
 
 export type PsiInsights = {
@@ -78,6 +80,12 @@ type Audit = { score?: number | null; numericValue?: number; metricSavings?: Rec
 const items = (a: Audit | undefined) => (Array.isArray(a?.details?.items) ? (a!.details!.items as Record<string, unknown>[]) : null);
 const sum = (list: Record<string, unknown>[] | null, key: string) => (list ? list.reduce((s, i) => s + (Number(i[key]) || 0), 0) : null);
 const maxSaving = (...list: (Audit | undefined)[]) => (list.some(Boolean) ? Math.max(0, ...list.map((a) => Math.max(a?.metricSavings?.LCP ?? 0, a?.metricSavings?.FCP ?? 0))) : null);
+
+/** Lighthouse 'final-screenshot' (details.data is a data: URL of the rendered viewport). */
+function screenshotOf(audits: Record<string, Audit>): string | undefined {
+  const data = (audits['final-screenshot']?.details as { data?: unknown } | undefined)?.data;
+  return typeof data === 'string' && data.startsWith('data:image/') ? data : undefined;
+}
 
 export function readInsights(audits: Record<string, Audit>): PsiInsights {
   const img = items(audits['image-delivery-insight']);
@@ -151,5 +159,6 @@ export async function runPageSpeed(
     },
     renderBlockingMs,
     insights: readInsights(audits as Record<string, Audit>),
+    screenshot: screenshotOf(audits as Record<string, Audit>),
   };
 }

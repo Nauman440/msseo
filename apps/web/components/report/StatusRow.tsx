@@ -29,6 +29,9 @@ export function StatusRow({ row, mode, extras }: { row: CheckRow; mode: Audience
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium leading-6 text-ink">
           {mode === 'expert' && <span className="mr-2 font-mono text-xs text-ink-3">{row.ruleId}</span>}
+          {mode === 'expert' && row.method === 'ai' && (
+            <span className="mr-2 inline-block rounded-pill bg-primary-soft px-1.5 py-px align-middle text-[11px] font-semibold text-primary-text">AI-assessed</span>
+          )}
           {row.message[mode]}
         </p>
         {row.url && !(urls && urls.length > 1) && (

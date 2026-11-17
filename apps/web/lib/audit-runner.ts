@@ -1,5 +1,5 @@
 import 'server-only';
-import { executeAudit, type NewAuditInput } from '@seo/core';
+import { executeAudit, type AiCache, type NewAuditInput } from '@seo/core';
 import { gscAuditAccess } from '@seo/db';
 import { enqueueAudit } from '@seo/db/queue';
 import { createAudit, getAudit, saveAudit, usingDatabase, type AuditRecord } from './audit-store';
@@ -13,6 +13,21 @@ import { appSettings } from './settings';
  * Otherwise it runs inside this process (local development, or before a worker exists).
  */
 const running = ((globalThis as { __auditJobs?: Set<string> }).__auditJobs ??= new Set<string>());
+
+/** Per-run settings for in-process audits (the worker reads the same ones). */
+async function runSettings() {
+  const s = await appSettings();
+  const cache = usingDatabase() ? (await import('@seo/db')).dbAiCache : memoryAiCache;
+  return {
+    gsc: usingDatabase() ? gscAuditAccess() : undefined,
+    maxTemplates: s['lighthouse.maxTemplates'],
+    aiChecks: s['ai.checks'] ? { maxPages: s['ai.maxPages'], maxTokens: s['ai.maxTokens'], cache } : undefined,
+  };
+}
+
+/** Without a database, AI results are cached for the life of this process. */
+const memoryStore = new Map<string, unknown>();
+const memoryAiCache: AiCache = { get: async (k) => memoryStore.get(k), set: async (k, v) => void memoryStore.set(k, v) };
 
 export const workerMode = () => process.env.USE_WORKER === '1' && Boolean(process.env.REDIS_URL) && usingDatabase();
 
@@ -28,7 +43,7 @@ export async function startAudit(input: NewAuditInput, createdById?: string | nu
     return record;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined, maxTemplates: (await appSettings())['lighthouse.maxTemplates'] }, saveAudit)
+  void executeAudit(record, { ...env, ...(await runSettings()) }, saveAudit)
     .then(() => emailReportIfRequested(record))
     .finally(() => running.delete(record.id));
   return record;
@@ -52,7 +67,7 @@ export async function retryAudit(id: string): Promise<boolean> {
     return true;
   }
   running.add(record.id);
-  void executeAudit(record, { ...env, gsc: usingDatabase() ? gscAuditAccess() : undefined, maxTemplates: (await appSettings())['lighthouse.maxTemplates'] }, saveAudit)
+  void executeAudit(record, { ...env, ...(await runSettings()) }, saveAudit)
     .then(() => emailReportIfRequested(record))
     .finally(() => running.delete(record.id));
   return true;

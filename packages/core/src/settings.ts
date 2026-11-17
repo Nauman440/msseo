@@ -17,6 +17,10 @@ export const settingsSchema = z
     /** Public free audits from the landing page (step 8): on/off and a daily spending cap. */
     'public.enabled': z.coerce.boolean().default(true),
     'public.dailyCap': z.coerce.number().int().min(0, 'At least 0').max(1000, 'At most 1000').default(30),
+    /** AI-judged checks (step 7): on/off, key pages judged per audit, token budget per audit. */
+    'ai.checks': z.coerce.boolean().default(true),
+    'ai.maxPages': z.coerce.number().int().min(1, 'At least 1').max(10, 'At most 10').default(5),
+    'ai.maxTokens': z.coerce.number().int().min(5000, 'At least 5,000').max(200000, 'At most 200,000').default(40000),
   })
   .refine((s) => s['crawl.defaultLimit'] <= s['crawl.maxLimit'], { message: 'The default page limit cannot be above the maximum', path: ['crawl.defaultLimit'] });
 

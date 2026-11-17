@@ -98,6 +98,29 @@ export default async function GeneralSettingsPage() {
               </label>
             </div>
           </fieldset>
+
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="sr-only">AI checks</legend>
+            <p className="mb-3 font-display text-base font-bold">AI checks (OpenAI)</p>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <label className="flex cursor-pointer items-start gap-3 sm:col-span-3">
+                <input type="checkbox" name="ai.checks" defaultChecked={s['ai.checks']} className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="block text-sm font-semibold">Run AI-judged checks on team and customer audits</span>
+                  <span className={HINT}>Titles, descriptions, headings, intent, related terms and the mobile screenshot. Never on free audits. Results are cached, so unchanged pages cost nothing on re-audits.</span>
+                </span>
+              </label>
+              <label className={LABEL}>
+                Key pages judged per audit
+                <input name="ai.maxPages" type="number" min={1} max={10} defaultValue={s['ai.maxPages']} className={`${INPUT} tabular`} />
+              </label>
+              <label className={LABEL}>
+                Token budget per audit
+                <input name="ai.maxTokens" type="number" min={5000} max={200000} step={1000} defaultValue={s['ai.maxTokens']} className={`${INPUT} tabular`} />
+                <span className={HINT}>Checks stop once this is used up.</span>
+              </label>
+            </div>
+          </fieldset>
         </ActionForm>
       </section>
 

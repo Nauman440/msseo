@@ -8,6 +8,7 @@ import { onpageRules } from './rules-onpage';
 import { siteRules } from './rules-site';
 import { CWV, rate, speedRules } from './rules-speed';
 import { technicalRules } from './rules-technical';
+import { aiRules } from './rules-ai';
 import { indexFunnel, gscRules } from './rules-gsc';
 import { correctedSitemapUrls } from '../report/sitemap';
 import { templateRules } from './rules-templates';
@@ -15,7 +16,7 @@ import { trustRules } from './rules-trust';
 import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules, ...gscRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules, ...gscRules, ...aiRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 
@@ -44,7 +45,7 @@ const CARDS: { id: CardId; title: string; section: CheckCard['section']; expertO
 ];
 
 const toMeta = (d: RuleDef): RuleMeta => ({
-  id: d.id, module: d.module, category: d.category, title: d.title, method: 'auto', scope: d.scope, explain: d.explain, fix: d.fix, ice: d.ice,
+  id: d.id, module: d.module, category: d.category, title: d.title, method: d.method ?? 'auto', scope: d.scope, explain: d.explain, fix: d.fix, ice: d.ice,
 });
 
 /** Same page, ignoring scheme, "www." and a trailing slash. */
@@ -91,11 +92,14 @@ function toRow(r: EvaluatedRule): CheckRow {
   const first = r.result.examples[0]?.url;
   return {
     ruleId: r.def.id,
+    ...(r.def.method && r.def.method !== 'auto' ? { method: r.def.method } : {}),
     status: r.result.status,
     severity: r.result.severity,
     message: r.result.message,
     url: first ? pathOf(first) : undefined,
     affectedCount: r.result.affectedCount,
+    // The extra line (e.g. the AI's advice, or "based on N inspected URLs") shows under the row.
+    ...(r.sub ? { sub: r.sub } : {}),
   };
 }
 

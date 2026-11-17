@@ -92,6 +92,9 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'report.maxExampleUrlsClient': form.get('report.maxExampleUrlsClient'),
     'public.enabled': form.get('public.enabled') === 'on',
     'public.dailyCap': form.get('public.dailyCap'),
+    'ai.checks': form.get('ai.checks') === 'on',
+    'ai.maxPages': form.get('ai.maxPages'),
+    'ai.maxTokens': form.get('ai.maxTokens'),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const { saveSettings } = await import('@seo/db');

@@ -117,7 +117,7 @@ export async function executeAudit(record: AuditRecord, env: AuditEnv, save: (r:
   };
 
   try {
-    const { report, cost: crawlCost, finishAi } = await runAudit(record.id, record.input, { ...env, log }, (u) =>
+    const { report, cost: crawlCost, finishAi, aiCheckTokens } = await runAudit(record.id, record.input, { ...env, log }, (u) =>
       update((r) => {
         r.progress = Math.max(r.progress, u.progress);
         const step = r.steps.find((s) => s.id === u.step);
@@ -132,11 +132,12 @@ export async function executeAudit(record: AuditRecord, env: AuditEnv, save: (r:
       const finishedAt = new Date().toISOString();
       const durationSeconds = Math.round((Date.parse(finishedAt) - Date.parse(r.createdAt)) / 1000);
       cost = crawlCost;
+      tokens += aiCheckTokens ?? 0;
       Object.assign(r, { status: 'completed', progress: 100, report: { ...report, durationSeconds }, costUsd: crawlCost, finishedAt, usage: usage() });
     });
     if (!finishAi) return;
     const result = await finishAi();
-    tokens = result.tokens;
+    tokens += result.tokens;
     await update((r) => {
       if (r.report) r.report = { ...r.report, ...(result.ai ? { ai: result.ai } : {}), aiPending: false };
       r.usage = usage();

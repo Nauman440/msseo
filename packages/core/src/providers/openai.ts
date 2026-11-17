@@ -39,6 +39,9 @@ export type JsonRequest<T> = {
   /** Zod mirror of jsonSchema; validates the reply. */
   parse: z.ZodType<T>;
   maxOutputTokens?: number;
+  /** Images for vision checks, as data URLs (e.g. the PageSpeed mobile screenshot). */
+  images?: string[];
+  timeoutMs?: number;
 };
 
 export function createOpenAiClient(cfg: OpenAiConfig) {
@@ -50,14 +53,16 @@ export function createOpenAiClient(cfg: OpenAiConfig) {
       provider: 'openai',
       method: 'POST',
       headers: { authorization: `Bearer ${cfg.apiKey}` },
-      timeoutMs: 120_000,
+      timeoutMs: req.timeoutMs ?? 120_000,
       retries: 1,
       log: cfg.log,
       body: {
         model,
         input: [
           { role: 'system', content: req.system },
-          { role: 'user', content: req.user },
+          req.images?.length
+            ? { role: 'user', content: [{ type: 'input_text', text: req.user }, ...req.images.map((url) => ({ type: 'input_image', image_url: url, detail: 'low' }))] }
+            : { role: 'user', content: req.user },
         ],
         max_output_tokens: req.maxOutputTokens ?? 4000,
         text: { format: { type: 'json_schema', name: req.name, schema: req.jsonSchema, strict: true } },

@@ -159,14 +159,14 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
 }
 
 /** Fetches and parses up to `urls.length` pages, 6 at a time; failed pages are skipped. */
-export async function fetchPageContents(urls: string[], log?: HttpLog): Promise<PageContent[]> {
+export async function fetchPageContents(urls: string[], log?: HttpLog, userAgent = BROWSER_UA): Promise<PageContent[]> {
   const out: PageContent[] = [];
   const queue = [...urls];
   await Promise.all(
     Array.from({ length: Math.min(6, queue.length) }, async () => {
       for (let url = queue.shift(); url; url = queue.shift()) {
         try {
-          const res = await request(url, { provider: 'site', headers: { 'user-agent': BROWSER_UA, accept: 'text/html' }, timeoutMs: 8_000, retries: 0, log });
+          const res = await request(url, { provider: 'site', headers: { 'user-agent': userAgent, accept: 'text/html' }, timeoutMs: 8_000, retries: 0, log });
           if (!/text\/html|application\/xhtml/i.test(res.headers.get('content-type') ?? '')) {
             await res.body?.cancel();
             continue;

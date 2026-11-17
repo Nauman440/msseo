@@ -19,3 +19,4 @@ export { sitemapXml } from './report/sitemap';
 export { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema, type AppSettings, type SettingKey } from './settings';
 export { deliverReportEmail, emailConfig, reportEmail, type EmailEnv } from './report/email';
 export { sendEmail, type EmailMessage } from './providers/resend';
+export { type AiCache, type AiFindings } from './audit/ai-checks';

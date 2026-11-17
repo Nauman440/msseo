@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudits, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
+import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, gscAuditAccess, gscSetup, prisma, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, ensureWeeklySchedule, enqueueAudit, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { renderPdfBytes } from './pdf/render';
 
@@ -36,7 +36,8 @@ const worker = new Worker<AuditJobData>(
     log.info({ auditId: record.id, url: record.input.url, mode: record.input.auditMode, attempt: job.attemptsMade + 1 }, 'audit started');
     const http = (e: { provider: string; url: string; status?: number; ms: number; attempt: number; error?: string }) => log.debug(e, 'http');
     const settings = await getSettings();
-    await executeAudit(record, { ...env, gsc: gscAuditAccess(), maxTemplates: settings['lighthouse.maxTemplates'], log: http }, saveAuditRecord);
+    const aiChecks = settings['ai.checks'] ? { maxPages: settings['ai.maxPages'], maxTokens: settings['ai.maxTokens'], cache: dbAiCache } : undefined;
+    await executeAudit(record, { ...env, gsc: gscAuditAccess(), maxTemplates: settings['lighthouse.maxTemplates'], aiChecks, log: http }, saveAuditRecord);
     log.info({ auditId: record.id, status: record.status, score: record.report?.overall.score, error: record.error }, 'audit finished');
 
     // "Email me the full report": never fails the job; the result is logged.

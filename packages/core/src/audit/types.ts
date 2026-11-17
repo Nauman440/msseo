@@ -7,6 +7,8 @@ import type { LinkCheck } from './link-check';
 import type { LighthouseRun } from './lighthouse';
 import type { Template } from './templates';
 import type { GscData } from './gsc-collect';
+import type { AiFindings } from './ai-checks';
+import type { ParityResult } from './mobile-parity';
 import type { AudienceText, Category, Ice, RuleResult, RuleStatus, Severity } from '../types';
 
 export type AuditMode = 'quick' | 'deep';
@@ -33,6 +35,10 @@ export type AuditData = {
   lighthouse?: LighthouseRun[];
   /** Search Console data; undefined when no property was selected (all GSC rules are then skipped). */
   gsc?: GscData;
+  /** AI-judged checks (step 7); undefined when they did not run (rules are then manual or skipped). */
+  ai?: AiFindings;
+  /** Mobile vs desktop fetch of the key pages (rule 1.9.3). */
+  parity?: ParityResult[];
   psi: PageSpeedResult | null;
   /** Caveats collected while running (copied onto the report). */
   notices?: AudienceText[];
@@ -98,6 +104,8 @@ export type RuleDef = {
   explain: AudienceText;
   fix: AudienceText;
   ice: Ice;
+  /** How the result is reached (spec §6.1): automatic (default), AI-judged or a manual checklist item. */
+  method?: 'auto' | 'ai' | 'manual';
   /** Needs the full crawl's link graph (depth, inlinks, cross-page comparison); skipped in quick mode. */
   crawlOnly?: true;
   /** Returns null when the rule does not apply (e.g. no PageSpeed key). */

@@ -59,6 +59,8 @@ export type Segment = { label: string; value: number; tone: Tone };
 
 export type CheckRow = {
   ruleId: string;
+  /** 'ai' rows are tagged "AI-assessed", 'manual' rows are checklist items (Expert only). */
+  method?: RuleMethod;
   status: RuleStatus;
   severity: Severity;
   message: AudienceText;
