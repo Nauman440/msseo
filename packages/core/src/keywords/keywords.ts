@@ -313,7 +313,7 @@ export type KeywordRow = {
 };
 export type KeywordSort = 'term' | 'volume' | 'difficulty' | 'cpc' | 'position';
 export type KeywordFrom = 'gap' | 'ranked' | 'gsc' | 'ideas';
-export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number };
+export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; /** Cluster id. */ topic?: string; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number };
 
 const FEATURE_NAMES: Record<string, string> = {
   local_pack: 'Map pack', map: 'Map', people_also_ask: 'People also ask', featured_snippet: 'Featured snippet', video: 'Videos', images: 'Images',
@@ -342,7 +342,7 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
       features: featureLabels(k.serpFeatures),
       _k: k,
     }))
-    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && fromMatches(r._k, query.from) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
+    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && (!query.topic || r._k.clusterId === query.topic) && fromMatches(r._k, query.from) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
     .map(({ _k, ...r }) => r)
     .sort((a, b) => {
       if (sort === 'term') return a.term.localeCompare(b.term) * dir;

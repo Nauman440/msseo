@@ -35,6 +35,8 @@ const config: Config = {
           text: '#C2410C',
           heading: '#9A3412',
           tint: '#FDBA74',
+          // Highlighted stat tile (keyword design "Quick wins").
+          wash: '#FFF8F1',
         },
         // Orange accents on navy surfaces.
         brand: { DEFAULT: '#F97316', deep: '#EA580C' },
@@ -43,7 +45,10 @@ const config: Config = {
         // Landing page accents from the design: "fixed for you" boxes and sample chart.
         teal: { DEFAULT: '#0F766E', soft: '#99D5CF', bg: '#F1FAF8', chip: '#DDF3EF', text: '#0B5D55' },
         // "Always waits for your approval" chips and "Notice" alert label.
-        amber: { bg: '#FEF3C7', text: '#92400E' },
+        amber: { bg: '#FEF3C7', text: '#92400E', bar: '#CA8A04' },
+        // Keyword design chips: "Learning" intent and "Long-term" topics.
+        violet: { bg: '#F3E8FF', text: '#6B21A8' },
+        indigo: { bg: '#E0E7FF', text: '#3730A3' },
         pass: { bg: '#DCFCE7', text: '#15803D' },
         warn: { bg: '#FEF2F2', text: '#C81E1E' },
         high: { bg: '#FEE2E2', text: '#B91C1C' },

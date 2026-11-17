@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
-  generatePrompts, MAX_CLUSTER_SERPS, normDomain, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
+  addPrompt, editPrompt, generatePrompts, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from '@/lib/keywords';
@@ -111,7 +111,7 @@ export async function clusterKeywordsAction(rawDomain: string): Promise<KeywordS
   await saveKeywordWorkspace(r.workspace);
   if (c) await logUsage('dataforseo', c.calls(), await c.charged(r.cost));
   pathsFor(domain);
-  return { ok: `${r.workspace.clusters.length} clusters (${r.serps} new Google checks).${problems(r.errors, customer, 'searches could not be checked')}` };
+  return { ok: `${r.workspace.clusters.length} topics (${r.serps} new Google checks).${problems(r.errors, customer, 'searches could not be checked')}` };
 }
 
 /** 4.7 Prompts people ask AI assistants. Customers: twice a day. */
@@ -119,13 +119,13 @@ export async function generatePromptsAction(rawDomain: string): Promise<KeywordS
   const { domain, customer } = await guard(rawDomain);
   const ws = await getKeywordWorkspace(domain);
   if (!ws.seeds.services.length) return { error: ws.businessType === 'shop' ? 'Add your products first, then save.' : 'Add your services first, then save.' };
-  if (!(await allowed(customer, `keywords-prompts:${domain}`, 2))) return { error: 'Prompts can be written twice a day.' };
+  if (!(await allowed(customer, `keywords-prompts:${domain}`, 2))) return { error: 'Questions can be written twice a day.' };
   const openai = providerConfig().env?.openai;
   const r = await generatePrompts(openai ? createOpenAiClient(openai) : null, ws.seeds, domain, { businessType: ws.businessType, country: ws.country });
-  await saveKeywordWorkspace({ ...ws, prompts: r.prompts, promptsAt: new Date().toISOString() });
+  await saveKeywordWorkspace({ ...ws, prompts: mergePrompts(ws.prompts, r.prompts), promptsAt: new Date().toISOString() });
   await logUsage('openai', r.tokens);
   pathsFor(domain);
-  return { ok: `${r.prompts.length} prompts${r.usedAi ? '' : ' from templates'}.` };
+  return { ok: `${r.prompts.length} questions written${r.usedAi ? '' : ' from templates'}.` };
 }
 
 export async function setKeywordStatusAction(rawDomain: string, term: string, status: KeywordStatus): Promise<void> {
@@ -180,10 +180,44 @@ export async function updateClusterAction(rawDomain: string, id: string, _prev: 
 export async function sendClustersToCompetitorsAction(rawDomain: string): Promise<KeywordState> {
   const { domain } = await guard(rawDomain);
   const searches = competitorSearchesFromClusters(await getKeywordWorkspace(domain));
-  if (!searches.length) return { error: 'Build clusters first.' };
+  if (!searches.length) return { error: 'Research keywords first: topics come from the research.' };
   const ws = await getWorkspace(domain);
   await saveWorkspace({ ...ws, searches });
   revalidatePath(`/competitors/${domain}`);
   revalidatePath('/my/competitors');
   return { ok: `${searches.length} searches sent to Competitors.` };
+}
+
+/** Questions for AI: add one by hand (kept when new questions are written). */
+export async function addPromptAction(rawDomain: string, _prev: KeywordState, form: FormData): Promise<KeywordState> {
+  const { domain } = await guard(rawDomain);
+  const text = String(form.get('question') ?? '');
+  if (text.trim().length < 8) return { error: 'Type the question as a customer would ask it.' };
+  const ws = await getKeywordWorkspace(domain);
+  const service = String(form.get('topic') ?? '').trim() || null;
+  const r = addPrompt(ws.prompts, text, service);
+  if (!r.added) return { error: 'That question is already in the list (or the list is full).' };
+  await saveKeywordWorkspace({ ...ws, prompts: r.prompts });
+  pathsFor(domain);
+  return { ok: 'Question added.' };
+}
+
+export async function editPromptAction(rawDomain: string, id: string, text: string): Promise<KeywordState> {
+  const { domain } = await guard(rawDomain);
+  if (text.trim().length < 8) return { error: 'The question is too short.' };
+  const ws = await getKeywordWorkspace(domain);
+  await saveKeywordWorkspace({ ...ws, prompts: editPrompt(ws.prompts, id, text) });
+  pathsFor(domain);
+  return { ok: 'Saved.' };
+}
+
+/** Which questions are tracked in AI assistants (the ticked ones). */
+export async function saveTrackedPromptsAction(rawDomain: string, ids: string[]): Promise<KeywordState> {
+  const { domain } = await guard(rawDomain);
+  const ws = await getKeywordWorkspace(domain);
+  const next = setTrackedPrompts(ws.prompts, ids.slice(0, 200));
+  await saveKeywordWorkspace({ ...ws, prompts: next });
+  pathsFor(domain);
+  const n = next.filter((p) => p.tracked !== false).length;
+  return { ok: `${n} ${n === 1 ? 'question' : 'questions'} tracked.` };
 }

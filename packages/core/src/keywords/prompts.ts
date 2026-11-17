@@ -118,3 +118,35 @@ export async function generatePrompts(
     return { prompts: fallback, tokens: 0, usedAi: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+// ---- Questions for AI: tracking choices and hand edits ------------------------------------
+
+export const isTracked = (p: AiPrompt) => p.tracked !== false;
+export const MAX_PROMPTS = 80;
+const tidy = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 300);
+
+/** New questions replace the written ones; hand-added or edited questions and untick choices are kept. */
+export function mergePrompts(previous: AiPrompt[], fresh: AiPrompt[]): AiPrompt[] {
+  const unticked = new Set(previous.filter((p) => !isTracked(p)).map((p) => p.id));
+  const custom = previous.filter((p) => p.custom);
+  const ids = new Set(custom.map((p) => p.id));
+  return [...custom, ...fresh.filter((p) => !ids.has(p.id)).map((p) => (unticked.has(p.id) ? { ...p, tracked: false } : p))].slice(0, MAX_PROMPTS);
+}
+
+export function addPrompt(prompts: AiPrompt[], text: string, service: string | null = null): { prompts: AiPrompt[]; added: boolean } {
+  const clean = tidy(text);
+  const pid = id(clean);
+  if (!clean || !pid || prompts.some((p) => p.id === pid) || prompts.length >= MAX_PROMPTS) return { prompts, added: false };
+  return { prompts: [...prompts, { id: pid, text: clean, service, location: null, custom: true }], added: true };
+}
+
+export function editPrompt(prompts: AiPrompt[], pid: string, text: string): AiPrompt[] {
+  const clean = tidy(text);
+  return clean ? prompts.map((p) => (p.id === pid ? { ...p, text: clean, custom: true } : p)) : prompts;
+}
+
+/** Ticks exactly the given questions for tracking. */
+export function setTrackedPrompts(prompts: AiPrompt[], ids: string[]): AiPrompt[] {
+  const on = new Set(ids);
+  return prompts.map((p) => ({ ...p, tracked: on.has(p.id) }));
+}

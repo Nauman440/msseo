@@ -255,7 +255,11 @@ test('a visitor signs up from the free report and lands on their own dashboard',
 
   // Module 4 for customers: seeds come from onboarding; add keywords, remove one, export CSV.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
-  await expect(page.getByRole('heading', { name: 'Your keywords', level: 2 })).toBeVisible();
+  const sections = page.getByRole('navigation', { name: 'Keyword sections' });
+  await expect(sections.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('No keywords yet.')).toBeVisible();
+  await sections.getByRole('link', { name: 'Research inputs' }).click();
+  await expect(page.getByRole('heading', { name: 'What you offer and where' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove AC repair', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -265,11 +269,12 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Places you serve')).toBeHidden();
   await page.getByText('Visits, repairs or bookings in an area').click();
   await expect(page.getByText('Places you serve')).toBeVisible();
+  await sections.getByRole('link', { name: /^All keywords/ }).click();
+  await expect(page.getByRole('heading', { name: 'Add keywords you know' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('Keywords', { exact: true }).fill('ac repair plano\nEmergency AC repair, ac repair plano');
   await page.getByRole('button', { name: 'Add keywords' }).click();
   await expect(page.getByText('2 keywords added.')).toBeVisible();
-  // With results, customers see their top topics first; the full list opens on demand.
-  await page.getByText('All 2 keywords').click();
   await expect(page.getByRole('button', { name: 'Remove emergency ac repair' })).toBeVisible();
   await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
   await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();
@@ -279,6 +284,16 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
   expect(csv.headers()['content-type']).toContain('text/csv');
   expect(await csv.text()).toContain('emergency ac repair,removed,Removed by hand');
+  // Questions for AI: add one by hand, then choose which ones are tracked.
+  await sections.getByRole('link', { name: /^Questions for AI/ }).click();
+  await expect(page.getByRole('heading', { name: 'Questions people ask AI assistants' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Add a question your customers ask').fill('Who can fix my AC today in Plano?');
+  await page.getByRole('button', { name: 'Add question' }).click();
+  await expect(page.getByText('Question added.')).toBeVisible();
+  await page.getByLabel('Track: Who can fix my AC today in Plano?').uncheck();
+  await page.getByRole('button', { name: 'Track 0 questions' }).click();
+  await expect(page.getByText('0 questions tracked.')).toBeVisible();
   // Other sites' keywords stay private.
   expect((await page.request.get('/api/keywords/rival-hvac.com/csv')).status()).toBe(404);
   await page.goto('/keywords/summitairhvac.com');

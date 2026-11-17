@@ -1,5 +1,4 @@
 import type { KeywordWorkspace } from '@seo/core';
-import { Card } from '@/components/ui/Card';
 
 /**
  * "People also ask" questions Google shows for the checked keywords, grouped by topic: ready-made
@@ -17,20 +16,25 @@ export function QuestionsCard({ ws }: { ws: KeywordWorkspace }) {
     groups.set(topic, [...(groups.get(topic) ?? []), q.text]);
   }
   return (
-    <Card title="Questions people ask Google" eyebrow={`${questions.length} questions · "People also ask"`}>
-      <p className="mb-4 text-sm text-ink-2">Answer these on the page for each topic, for example as an FAQ section. Short, direct answers can show up in Google and in AI answers.</p>
-      <div className="flex flex-col gap-5">
+    <section aria-labelledby="paa" className="flex flex-col gap-3.5">
+      <div className="mt-2 flex flex-col gap-1.5">
+        <h2 id="paa" className="font-display text-[22px] font-bold">Questions people ask Google</h2>
+        <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">
+          {questions.length} questions from Google’s “People also ask”. Answer them on the page for each topic, for example in an FAQ section: short, direct answers can show up in Google and in AI answers.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
         {[...groups].map(([topic, list]) => (
-          <div key={topic}>
-            <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-3">{topic}</h3>
-            <ul className="mt-2 flex list-disc flex-col gap-1 pl-5">
+          <section key={topic} aria-label={topic} className="rounded-card border border-border bg-surface px-[22px] py-5">
+            <h3 className="text-[17px] font-bold">{topic}</h3>
+            <ul className="mt-2">
               {list.map((q) => (
-                <li key={q} className="text-[15px] text-ink">{q}</li>
+                <li key={q} className="border-t border-border py-2.5 text-[14.5px] leading-snug">{q}</li>
               ))}
             </ul>
-          </div>
+          </section>
         ))}
       </div>
-    </Card>
+    </section>
   );
 }

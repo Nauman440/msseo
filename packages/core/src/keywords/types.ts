@@ -63,7 +63,16 @@ export type KeywordCluster = {
   seasonalDeadline: string | null;
 };
 
-export type AiPrompt = { id: string; text: string; service: string | null; location: string | null };
+export type AiPrompt = {
+  id: string;
+  text: string;
+  service: string | null;
+  location: string | null;
+  /** Ticked for tracking in AI assistants (missing = ticked). */
+  tracked?: boolean;
+  /** Added or edited by hand: kept when new questions are written. */
+  custom?: boolean;
+};
 
 export type KeywordSeeds = { services: string[]; locations: string[]; brands: string[]; extra: string[] };
 /** services: visits, repairs and bookings in an area. shop: products sold online (no places; product and category pages). */

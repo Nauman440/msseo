@@ -1,125 +1,131 @@
-import type { ReactNode } from 'react';
 import { keywordStats, queryKeywords, type KeywordWorkspace } from '@seo/core';
-import { Card } from '@/components/ui/Card';
-import { StatTile } from '@/components/ui/StatTile';
+import { cn } from '@/lib/tones';
 import { ClusterBoard } from './ClusterBoard';
 import { AddKeywordsForm, KeywordRunButtons, SeedsForm } from './forms';
 import { KeywordTable } from './KeywordTable';
-import { QuestionsCard } from './QuestionsCard';
+import { KeywordTabs, viewHref, type KeywordView } from './KeywordTabs';
+import type { TopicOrder } from './labels';
+import { QuestionsView } from './QuestionsView';
 import { TopTopics } from './TopTopics';
 
 /**
- * Module 4 workspace (spec §16.2), the same for the team (any client) and for customers
- * (their own sites). Customers see their top topics first, with the details folded away.
+ * Module 4 workspace in the keyword design (design-reference/Keywords tab *.zip): sub-tabs
+ * Overview · All keywords · Questions for AI · Research inputs. The same for the team (any
+ * client) and for customers (their own sites).
  */
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'never');
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null);
+const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export function KeywordWorkspaceView({ ws, audience }: { ws: KeywordWorkspace; audience: 'team' | 'customer' }) {
+export type KeywordPageState = { view: KeywordView; order: TopicOrder; allTopics: boolean };
+
+/** "142 keywords in 18 topics for 6 services in Dallas" */
+function summary(ws: KeywordWorkspace, kept: number) {
+  const shop = ws.businessType === 'shop';
+  const n = ws.seeds.services.length;
+  const what = `${n} ${shop ? (n === 1 ? 'product' : 'products') : n === 1 ? 'service' : 'services'}`;
+  const places = ws.seeds.locations;
+  const where = !shop && places.length ? ` in ${places[0]}${places.length > 1 ? ` and ${places.length - 1} more ${places.length === 2 ? 'place' : 'places'}` : ''}` : '';
+  return `${kept.toLocaleString('en-US')} keywords in ${ws.clusters.length} ${ws.clusters.length === 1 ? 'topic' : 'topics'} for ${what}${where}`;
+}
+
+export function KeywordWorkspaceView({ ws, audience, base, state }: { ws: KeywordWorkspace; audience: 'team' | 'customer'; base: string; state: KeywordPageState }) {
   const stats = keywordStats(ws);
-  const customer = audience === 'customer';
-  const ready = ws.keywords.length > 0;
-  // Customers: once there are results, settings and the full lists open on demand. Always the same
-  // elements (only `open` changes), so forms keep their messages when results arrive.
-  const fold = (summary: string, children: ReactNode) =>
-    customer ? (
-      <details open={!ready} className="group rounded-panel border border-border bg-surface">
-        <summary className="flex min-h-12 cursor-pointer items-center px-5 font-display text-[17px] font-bold">{summary}</summary>
-        <div className="border-t border-border p-5">{children}</div>
-      </details>
-    ) : (
-      children
-    );
-  const byService = new Map<string, typeof ws.prompts>();
-  for (const p of ws.prompts) byService.set(p.service ?? 'General', [...(byService.get(p.service ?? 'General') ?? []), p]);
+  const kept = ws.keywords.filter((k) => k.status === 'kept');
+  const ready = kept.length > 0;
+  const view = state.view;
+  const tiles = [
+    { label: 'Keywords', value: stats.kept, hint: 'Kept after cleaning' },
+    { label: 'Topics', value: stats.clusters, hint: 'One page each' },
+    { label: 'On page 1', value: kept.filter((k) => k.position !== null && k.position <= 10).length, hint: 'Positions 1 to 10' },
+    { label: 'Quick wins', value: kept.filter((k) => k.position !== null && k.position >= 4 && k.position <= 20).length, hint: 'Positions 4 to 20', highlight: true },
+    { label: 'Not showing yet', value: kept.filter((k) => k.position === null).length, hint: 'Need a page or more content' },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      {customer && <TopTopics clusters={ws.clusters} />}
-      {customer && (
-        <Card title={ready ? 'Keep your keywords up to date' : 'Find your keywords'} eyebrow={`Last research: ${day(ws.lastRunAt)}`}>
-          <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
-          <p className="mt-2 text-[13px] text-ink-3">We collect the searches your customers use (from Google, your rankings and your competitors), remove the ones that will not bring you work, and group the rest into topics. One page should target each topic.</p>
-        </Card>
-      )}
-      {fold(ws.businessType === 'shop' ? 'Your products and searches' : 'Your services, places and searches', (
-      <Card title={ws.businessType === 'shop' ? 'What you sell' : 'What you offer and where'} eyebrow={customer ? undefined : `Last research: ${day(ws.lastRunAt)}`}>
-        <div className="flex flex-col gap-6">
-          <SeedsForm domain={ws.domain} businessType={ws.businessType ?? 'services'} country={ws.country} language={ws.language} seeds={ws.seeds} />
-          {!customer && (
-          <div className="border-t border-border pt-5">
-            <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
-            <p className="mt-2 text-[13px] text-ink-3">
-              {'Research: the site’s rankings, the keyword gap with up to 3 competitors (what they rank for and this site does not), local keyword ideas, Google suggestions and Search Console (when connected), then metrics for new keywords, then topics (one Google check for each of the top 60, ≈ $0.002, cached; it also collects "People also ask" questions and page-1 features). First run about $0.15–0.30; sources fetched in the last 7 days are reused, so re-runs cost little. Prompts: OpenAI, from the services and places only.'}
+    <div className="flex flex-col gap-[22px]">
+      <KeywordTabs base={base} view={view} keywords={stats.kept} questions={ws.prompts.length} />
+
+      {(view === 'overview' || view === 'all') && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-[18px]">
+          <div className="flex flex-col gap-1">
+            <p className={EYEBROW}>{ws.lastRunAt ? `Last research · ${day(ws.lastRunAt)}` : 'No research yet'}</p>
+            <p className="text-[15px] font-semibold">
+              {ready ? summary(ws, stats.kept) : ws.seeds.services.length ? 'Ready to research: press “Research keywords”.' : 'Add your services first under Research inputs.'}
             </p>
           </div>
-          )}
-        </div>
-      </Card>
-      ))}
-
-      {ready && !customer && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatTile value={stats.kept.toLocaleString('en-US')} label="Keywords kept" hint={`${stats.removed.toLocaleString('en-US')} removed`} variant="raised" />
-          <StatTile value={stats.volume.toLocaleString('en-US')} label="Searches / month" hint="All kept keywords" variant="raised" />
-          <StatTile value={String(stats.clusters)} label="Clusters" hint={ws.clusteredAt ? `Built ${day(ws.clusteredAt)}` : 'Not built yet'} variant="raised" />
-          <StatTile value={String(stats.quickWins)} label="Quick wins" hint="Already on page 1–2" variant="raised" />
+          <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
         </div>
       )}
 
-      {ws.clusters.length > 0 && fold(ws.clusters.length === 1 ? 'Your topic' : `All ${ws.clusters.length} topics`, (
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="font-display text-xl font-bold">Clusters by priority</h2>
-            <p className="text-[13px] text-ink-3">Priority = business value × chance to rank (1–5 each). Change either and it is kept.</p>
-          </div>
-          <ClusterBoard domain={ws.domain} clusters={ws.clusters} keywords={ws.keywords} />
-        </section>
-      ))}
-
-      {(ws.questions?.length ?? 0) > 0 && fold('Questions people ask Google', <QuestionsCard ws={ws} />)}
-
-      {fold(stats.kept === 1 ? 'All 1 keyword' : `All ${stats.kept.toLocaleString('en-US')} keywords`, (
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="font-display text-xl font-bold">Keywords</h2>
-          {ws.keywords.length > 0 && (
-            <a href={`/api/keywords/${ws.domain}/csv`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong bg-surface px-4 text-sm font-semibold hover:border-ink-3">
-              Download CSV
-            </a>
+      {view === 'overview' && (
+        <>
+          {ready && (
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {tiles.map((t) => (
+                <div key={t.label} className={cn('rounded-[14px] border px-[18px] py-4', t.highlight ? 'border-primary-tint bg-primary-wash' : 'border-border bg-surface')}>
+                  <dt className={EYEBROW}>{t.label}</dt>
+                  <dd className="mt-1 font-display text-[30px] font-extrabold tabular">{t.value.toLocaleString('en-US')}</dd>
+                  <dd className="mt-0.5 text-[12px] text-ink-2">{t.hint}</dd>
+                </div>
+              ))}
+            </dl>
           )}
-        </div>
-        {ws.keywords.length === 0 ? (
-          <p className="rounded-panel border border-border bg-surface p-6 text-sm text-ink-2">No keywords yet. Add your services and places, save, then press “Research keywords”.</p>
-        ) : (
-          <KeywordTable key={`${ws.lastRunAt}|${ws.clusteredAt}|${ws.keywords.length}`} domain={ws.domain} initial={queryKeywords(ws, {})} />
-        )}
-      </section>
-      ))}
+          {!ready && (
+            <p className="rounded-card border border-border bg-surface p-6 text-[15px] text-ink-2">
+              No keywords yet. Add your {ws.businessType === 'shop' ? 'products' : 'services and places'} under <a href={viewHref(base, 'inputs')} className="font-semibold text-primary-text underline">Research inputs</a>, then press “Research keywords”.
+            </p>
+          )}
+          <TopTopics clusters={ws.clusters} />
+          {ws.clusters.length > 0 && (
+            <ClusterBoard
+              domain={ws.domain}
+              clusters={ws.clusters}
+              keywords={ws.keywords}
+              order={state.order}
+              showAll={state.allTopics}
+              allHref={viewHref(base, 'overview', { topics: 'all', ...(state.order !== 'priority' ? { sort: state.order } : {}) })}
+              business={ws.businessType}
+            />
+          )}
+        </>
+      )}
 
-      {fold('Questions people ask AI assistants', (
-      <Card title="Questions people ask AI assistants" eyebrow={ws.promptsAt ? `Written ${day(ws.promptsAt)}` : undefined}>
-        {ws.prompts.length === 0 ? (
-          <p className="text-sm text-ink-2">Press “Write AI prompts” for 30–50 questions customers ask ChatGPT, Gemini or Perplexity where you want to be the answer. They are saved for AI search tracking.</p>
-        ) : (
-          <div className="flex flex-col gap-5">
-            {[...byService].map(([service, list]) => (
-              <div key={service}>
-                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-3">{service}</h3>
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {list.map((p) => (
-                    <li key={p.id} className="text-[15px] text-ink">{p.text}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+      {view === 'all' && (
+        <>
+          <KeywordTable
+            key={`${ws.lastRunAt}|${ws.clusteredAt}|${ws.keywords.length}`}
+            domain={ws.domain}
+            business={ws.businessType ?? 'services'}
+            topics={ws.clusters.map((c) => ({ id: c.id, name: c.name }))}
+            initial={queryKeywords(ws, {})}
+          />
+          <section aria-labelledby="add-keywords" className="flex flex-col gap-3.5 rounded-card border border-border bg-surface p-[22px]">
+            <div>
+              <h2 id="add-keywords" className="font-display text-xl font-bold">Add keywords you know</h2>
+              <p className="mt-1 text-sm text-ink-2">Words your customers use on the phone or in emails. We add search data and put each one in a topic.</p>
+            </div>
+            <AddKeywordsForm domain={ws.domain} />
+          </section>
+        </>
+      )}
+
+      {view === 'questions' && <QuestionsView ws={ws} />}
+
+      {view === 'inputs' && (
+        <section aria-labelledby="inputs" className="flex flex-col gap-5 rounded-card border border-border bg-surface p-[22px]">
+          <div>
+            <p className={EYEBROW}>{ws.lastRunAt ? `Last research · ${day(ws.lastRunAt)}` : 'No research yet'}</p>
+            <h2 id="inputs" className="mt-1 font-display text-xl font-bold">{ws.businessType === 'shop' ? 'What you sell' : 'What you offer and where'}</h2>
+            <p className="mt-1 max-w-2xl text-sm text-ink-2">The research starts from these. Save, then press “Update keywords” on the Overview.</p>
           </div>
-        )}
-      </Card>
-      ))}
-
-      <Card title="Add keywords you know">
-        <AddKeywordsForm domain={ws.domain} />
-      </Card>
+          <SeedsForm domain={ws.domain} businessType={ws.businessType ?? 'services'} country={ws.country} language={ws.language} seeds={ws.seeds} />
+          {audience === 'team' && (
+            <p className="border-t border-border pt-4 text-[13px] text-ink-3">
+              {'Research: the site’s rankings, the keyword gap with up to 3 competitors (what they rank for and this site does not), local keyword ideas, Google suggestions and Search Console (when connected), then metrics for new keywords, then topics (one Google check for each of the top 60, ≈ $0.002, cached; it also collects "People also ask" questions and page-1 features). First run about $0.15–0.30; sources fetched in the last 7 days are reused, so re-runs cost little. Questions for AI: OpenAI, from the services and places only.'}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import {
   autoShortlist, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
-  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, normDomain, providerConfig, researchKeywords,
+  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
 import { prisma } from './client';
@@ -139,7 +139,7 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       if (env.openai && (!keywords.promptsAt || now.getTime() - Date.parse(keywords.promptsAt) > AUTOPILOT_EVERY_DAYS * 86_400_000)) {
         const p = await generatePrompts(createOpenAiClient(env.openai), keywords.seeds, domain, { businessType: keywords.businessType, country: keywords.country });
         tokens += p.tokens;
-        keywords = { ...keywords, prompts: p.prompts, promptsAt: now.toISOString() };
+        keywords = { ...keywords, prompts: mergePrompts(keywords.prompts, p.prompts), promptsAt: now.toISOString() };
         steps.push(`AI questions: ${p.prompts.length}`);
       }
 

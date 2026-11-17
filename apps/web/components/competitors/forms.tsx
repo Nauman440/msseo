@@ -17,15 +17,20 @@ export function Message({ state }: { state: CompetitorState }) {
   return null;
 }
 
-export function Submit({ label, busy, tone = 'primary' }: { label: string; busy: string; tone?: 'primary' | 'secondary' }) {
+const SUBMIT_TONE = {
+  primary: 'bg-primary font-bold text-primary-ink hover:bg-primary-hover',
+  secondary: 'border border-border-strong bg-surface font-semibold hover:border-ink-3',
+  /** Outlined, for navy surfaces. */
+  dark: 'border border-ink-3 bg-transparent font-semibold text-white hover:border-mist-3',
+};
+
+export function Submit({ label, busy, tone = 'primary' }: { label: string; busy: string; tone?: keyof typeof SUBMIT_TONE }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className={tone === 'primary'
-        ? 'inline-flex min-h-11 items-center rounded-button bg-primary px-5 text-sm font-bold text-primary-ink hover:bg-primary-hover disabled:opacity-60'
-        : 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3 disabled:opacity-60'}
+      className={`inline-flex min-h-11 items-center rounded-button px-5 text-sm disabled:opacity-60 ${SUBMIT_TONE[tone]}`}
     >
       {pending ? busy : label}
     </button>

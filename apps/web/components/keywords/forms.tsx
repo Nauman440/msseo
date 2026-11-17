@@ -6,7 +6,7 @@ import {
   addKeywordsAction, clusterKeywordsAction, generatePromptsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
   type KeywordState,
 } from '@/app/keywords/actions';
-import { INPUT, Message, SELECT_SM, Submit } from '@/components/competitors/forms';
+import { INPUT, Message, Submit } from '@/components/competitors/forms';
 import { TagInput } from '@/components/signup/TagInput';
 
 const KINDS: { value: BusinessType; label: string; hint: string }[] = [
@@ -96,23 +96,23 @@ export function KeywordRunButtons({ domain, hasKeywords, hasClusters, audience }
   const [sent, send] = useActionState<KeywordState>(sendClustersToCompetitorsAction.bind(null, domain), {});
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3">
-        <form action={runResearch}>
-          <Submit label={hasKeywords ? 'Update keywords' : 'Research keywords'} busy="Researching and grouping… (about a minute)" />
-        </form>
-        {hasKeywords && audience === 'team' && (
-          <form action={runCluster}>
-            <Submit label="Rebuild clusters" busy="Checking Google…" tone="secondary" />
+      <div className="flex flex-wrap gap-2.5">
+        {hasClusters && (
+          <form action={send}>
+            <Submit label="Use topics to find competitors" busy="Sending…" tone="secondary" />
           </form>
         )}
         <form action={runPrompts}>
-          <Submit label="Write AI prompts" busy="Writing…" tone="secondary" />
+          <Submit label="Write AI questions" busy="Writing…" tone="secondary" />
         </form>
-        {hasClusters && (
-          <form action={send}>
-            <Submit label="Use clusters as competitor searches" busy="Sending…" tone="secondary" />
+        {hasKeywords && audience === 'team' && (
+          <form action={runCluster}>
+            <Submit label="Rebuild topics" busy="Checking Google…" tone="secondary" />
           </form>
         )}
+        <form action={runResearch}>
+          <Submit label={hasKeywords ? 'Update keywords' : 'Research keywords'} busy="Researching and grouping… (about a minute)" />
+        </form>
       </div>
       {[research, cluster, prompts, sent].map((s, i) => (
         <Message key={i} state={s} />
@@ -135,7 +135,7 @@ export function AddKeywordsForm({ domain }: { domain: string }) {
         <input type="file" name="file" accept=".csv,.txt,text/csv,text/plain" className="text-sm file:mr-3 file:min-h-10 file:rounded-control file:border file:border-border-strong file:bg-surface file:px-3 file:font-semibold" />
       </label>
       <div className="flex flex-wrap items-center gap-3">
-        <Submit label="Add keywords" busy="Adding…" tone="secondary" />
+        <Submit label="Add keywords" busy="Adding…" />
         <Message state={state} />
       </div>
     </form>
@@ -149,9 +149,9 @@ export function ClusterScores({ domain, id, name, businessValue, rankingChance }
   const form = useRef<HTMLFormElement>(null);
   const [, action] = useActionState<KeywordState, FormData>(updateClusterAction.bind(null, domain, id), {});
   const select = (field: 'businessValue' | 'rankingChance', label: string, value: number) => (
-    <label className="flex items-center gap-1.5 text-[13px] text-ink-2">
+    <label className="flex min-w-[100px] flex-col gap-1 text-[12px] font-bold text-ink-2">
       {label}
-      <select name={field} defaultValue={value} aria-label={`${label} for ${name}`} onChange={() => form.current?.requestSubmit()} className={SELECT_SM}>
+      <select name={field} defaultValue={value} aria-label={`${label} for ${name}`} onChange={() => form.current?.requestSubmit()} className={`${INPUT} text-sm text-ink`}>
         {SCALE.map((n) => (
           <option key={n} value={n}>{n}</option>
         ))}
@@ -159,9 +159,9 @@ export function ClusterScores({ domain, id, name, businessValue, rankingChance }
     </label>
   );
   return (
-    <form ref={form} action={action} className="flex flex-wrap items-center gap-3">
-      {select('businessValue', 'Value', businessValue)}
-      {select('rankingChance', 'Chance', rankingChance)}
+    <form ref={form} action={action} className="flex flex-wrap gap-3">
+      {select('businessValue', 'Value to you', businessValue)}
+      {select('rankingChance', 'Chance to rank', rankingChance)}
     </form>
   );
 }

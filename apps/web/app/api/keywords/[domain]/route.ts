@@ -21,6 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ domain: 
     q: sp.get('q') ?? undefined,
     show: show && SHOWS.includes(show) ? show : 'kept',
     intent: sp.get('intent') || undefined,
+    topic: sp.get('topic') || undefined,
     from: from && FROMS.includes(from) ? from : undefined,
     sort: sort && SORTS.includes(sort) ? sort : 'volume',
     desc: sp.get('desc') !== '0',

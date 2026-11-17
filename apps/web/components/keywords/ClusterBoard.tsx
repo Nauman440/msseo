@@ -1,69 +1,86 @@
-import type { KeywordCluster, KeywordRecord } from '@seo/core';
+import Link from 'next/link';
+import type { BusinessType, KeywordCluster, KeywordRecord } from '@seo/core';
 import { cn } from '@/lib/tones';
 import { ClusterScores } from './forms';
+import { CHIP, INTENT_CHIP, intentLabel, MONTH, PAGE_TYPE, type TopicOrder } from './labels';
+import { TopicSort } from './TopicSort';
 
-/** 4.5–4.6 Cluster board: one card per topic, highest priority first. */
-const PAGE_TYPE: Record<KeywordCluster['pageType'], string> = {
-  home: 'Homepage',
-  service: 'Service page',
-  location: 'Location page',
-  service_location: 'Service + city page',
-  blog_post: 'Article or guide',
-  directory: 'Directory listings',
-  product: 'Product page',
-  category: 'Category page',
-};
-const INTENT: Record<string, string> = { transactional: 'Ready to buy', commercial: 'Comparing', informational: 'Learning', navigational: 'Looking for a site' };
-const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+/** 4.5–4.6 "All topics by priority" (design): one card per topic with editable value and chance. */
+export function sortTopics(clusters: KeywordCluster[], order: TopicOrder, now = new Date()): KeywordCluster[] {
+  const monthsAway = (c: KeywordCluster) => (c.seasonalPeak ? (c.seasonalPeak - 1 - now.getUTCMonth() + 12) % 12 : 99);
+  const by: Record<TopicOrder, (a: KeywordCluster, b: KeywordCluster) => number> = {
+    priority: (a, b) => b.priority - a.priority || b.volume - a.volume,
+    volume: (a, b) => b.volume - a.volume,
+    quick: (a, b) => Number(b.quickWin) - Number(a.quickWin) || b.priority - a.priority,
+    season: (a, b) => monthsAway(a) - monthsAway(b) || b.priority - a.priority,
+  };
+  return [...clusters].sort(by[order]);
+}
 
-export function ClusterBoard({ domain, clusters, keywords, limit = 24 }: { domain: string; clusters: KeywordCluster[]; keywords: KeywordRecord[]; limit?: number }) {
+export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHref, business = 'services', limit = 6 }: {
+  domain: string;
+  clusters: KeywordCluster[];
+  keywords: KeywordRecord[];
+  order: TopicOrder;
+  showAll: boolean;
+  allHref: string;
+  business?: BusinessType;
+  limit?: number;
+}) {
   const members = new Map<string, string[]>();
-  for (const k of keywords) if (k.clusterId && k.status === 'kept') members.set(k.clusterId, [...(members.get(k.clusterId) ?? []), k.term]);
-  const shown = clusters.slice(0, limit);
+  for (const k of [...keywords].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))) if (k.clusterId && k.status === 'kept') members.set(k.clusterId, [...(members.get(k.clusterId) ?? []), k.term]);
+  const sorted = sortTopics(clusters, order);
+  const shown = showAll ? sorted : sorted.slice(0, limit);
   return (
-    <div className="flex flex-col gap-3">
-      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <section aria-labelledby="all-topics" className="flex flex-col gap-3.5">
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-1.5">
+          <h2 id="all-topics" className="font-display text-[22px] font-bold sm:text-[26px]">All {clusters.length} {clusters.length === 1 ? 'topic' : 'topics'} by priority</h2>
+          <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">Priority = value to you × chance to rank, each from 1 to 5. Change either one and the order updates.</p>
+        </div>
+        <TopicSort value={order} />
+      </div>
+      <ul className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-3">
         {shown.map((c) => {
           const terms = members.get(c.id) ?? [];
+          const intent = intentLabel(c.intent, business);
           return (
-            <li key={c.id} className="flex min-w-0 flex-col gap-3 rounded-panel border border-border bg-surface p-5">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="min-w-0 break-words font-display text-[17px] font-bold leading-snug">{c.name}</h3>
-                <span className="shrink-0 rounded-pill bg-night px-2 py-0.5 text-[12px] font-bold text-mist tabular" title="Value × chance to rank">
-                  {c.priority}/25
-                </span>
+            <li key={c.id} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-[18px]">
+              <div className="flex items-start justify-between gap-2.5">
+                <h3 className="min-w-0 break-words text-base font-bold leading-snug">{c.name}</h3>
+                <span title="Priority score" className="shrink-0 rounded-[8px] bg-night px-[9px] py-1 font-display text-[13px] font-extrabold text-white tabular">{c.priority}/25</span>
               </div>
-              <div className="flex flex-wrap gap-1.5 text-[12px] font-semibold">
-                {c.quickWin && <span className="rounded-pill bg-pass-bg px-2 py-0.5 text-pass-text">Quick win · #{c.bestPosition}</span>}
-                {c.longTerm && <span className="rounded-pill bg-teal-chip px-2 py-0.5 text-teal-text">Long-term</span>}
-                {c.seasonalPeak && (
-                  <span className="rounded-pill bg-amber-bg px-2 py-0.5 text-amber-text">
-                    Peaks in {MONTH[c.seasonalPeak - 1]}
-                    {c.seasonalDeadline ? ` · live by ${day(c.seasonalDeadline)}` : ''}
-                  </span>
-                )}
-                <span className="rounded-pill bg-info-bg px-2 py-0.5 text-info-text">{PAGE_TYPE[c.pageType]}</span>
-                {c.intent && <span className="rounded-pill bg-primary-soft px-2 py-0.5 text-primary-text">{INTENT[c.intent]}</span>}
+              <div className="flex flex-wrap gap-1.5">
+                {c.quickWin && <span className={cn(CHIP, 'bg-primary-chip text-primary-heading')}>Quick win</span>}
+                {c.longTerm && <span className={cn(CHIP, 'bg-indigo-bg text-indigo-text')}>Long-term</span>}
+                {c.seasonalPeak && <span className={cn(CHIP, 'bg-amber-bg text-amber-text')}>Peaks in {MONTH[c.seasonalPeak - 1]}</span>}
+                <span className={cn(CHIP, 'bg-sunken text-ink-2')}>{PAGE_TYPE[c.pageType]}</span>
+                {intent && c.intent && <span className={cn(CHIP, INTENT_CHIP[c.intent])}>{intent}</span>}
               </div>
               <p className="text-[13px] text-ink-2 tabular">
-                {c.volume.toLocaleString('en-US')} searches / month · {c.size} keyword{c.size === 1 ? '' : 's'}
-                {c.bestPosition !== null && !c.quickWin ? ` · you rank #${c.bestPosition}` : ''}
+                {c.volume.toLocaleString('en-US')} searches a month · {c.size} keyword{c.size === 1 ? '' : 's'}
+                {c.bestPosition !== null && c.bestPosition <= 100 ? ` · you rank #${c.bestPosition}` : ''}
               </p>
               <ul className="flex flex-wrap gap-1.5">
-                {terms.slice(0, 8).map((t) => (
-                  <li key={t} className="rounded-pill border border-border px-2 py-0.5 text-[12px] text-ink-2">{t}</li>
+                {terms.slice(0, 3).map((t) => (
+                  <li key={t} className="rounded-[8px] border border-border bg-canvas px-2 py-1 text-[12.5px]">{t}</li>
                 ))}
-                {terms.length > 8 && <li className="px-1 text-[12px] text-ink-3">+{terms.length - 8} more</li>}
+                {terms.length > 3 && <li className="px-0.5 py-1 text-[12.5px] text-ink-2">+{terms.length - 3} more</li>}
               </ul>
-              <div className={cn('mt-auto border-t border-border pt-3')}>
+              <div className="mt-auto border-t border-border pt-3">
                 <ClusterScores domain={domain} id={c.id} name={c.name} businessValue={c.businessValue} rankingChance={c.rankingChance} />
               </div>
             </li>
           );
         })}
       </ul>
-      {clusters.length > limit && <p className="text-[13px] text-ink-3">Showing the top {limit} of {clusters.length} clusters. The CSV export has every keyword with its cluster.</p>}
-    </div>
+      {!showAll && clusters.length > limit && (
+        <div className="flex justify-center">
+          <Link href={allHref} scroll={false} className="inline-flex min-h-12 items-center rounded-control border border-border-strong bg-surface px-5 text-[15px] font-semibold hover:border-ink-3">
+            Show all {clusters.length} topics
+          </Link>
+        </div>
+      )}
+    </section>
   );
 }
