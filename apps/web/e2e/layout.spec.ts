@@ -20,7 +20,7 @@ const ROUTES = [
   { path: '/keywords/example.com?view=all', heading: 'example.com' },
   { path: '/keywords/example.com?view=questions', heading: 'example.com' },
   { path: '/keywords/example.com?view=inputs', heading: 'example.com' },
-  { path: '/mapping/example.com', heading: 'example.com' },
+  { path: '/keywords/example.com?view=mapping', heading: 'example.com' },
   { path: '/action-plan/example.com', heading: 'example.com' },
   { path: '/settings/account', heading: 'Your account' },
   { path: '/signup', heading: 'Choose your plan' },

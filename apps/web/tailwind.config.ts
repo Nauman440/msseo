@@ -51,7 +51,8 @@ const config: Config = {
         indigo: { bg: '#E0E7FF', text: '#3730A3' },
         pass: { bg: '#DCFCE7', text: '#15803D' },
         warn: { bg: '#FEF2F2', text: '#C81E1E' },
-        high: { bg: '#FEE2E2', text: '#B91C1C' },
+        // line + strong: "Two pages compete" cards (page mapping design).
+        high: { bg: '#FEE2E2', text: '#B91C1C', line: '#FCA5A5', strong: '#991B1B' },
         fail: { bg: '#FECACA', text: '#7F1D1D' },
         info: { bg: '#EFEAE0', text: '#4B5563' },
         chart: {

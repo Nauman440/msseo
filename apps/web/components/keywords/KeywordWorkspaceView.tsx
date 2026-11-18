@@ -1,4 +1,5 @@
 import { keywordStats, queryKeywords, type KeywordFrom, type KeywordWorkspace } from '@seo/core';
+import { MappingSection, type MappingParams } from '@/components/mapping/MappingSection';
 import { cn } from '@/lib/tones';
 import { ClusterBoard } from './ClusterBoard';
 import { AddKeywordsForm, KeywordRunButtons, SeedsForm } from './forms';
@@ -10,13 +11,13 @@ import { TopTopics } from './TopTopics';
 
 /**
  * Module 4 workspace in the keyword design (design-reference/Keywords tab *.zip): sub-tabs
- * Overview · All keywords · Questions for AI · Research inputs. The same for the team (any
+ * Overview · All keywords · Page mapping (Module 5) · Questions for AI · Research inputs. The same for the team (any
  * client) and for customers (their own sites).
  */
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null);
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export type KeywordPageState = { view: KeywordView; order: TopicOrder; allTopics: boolean; from?: KeywordFrom };
+export type KeywordPageState = { view: KeywordView; order: TopicOrder; allTopics: boolean; from?: KeywordFrom; mapping?: MappingParams };
 
 /** "142 keywords in 18 topics for 6 services in Dallas" */
 function summary(ws: KeywordWorkspace, kept: number) {
@@ -28,7 +29,14 @@ function summary(ws: KeywordWorkspace, kept: number) {
   return `${kept.toLocaleString('en-US')} keywords in ${ws.clusters.length} ${ws.clusters.length === 1 ? 'topic' : 'topics'} for ${what}${where}`;
 }
 
-export function KeywordWorkspaceView({ ws, audience, base, state }: { ws: KeywordWorkspace; audience: 'team' | 'customer'; base: string; state: KeywordPageState }) {
+export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }: {
+  ws: KeywordWorkspace;
+  audience: 'team' | 'customer';
+  base: string;
+  state: KeywordPageState;
+  /** Topics in the page mapping (Module 5), for the tab count. */
+  mappedTopics: number;
+}) {
   const stats = keywordStats(ws);
   const kept = ws.keywords.filter((k) => k.status === 'kept');
   const ready = kept.length > 0;
@@ -43,7 +51,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state }: { ws: Keywor
 
   return (
     <div className="flex flex-col gap-[22px]">
-      <KeywordTabs base={base} view={view} keywords={stats.kept} questions={ws.prompts.length} />
+      <KeywordTabs base={base} view={view} keywords={stats.kept} topics={mappedTopics} questions={ws.prompts.length} />
 
       {(view === 'overview' || view === 'all') && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-[18px]">
@@ -109,6 +117,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state }: { ws: Keywor
           </section>
         </>
       )}
+
+      {view === 'mapping' && <MappingSection domain={ws.domain} base={base} audience={audience} keywords={ws.keywords} params={state.mapping ?? {}} />}
 
       {view === 'questions' && <QuestionsView ws={ws} />}
 

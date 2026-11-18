@@ -38,6 +38,17 @@ export function ActionRow({ domain, action: a, audience }: { domain: string; act
         </div>
         <ActionStatusSelect domain={domain} action={a} />
       </div>
+      {a.changes && a.changes.length > 0 && (
+        <ul aria-label="Changes to approve" className="flex flex-col gap-2">
+          {a.changes.map((c) => (
+            <li key={c.id} className="relative grid grid-cols-1 gap-2 rounded-[12px] border border-border p-3 text-[13px] sm:grid-cols-[140px_1fr_1fr]">
+              <span className="font-bold">{c.label}</span>
+              <span className="whitespace-pre-line text-ink-2 [overflow-wrap:anywhere]"><span className="sr-only">Now: </span>{c.now}</span>
+              <span className="whitespace-pre-line font-semibold text-teal-text [overflow-wrap:anywhere]"><span className="sr-only">New: </span>→ {c.suggested}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {canApprove && <ApproveButton domain={domain} id={a.id} label={audience === 'team' && a.approval === 'client' ? 'Record client approval' : 'Approve'} />}
       <details className="group">
         <summary className="cursor-pointer text-[13px] font-semibold text-primary-text">Details</summary>

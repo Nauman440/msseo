@@ -148,8 +148,8 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       const latest = await latestPages(domain);
       if (latest?.report.pages?.length && keywords.clusters.length) {
         const plan = buildMapping({
-          domain, clusters: keywords.clusters, keywords: keywords.keywords, pages: latest.report.pages, gsc: gscRows, questions: keywords.questions,
-          previous: await getMappingWorkspace(domain).catch(() => null), brand: site.businessName, place: keywords.businessType === 'shop' ? null : keywords.seeds.locations[0] ?? null, auditId: latest.id, now,
+          domain, clusters: keywords.clusters, keywords: keywords.keywords, pages: latest.report.pages, sitemapUrls: latest.report.sitemap?.corrected?.urls, gsc: gscRows, questions: keywords.questions,
+          previous: await getMappingWorkspace(domain).catch(() => null), brand: site.businessName, place: keywords.businessType === 'shop' ? null : keywords.seeds.locations[0] ?? null, places: keywords.businessType === 'shop' ? [] : keywords.seeds.locations, auditId: latest.id, now,
         });
         await saveMappingWorkspace(plan);
         steps.push(`page plan: ${plan.rows.length} topics`);

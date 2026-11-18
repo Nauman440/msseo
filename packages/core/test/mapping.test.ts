@@ -49,15 +49,15 @@ describe('keyword to page mapping', () => {
     const by = Object.fromEntries(ws.rows.map((r) => [r.clusterId, r]));
     // Highest priority first.
     expect(ws.rows.map((r) => r.clusterId)).toEqual(['ac-repair-dallas', 'heat-pump-installation', 'furnace-repair', 'hvac-near-me']);
-    // Search Console clicks pick the page; a second page with ≥ 20% of the clicks is a conflict → merge.
+    // Search Console clicks pick the page; a second page with ≥ 20% of the clicks is a conflict that a person settles (no automatic merge).
     expect(by['ac-repair-dallas']).toMatchObject({
-      url: 'https://myhvac.com/services/ac-repair/', action: 'merge', currentPosition: 7, targetPosition: 3, reason: 'Gets 30 clicks from Google for these searches',
+      url: 'https://myhvac.com/services/ac-repair/', action: 'optimise', match: 'high', conflictSettled: false, currentPosition: 7, targetPosition: 3, reason: 'Gets 30 clicks from Google for these searches',
       conflicts: [{ url: 'https://myhvac.com/ac-repair-old/', share: 0.25 }], secondaryKeywords: ['dallas ac repair company'],
     });
     // Title match, but a thin page (< 300 words): expand.
     expect(by['furnace-repair']).toMatchObject({ url: 'https://myhvac.com/services/furnace/', action: 'expand', reason: 'Title, heading or address matches this topic', targetPosition: 10 });
     // Nothing targets it: new page needed, with its type and where to link from.
-    expect(by['heat-pump-installation']).toMatchObject({ url: null, action: 'create', newPageType: 'service', schemaNeeded: ['Service', 'BreadcrumbList'] });
+    expect(by['heat-pump-installation']).toMatchObject({ url: null, action: 'create', newPageType: 'service', schemaNeeded: ['Service', 'BreadcrumbList'], suggestedPath: '/services/heat-pump-installation/', newPageNote: 'Service page with click-to-call and a short quote form' });
     // Already in the top 3: leave it.
     expect(by['hvac-near-me']).toMatchObject({ url: 'https://myhvac.com/', action: 'leave', currentPosition: 2, schemaNeeded: [] });
     // Template drafts with the place, and links from relevant pages that do not link there yet.
@@ -117,7 +117,7 @@ describe('keyword to page mapping', () => {
   it('exports the plan as CSV', () => {
     const csv = mappingToCsv(build());
     const lines = csv.trim().split('\r\n');
-    expect(lines[0]).toContain('priority,topic,page,action');
+    expect(lines[0]).toContain('priority,topic,page,match,action');
     expect(lines).toHaveLength(5);
     expect(csv).toContain('NEW PAGE NEEDED');
   });

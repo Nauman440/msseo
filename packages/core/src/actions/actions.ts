@@ -60,9 +60,12 @@ export type ActionItem = {
   before: BeforeState | null;
   doneAt: string | null;
   checkpoints: Checkpoint[];
+  /** Exact page changes to make (from the one-page keyword map): what is there now and what replaces it. */
+  changes?: PageChange[];
   createdAt: string;
   updatedAt: string;
 };
+export type PageChange = { id: string; label: string; now: string; suggested: string };
 
 export type ActionWorkspace = { domain: string; actions: ActionItem[]; updatedAt: string | null };
 export const emptyActions = (domain: string): ActionWorkspace => ({ domain, actions: [], updatedAt: null });
@@ -73,7 +76,10 @@ const clamp = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
 const normUrl = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
 
 /** A suggestion that can become an action (12.1). */
-export type Suggestion = Omit<ActionItem, 'id' | 'owner' | 'dueDate' | 'approval' | 'approvedAt' | 'approvedBy' | 'status' | 'bucket' | 'bucketLocked' | 'before' | 'doneAt' | 'checkpoints' | 'createdAt' | 'updatedAt'>;
+export type Suggestion = Omit<ActionItem, 'id' | 'owner' | 'dueDate' | 'approval' | 'approvedAt' | 'approvedBy' | 'status' | 'bucket' | 'bucketLocked' | 'before' | 'doneAt' | 'checkpoints' | 'createdAt' | 'updatedAt'> & {
+  /** Overrides the default approval level (fixes sent from the page map always need the client). */
+  approval?: Approval;
+};
 
 export function fromIssue(i: ReportIssue): Suggestion {
   const ice: Ice = i.ice;
@@ -178,7 +184,7 @@ export function addActions(
       owner: null,
       dueDate: null,
       // Visible changes to the client's site need their yes: new pages and merges (redirects).
-      approval: p.source.kind === 'mapping' && /^(Create|Merge)/.test(p.title) ? 'client' : 'none',
+      approval: p.approval ?? (p.source.kind === 'mapping' && /^(Create|Merge)/.test(p.title) ? 'client' : 'none'),
       approvedAt: null,
       approvedBy: null,
       status: 'todo',
@@ -194,6 +200,44 @@ export function addActions(
     a.dueDate || a.status === 'done' || a.status === 'verified' ? a : { ...a, dueDate: new Date(Date.parse(a.createdAt) + BUCKET_DAYS[a.bucket] * 86_400_000).toISOString().slice(0, 10) },
   );
   return { ...ws, actions, updatedAt: iso };
+}
+
+/**
+ * "Send fixes to approvals" (one-page keyword map): one action per page plan topic holding the exact
+ * changes. Sending again replaces the changes and asks for approval again when they differ.
+ */
+export function upsertPageChanges(
+  ws: ActionWorkspace,
+  s: Suggestion,
+  changes: PageChange[],
+  ctx: { report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; newId: () => string; now?: Date },
+): ActionWorkspace {
+  const now = ctx.now ?? new Date();
+  const key = actionKey(s.source);
+  const existing = ws.actions.find((a) => actionKey(a.source) === key);
+  if (!existing) {
+    const next = addActions(ws, [{ ...s, approval: 'client' }], ctx);
+    return { ...next, actions: next.actions.map((a) => (actionKey(a.source) === key ? { ...a, changes } : a)) };
+  }
+  const same = JSON.stringify(existing.changes ?? []) === JSON.stringify(changes);
+  const reopened = existing.status === 'dismissed' || existing.status === 'done' || existing.status === 'verified';
+  return {
+    ...ws,
+    updatedAt: now.toISOString(),
+    actions: ws.actions.map((a) =>
+      a.id !== existing.id
+        ? a
+        : {
+            ...a,
+            changes,
+            detail: s.detail,
+            approval: 'client',
+            ...(same ? {} : { approvedAt: null, approvedBy: null }),
+            ...(reopened && !same ? { status: 'todo' as const, doneAt: null, checkpoints: [] } : {}),
+            updatedAt: now.toISOString(),
+          },
+    ),
+  };
 }
 
 /** 12.6 Checkpoints 7, 14 and 28 days after the fix. */

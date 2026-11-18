@@ -1,50 +1,13 @@
 'use client';
 
-import { useActionState, useRef } from 'react';
+import { useActionState, useState, type ReactNode } from 'react';
 import type { MappingRow } from '@seo/core';
-import { rebuildMappingAction, updateMappingRowAction, writeDraftsAction, type MappingState } from '@/app/mapping/actions';
-import { INPUT, Message, SELECT_SM, Submit } from '@/components/competitors/forms';
-import { ACTION_LABEL, STATUS_LABEL } from './labels';
+import { choosePageAction, rebuildMappingAction, sendAllFixesAction, settleConflictAction, writeDraftsAction, type MappingState } from '@/app/mapping/actions';
+import { INPUT, Message, Submit } from '@/components/competitors/forms';
+import { cn } from '@/lib/tones';
+import { CHIP, MONO } from './labels';
 
-/** Module 5 controls (client): rebuild, AI drafts, and per-row edits. */
-export function MappingRunButtons({ domain, hasRows, aiAvailable }: { domain: string; hasRows: boolean; aiAvailable: boolean }) {
-  const [built, rebuild] = useActionState<MappingState>(rebuildMappingAction.bind(null, domain), {});
-  const [drafted, draft] = useActionState<MappingState>(writeDraftsAction.bind(null, domain), {});
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3">
-        <form action={rebuild}>
-          <Submit label={hasRows ? 'Rebuild the plan' : 'Build the page plan'} busy="Mapping…" />
-        </form>
-        {hasRows && aiAvailable && (
-          <form action={draft}>
-            <Submit label="Write titles with AI" busy="Writing… (about 30 seconds)" tone="secondary" />
-          </form>
-        )}
-      </div>
-      <Message state={built} />
-      <Message state={drafted} />
-    </div>
-  );
-}
-
-
-/** Status, saved as soon as it changes (5.13). */
-export function StatusSelect({ domain, row }: { domain: string; row: MappingRow }) {
-  const form = useRef<HTMLFormElement>(null);
-  const [, action] = useActionState<MappingState, FormData>(updateMappingRowAction.bind(null, domain, row.clusterId), {});
-  return (
-    <form ref={form} action={action}>
-      <label className="sr-only" htmlFor={`status-${row.clusterId}`}>Status of {row.topic}</label>
-      <select id={`status-${row.clusterId}`} name="status" defaultValue={row.status} onChange={() => form.current?.requestSubmit()} className={SELECT_SM}>
-        {Object.entries(STATUS_LABEL).map(([v, l]) => (
-          <option key={v} value={v}>{l}</option>
-        ))}
-      </select>
-    </form>
-  );
-}
-
+/** Module 5 overview controls (client): rebuild, AI drafts, conflicts, choosing a page, sending fixes. */
 const path = (u: string) => {
   try {
     return new URL(u).pathname;
@@ -52,64 +15,139 @@ const path = (u: string) => {
     return u;
   }
 };
+export const BUTTON = 'inline-flex min-h-10 items-center rounded-button px-5 text-[15px]';
+export const BUTTON_SECONDARY = `${BUTTON} border border-border-strong bg-surface font-semibold hover:border-ink-3`;
+export const BUTTON_PRIMARY = `${BUTTON} bg-primary font-bold text-primary-ink hover:bg-primary-hover`;
 
-/** 5.2 page, 5.9 action, 5.12 owner and 5.8 drafts (approve per row). */
-export function RowEditor({ domain, row, pages, audience }: { domain: string; row: MappingRow; pages: string[]; audience: 'team' | 'customer' }) {
-  const [state, action] = useActionState<MappingState, FormData>(updateMappingRowAction.bind(null, domain, row.clusterId), {});
-  const options = [...new Set([...(row.url ? [row.url] : []), ...pages])];
-  const d = row.drafts;
+export function MappingRunButtons({ domain, hasRows, aiAvailable, csvHref }: { domain: string; hasRows: boolean; aiAvailable: boolean; csvHref: string | null }) {
+  const [built, rebuild] = useActionState<MappingState>(rebuildMappingAction.bind(null, domain), {});
+  const [drafted, draft] = useActionState<MappingState>(writeDraftsAction.bind(null, domain), {});
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Page for this topic
-          <select name="url" defaultValue={row.url ?? '__new'} className={INPUT}>
-            <option value="__new">New page needed</option>
-            {options.map((u) => (
-              <option key={u} value={u}>{path(u)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          What to do
-          <select name="action" defaultValue={row.action} className={INPUT}>
-            {Object.entries(ACTION_LABEL).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </label>
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap gap-2.5">
+        {hasRows && aiAvailable && (
+          <form action={draft}>
+            <Submit label="Write titles with AI" busy="Writing… (about 30 seconds)" tone="secondary" />
+          </form>
+        )}
+        {csvHref && (
+          <a href={csvHref} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
+            Download CSV
+          </a>
+        )}
+        <form action={rebuild}>
+          <Submit label={hasRows ? 'Match pages again' : 'Match pages to topics'} busy="Matching…" />
+        </form>
       </div>
-      <fieldset className="flex flex-col gap-3 rounded-[12px] border border-border p-4">
-        <legend className="px-1 text-sm font-semibold">
-          New title, heading and description {d?.source === 'ai' ? <span className="font-normal text-ink-3">(written by AI)</span> : <span className="font-normal text-ink-3">(template)</span>}
-        </legend>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Title <span className="text-[12px] font-normal text-ink-3">{d?.title.length ?? 0} characters (aim for 50–60)</span>
-          <input name="title" defaultValue={d?.title ?? ''} maxLength={120} className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Main heading (H1)
-          <input name="h1" defaultValue={d?.h1 ?? ''} maxLength={120} className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Meta description <span className="text-[12px] font-normal text-ink-3">{d?.meta.length ?? 0} characters (aim for 140–160)</span>
-          <textarea name="meta" defaultValue={d?.meta ?? ''} maxLength={320} rows={2} className={`${INPUT} py-2`} />
-        </label>
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold">
-          <input type="checkbox" name="approved" defaultChecked={d?.approved} className="size-4 accent-primary" />
-          Approved: ready to put live
-        </label>
-      </fieldset>
-      {audience === 'team' && (
-        <label className="flex flex-col gap-1.5 text-sm font-semibold sm:max-w-xs">
-          Owner
-          <input name="owner" defaultValue={row.owner ?? ''} placeholder="Who does this" maxLength={80} className={INPUT} />
-        </label>
-      )}
-      <div className="flex flex-wrap items-center gap-3">
-        <Submit label="Save" busy="Saving…" tone="secondary" />
-        <Message state={state} />
+      <Message state={built} />
+      <Message state={drafted} />
+    </div>
+  );
+}
+
+/** 5.4 "Which page should be the main one?" Radio per page, what happens to the other page, confirm. */
+export function ConflictForm({ domain, row, left, positions }: { domain: string; row: MappingRow; left: ReactNode; positions: Record<string, number | null> }) {
+  const [state, action] = useActionState<MappingState, FormData>(settleConflictAction.bind(null, domain, row.clusterId), {});
+  const options = [row.url!, ...row.conflicts.map((c) => c.url)];
+  const [main, setMain] = useState(row.url!);
+  const share = (u: string) => row.conflicts.find((c) => c.url === u)?.share;
+  return (
+    <form action={action} className="flex flex-col gap-3.5">
+      <div className="flex flex-wrap items-center gap-4">
+        {left}
+        <Arrow />
+        <fieldset className="flex min-w-[min(260px,100%)] flex-[1.2] flex-col gap-2">
+          <legend className="mb-2 text-[12.5px] font-bold">Which page should be the main one?</legend>
+          {options.map((u, i) => {
+            const on = main === u;
+            const pos = positions[u];
+            const s = share(u);
+            return (
+              <label key={u} className={cn('flex cursor-pointer items-start gap-2.5 rounded-control px-3 py-2.5', on ? 'border-2 border-primary bg-primary-wash' : 'border border-border bg-surface')}>
+                <input type="radio" name="main" value={u} checked={on} onChange={() => setMain(u)} className="mt-0.5 size-[18px] shrink-0 accent-primary" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className={MONO}>{path(u)}</span>
+                  <span className="text-[12px] text-ink-2">
+                    {i === 0 ? 'Recommended: stronger page' : 'Other page'}
+                    {pos !== undefined && pos !== null ? ` · ranks #${Math.round(pos)}` : ''}
+                    {s !== undefined && s > 0 ? ` · ${Math.round(s * 100)}% of the clicks` : ''}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+          <label className="mt-1 flex flex-col gap-1 text-[12.5px] font-bold">
+            The other page
+            <select name="plan" defaultValue="differentiate" className={`${INPUT} min-h-10 text-sm font-normal`}>
+              <option value="differentiate">Give it another keyword (best)</option>
+              <option value="merge">Merge and redirect it</option>
+            </select>
+          </label>
+        </fieldset>
+        <span className={`${CHIP} bg-high-bg text-high-strong`}>Two pages compete</span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border pt-3">
+        <p className="max-w-[520px] text-[13px] leading-snug text-ink-2">Google splits clicks between both pages. Merging or redirecting always needs your approval.</p>
+        <div className="flex flex-col items-end gap-1">
+          <Submit label="Confirm main page" busy="Saving…" />
+          <Message state={state} />
+        </div>
       </div>
     </form>
+  );
+}
+
+export function Arrow() {
+  return (
+    <svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true" className="hidden shrink-0 sm:block">
+      <path d="M2 10h22M18 4l6 6-6 6" fill="none" className="stroke-chart-neutral" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** "Use an existing page" / "Change page": a page picker that opens in place. */
+export function PageChooser({ domain, row, pages, label }: { domain: string; row: MappingRow; pages: string[]; label: string }) {
+  const [open, setOpen] = useState(false);
+  const [state, action] = useActionState<MappingState, FormData>(choosePageAction.bind(null, domain, row.clusterId), {});
+  const options = [...new Set([...(row.url ? [row.url] : []), ...pages])];
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY} aria-expanded={false}>
+        {label}
+      </button>
+    );
+  }
+  return (
+    <form action={action} className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+      <label className="flex min-w-0 flex-1 flex-col gap-1 text-[12.5px] font-bold sm:w-72 sm:flex-none">
+        Page for “{row.topic}”
+        <select name="url" defaultValue={row.url ?? '__new'} className={`${INPUT} min-h-10 text-sm font-normal`}>
+          <option value="__new">New page needed</option>
+          {options.map((u) => (
+            <option key={u} value={u}>{path(u)}</option>
+          ))}
+        </select>
+      </label>
+      <Submit label="Save" busy="Saving…" />
+      <button type="button" onClick={() => setOpen(false)} className="min-h-10 px-2 text-sm font-semibold text-ink-2 underline">Cancel</button>
+      <Message state={state} />
+    </form>
+  );
+}
+
+/** The navy bar at the bottom of the overview. */
+export function SendAllBar({ domain, conflicts, fixes }: { domain: string; conflicts: number; fixes: number }) {
+  const [state, action] = useActionState<MappingState>(sendAllFixesAction.bind(null, domain), {});
+  return (
+    <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3.5 rounded-card bg-night px-[18px] py-3.5">
+      <p className="text-[15px] text-white">
+        {conflicts > 0 && <strong>{conflicts} {conflicts === 1 ? 'conflict' : 'conflicts'} to settle · </strong>}
+        <span className="text-mist-3">{fixes} {fixes === 1 ? 'fix' : 'fixes'} drafted so far</span>
+      </p>
+      <form action={action} className="flex flex-col items-end gap-1">
+        <Submit label="Send fixes to approvals" busy="Sending… (checks each page)" />
+        {(state.ok || state.error) && <p role={state.error ? 'alert' : 'status'} className={cn('text-[13px] font-semibold', state.error ? 'text-primary-tint' : 'text-tick')}>{state.error ?? state.ok}</p>}
+      </form>
+    </div>
   );
 }

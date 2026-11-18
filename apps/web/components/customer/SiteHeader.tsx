@@ -3,7 +3,7 @@ import { cn } from '@/lib/tones';
 import { RunAuditButton } from './RunAuditButton';
 
 /** Site heading and section tabs for a customer's website (design: Dashboard redesign). */
-export type SiteTab = 'overview' | 'issues' | 'keywords' | 'pages' | 'actions' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
+export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
 
 const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4';
 
@@ -24,7 +24,6 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
     { key: 'overview', label: 'Overview', href: `/my?${q}` },
     { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}` : undefined },
     { key: 'keywords', label: 'Keywords', href: `/my/keywords?${q}` },
-    { key: 'pages', label: 'Page plan', href: `/my/pages?${q}` },
     { key: 'actions', label: 'Action plan', href: `/my/actions?${q}` },
     { key: 'plan', label: 'Weekly plan', href: `/my/plan?${q}`, locked: !connected },
     { key: 'rankings', label: 'Rankings', href: `/my/rankings?${q}`, locked: !connected },

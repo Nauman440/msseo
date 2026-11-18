@@ -5,17 +5,18 @@ import { TOPIC_ORDERS, type TopicOrder } from '@/components/keywords/labels';
 import { SiteHeader } from '@/components/customer/SiteHeader';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { getKeywordWorkspace } from '@/lib/keywords';
+import { getMapping } from '@/lib/mapping';
 
 export const metadata: Metadata = { title: 'Your keywords' };
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ site?: string; view?: string; sort?: string; topics?: string; from?: string }> };
+type Props = { searchParams: Promise<{ site?: string; view?: string; sort?: string; topics?: string; from?: string; topic?: string; show?: string; all?: string }> };
 
 /** Module 4 for customers: their own websites only (Keywords tab, design: Keywords tab *.zip). */
 export default async function CustomerKeywordsPage({ searchParams }: Props) {
-  const { site, view, sort, topics, from } = await searchParams;
+  const { site, view, sort, topics, from, topic, show, all } = await searchParams;
   const s = await loadCustomerSite(site);
-  const ws = await getKeywordWorkspace(s.domain);
+  const [ws, mapping] = await Promise.all([getKeywordWorkspace(s.domain), getMapping(s.domain)]);
   return (
     <>
       <SiteHeader domain={s.domain} tab="keywords" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
@@ -28,7 +29,9 @@ export default async function CustomerKeywordsPage({ searchParams }: Props) {
           order: TOPIC_ORDERS.some((o) => o.value === sort) ? (sort as TopicOrder) : 'priority',
           allTopics: topics === 'all',
           from: from === 'gap' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
+          mapping: { topic, show, all },
         }}
+        mappedTopics={mapping.rows.length}
       />
     </>
   );

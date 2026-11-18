@@ -315,12 +315,17 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/keywords/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
-  // Module 5 for customers: the page plan needs keyword topics first (none researched in e2e).
-  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Page plan' }).click();
-  await expect(page.getByRole('heading', { name: 'Your page plan', level: 2 })).toBeVisible();
+  // Module 5 for customers: Keywords → Page mapping needs keyword topics first (none researched in e2e).
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
+  await page.getByRole('navigation', { name: 'Keyword sections' }).getByRole('link', { name: /^Page mapping/ }).click();
+  await expect(page.getByRole('heading', { name: 'Which page should rank for each topic', level: 2 })).toBeVisible();
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Build the page plan' }).click();
+  await page.getByRole('button', { name: 'Match pages to topics' }).click();
   await expect(page.getByText('Research keywords first', { exact: false })).toBeVisible();
+  // The old page plan address leads to the new tab.
+  await page.goto('/my/pages');
+  await expect(page).toHaveURL(/\/my\/keywords\?view=mapping$/);
+  expect((await page.request.get('/api/mapping/rival-hvac.com/brief?topic=x')).status()).toBe(404);
   expect((await page.request.get('/api/mapping/rival-hvac.com/csv')).status()).toBe(404);
   await page.goto('/mapping/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);

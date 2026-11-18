@@ -1,0 +1,71 @@
+import { normUrl, type KeywordRecord } from '@seo/core';
+import { viewHref } from '@/components/keywords/KeywordTabs';
+import { customerAudits } from '@/lib/customer-data';
+import { fixCounts, getMapping, loadPageMap } from '@/lib/mapping';
+import { providerConfig } from '@/lib/providers-config';
+import { BriefView } from './BriefView';
+import { MAPPING_FILTERS, type MappingFilter } from './labels';
+import { MappingOverview } from './MappingOverview';
+import { PageMapView } from './PageMapView';
+
+/**
+ * The "Page mapping" sub-tab of Keywords (Module 5): the overview, or with `topic` the keyword map
+ * for one page (or the brief for a new page). Loads its own data; the same for team and customers.
+ */
+export type MappingParams = { topic?: string; show?: string; all?: string };
+
+export async function MappingSection({ domain, base, audience, keywords, params }: {
+  domain: string;
+  base: string;
+  audience: 'team' | 'customer';
+  keywords: KeywordRecord[];
+  params: MappingParams;
+}) {
+  const href = (extra: Record<string, string> = {}) => viewHref(base, 'mapping', extra);
+  const audits = await customerAudits(`https://${domain}/`);
+  const reportPages = audits.latest?.pages ?? [];
+
+  if (params.topic) {
+    const r = await loadPageMap(domain, params.topic);
+    if (r) {
+      const choices = [...reportPages.map((p) => p.url), ...(r.ws.sitemapOnly ?? [])];
+      if (!r.row.url && r.brief) {
+        return <BriefView domain={domain} row={r.row} brief={r.brief} pages={choices} backHref={href()} mdHref={`/api/mapping/${domain}/brief?topic=${encodeURIComponent(r.row.clusterId)}`} />;
+      }
+      return (
+        <PageMapView
+          domain={domain}
+          row={r.row}
+          map={r.map}
+          fixes={r.fixes}
+          check={r.check}
+          checkFailed={r.checkFailed}
+          gaps={r.gaps}
+          topics={r.ws.rows.map((x) => ({ id: x.clusterId, name: x.topic }))}
+          backHref={href()}
+          nextHref={r.next ? href({ topic: r.next }) : null}
+          audience={audience}
+          pageType={reportPages.find((p) => normUrl(p.url) === normUrl(r.row.url!))?.pageType ?? null}
+        />
+      );
+    }
+  }
+
+  const ws = await getMapping(domain);
+  const fixes = await fixCounts(ws);
+  const filter = MAPPING_FILTERS.includes(params.show as MappingFilter) ? (params.show as MappingFilter) : null;
+  return (
+    <MappingOverview
+      ws={ws}
+      keywords={keywords}
+      fixes={fixes}
+      pages={[...reportPages.map((p) => p.url), ...(ws.sitemapOnly ?? [])]}
+      reportPages={reportPages}
+      audience={audience}
+      aiAvailable={Boolean(providerConfig().env?.openai)}
+      href={href}
+      filter={filter}
+      showAll={params.all === '1'}
+    />
+  );
+}

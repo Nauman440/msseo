@@ -45,8 +45,8 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
             <Link href={`/keywords/${p.domain}`} className={TOOL}>
               Keywords
             </Link>
-            <Link href={`/mapping/${p.domain}`} className={TOOL}>
-              Page plan
+            <Link href={`/keywords/${p.domain}?view=mapping`} className={TOOL}>
+              Page mapping
             </Link>
             <Link href={`/action-plan/${p.domain}`} className={TOOL}>
               Actions

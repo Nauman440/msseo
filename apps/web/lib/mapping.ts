@@ -2,7 +2,10 @@ import 'server-only';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { buildMapping, emptyMapping, normDomain, pageKeywordMap, type MappingWorkspace } from '@seo/core';
+import {
+  buildMapping, emptyMapping, fetchPageCheck, gapCount, keywordMap, needsCheck, normDomain, normTerm, normUrl, pageBrief, pageFixes, pageKeywordMap, topicKeywords, updateMappingRow,
+  type MappingWorkspace,
+} from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { usingDatabase } from './audit-store';
 import { customerAudits } from './customer-data';
@@ -74,13 +77,98 @@ export async function rebuildMapping(rawDomain: string): Promise<{ ws: MappingWo
     clusters: keywords.clusters,
     keywords: keywords.keywords,
     pages,
+    sitemapUrls: audits.latest?.sitemap?.corrected?.urls,
     gsc,
     questions: keywords.questions,
     previous,
     brand,
     place: keywords.businessType === 'shop' ? null : keywords.seeds.locations[0] ?? null,
+    places: keywords.businessType === 'shop' ? [] : keywords.seeds.locations,
     auditId: latestId,
   });
   await saveMapping(ws);
   return { ws };
+}
+
+/** Brand, place and "People also ask" questions for drafts, fixes and briefs. */
+export async function mappingContext(domain: string) {
+  const keywords = await getKeywordWorkspace(domain);
+  return {
+    keywords,
+    brand: await brandFor(domain),
+    place: keywords.businessType === 'shop' ? null : keywords.seeds.locations[0] ?? null,
+    questions: keywords.questions ?? [],
+  };
+}
+
+/**
+ * Everything the one-page keyword map needs. The live page is fetched only when the stored check is
+ * missing, older than 7 days, or does not cover keywords moved or added since (free: our own fetch).
+ */
+export async function loadPageMap(rawDomain: string, clusterId: string, opts: { recheck?: boolean } = {}) {
+  const domain = normDomain(rawDomain);
+  const [ws0, ctx, audits] = await Promise.all([getMapping(domain), mappingContext(domain), customerAudits(`https://${domain}/`)]);
+  let ws = ws0;
+  const row0 = ws.rows.find((r) => r.clusterId === clusterId);
+  if (!row0) return null;
+  const kws = topicKeywords(row0.clusterId, row0.primaryKeyword, ctx.keywords.keywords, ws);
+  const terms = kws.map((k) => k.term);
+  let checkFailed = false;
+  if (row0.url && (opts.recheck || needsCheck(row0, terms))) {
+    const check = await fetchPageCheck(row0.url, terms);
+    if (check) {
+      ws = updateMappingRow(ws, clusterId, { pageCheck: check });
+      await saveMapping(ws);
+    } else checkFailed = true;
+  }
+  const row = ws.rows.find((r) => r.clusterId === clusterId)!;
+  const fallback = row.url ? audits.latest?.pages?.find((p) => normUrl(p.url) === normUrl(row.url!)) ?? null : null;
+  const check = row.pageCheck && row.pageCheck.url === row.url ? row.pageCheck : null;
+  const map = keywordMap(row, kws, check, fallback);
+  const fixes = pageFixes(row, map, check, { brand: ctx.brand, place: ctx.place, questions: ctx.questions, fallback });
+  let brief = null;
+  if (!row.url) {
+    const { getAnalysis } = await import('./analysis');
+    const gap = (await getAnalysis(domain).catch(() => null))?.contentGap.find((g) => normTerm(g.topic) === normTerm(row.topic));
+    brief = pageBrief(row, kws, { brand: ctx.brand, place: ctx.place, questions: ctx.questions, rivalWords: gap?.rivals.map((r) => r.words) });
+  }
+  // The next topic with a page, for "Next page".
+  const withPage = ws.rows.filter((r) => r.url);
+  const at = withPage.findIndex((r) => r.clusterId === clusterId);
+  const next = withPage.length > 1 ? withPage[(at + 1) % withPage.length] ?? null : null;
+  return { ws, row, kws, map, fixes, brief, check, checkFailed, gaps: gapCount(map), next: next && next.clusterId !== clusterId ? next.clusterId : null, pages: audits.latest?.pages ?? [] };
+}
+
+/** Fix counts for the overview cards, without fetching pages (stored checks, else the audit's title and H1). */
+export async function fixCounts(ws: MappingWorkspace): Promise<Record<string, number>> {
+  if (!ws.rows.length) return {};
+  const [ctx, audits] = await Promise.all([mappingContext(ws.domain), customerAudits(`https://${ws.domain}/`)]);
+  const byUrl = new Map((audits.latest?.pages ?? []).map((p) => [normUrl(p.url), p]));
+  const out: Record<string, number> = {};
+  for (const row of ws.rows) {
+    if (!row.url) continue;
+    const kws = topicKeywords(row.clusterId, row.primaryKeyword, ctx.keywords.keywords, ws);
+    const check = row.pageCheck && row.pageCheck.url === row.url ? row.pageCheck : null;
+    const fallback = byUrl.get(normUrl(row.url)) ?? null;
+    out[row.clusterId] = pageFixes(row, keywordMap(row, kws, check, fallback), check, { brand: ctx.brand, place: ctx.place, questions: ctx.questions, fallback }).length;
+  }
+  return out;
+}
+
+/** Checks the live pages of several topics, 6 at a time, and saves once (bulk "Send fixes to approvals"). */
+export async function refreshChecks(rawDomain: string, clusterIds: string[]): Promise<void> {
+  const domain = normDomain(rawDomain);
+  const [ws, ctx] = await Promise.all([getMapping(domain), mappingContext(domain)]);
+  const due = ws.rows
+    .filter((r) => clusterIds.includes(r.clusterId) && r.url)
+    .map((r) => ({ r, terms: topicKeywords(r.clusterId, r.primaryKeyword, ctx.keywords.keywords, ws).map((k) => k.term) }))
+    .filter((x) => needsCheck(x.r, x.terms));
+  if (!due.length) return;
+  const checks = new Map<string, Awaited<ReturnType<typeof fetchPageCheck>>>();
+  for (let i = 0; i < due.length; i += 6) {
+    await Promise.all(due.slice(i, i + 6).map(async (x) => checks.set(x.r.clusterId, await fetchPageCheck(x.r.url!, x.terms))));
+  }
+  let next = await getMapping(domain);
+  for (const [id, check] of checks) if (check) next = updateMappingRow(next, id, { pageCheck: check });
+  await saveMapping(next);
 }
