@@ -3,23 +3,27 @@ import Link from 'next/link';
 import { disconnectGoogleAction } from '../connect/actions';
 import { ConnectGoogleCard } from '@/components/customer/ConnectGoogle';
 import { SiteHeader } from '@/components/customer/SiteHeader';
+import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard';
+import { connectionsReady, getConnection, shopifyApp, viewOf } from '@/lib/connections';
 import { loadCustomerSite } from '@/lib/customer-site';
 
 export const metadata: Metadata = { title: 'Connections' };
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ site?: string; error?: string; disconnected?: string }> };
+type Props = { searchParams: Promise<{ site?: string; error?: string; disconnected?: string; connected?: string }> };
 const shown = (p: string) => (p.startsWith('sc-domain:') ? `${p.slice('sc-domain:'.length)} (domain)` : p);
 
-/** Connections tab: the customer's own Google account (Search Console + Analytics 4). */
+/** Connections tab: the customer's own Google account (Search Console + Analytics 4) and their website (WordPress or Shopify, spec §16.5). */
 export default async function ConnectionsPage({ searchParams }: Props) {
-  const { site, error, disconnected } = await searchParams;
+  const { site, error, disconnected, connected } = await searchParams;
   const s = await loadCustomerSite(site);
+  const conn = await getConnection(s.domain);
   const g = s.google;
   return (
     <>
       <SiteHeader domain={s.domain} tab="connections" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
       {error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{error}</p>}
+      {connected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm font-semibold text-pass-text">{connected === 'shopify' ? 'Your Shopify store' : 'Your WordPress site'} is connected.</p>}
       {disconnected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm text-ink-2">Google is disconnected. Your past reports are kept.</p>}
 
       {s.connected && g.site ? (
@@ -50,13 +54,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
         <ConnectGoogleCard domain={s.domain} google={g} />
       )}
 
-      <section aria-labelledby="website" className="flex flex-col gap-2 rounded-[18px] border border-border bg-surface p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="website" className="font-display text-xl font-bold">Your website (WordPress, Shopify)</h2>
-          <span className="rounded-full bg-sunken px-2.5 py-1 text-xs font-bold text-ink-2">Coming soon</span>
-        </div>
-        <p className="text-sm text-ink-2">Soon you will be able to approve fixes and have them applied to your website for you.</p>
-      </section>
+      <SiteConnectionCard domain={s.domain} connection={viewOf(conn)} back={`/my/connections?site=${encodeURIComponent(s.domain)}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="customer" />
     </>
   );
 }

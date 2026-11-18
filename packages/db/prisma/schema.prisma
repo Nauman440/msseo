@@ -270,3 +270,12 @@ model CompetitorAnalysis {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Site connection (spec §16.5): the client's WordPress or Shopify site, keyed by its domain.
+/// Credentials inside `data.secret` are AES-256-GCM encrypted (see @seo/core SiteConnection).
+model SiteConnection {
+  domain    String   @id
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

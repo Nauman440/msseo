@@ -1,3 +1,4 @@
+import type { ApplyRecord } from '../connections/types';
 import type { MappingRow, MappingWorkspace } from '../mapping/mapping';
 import type { Ice, ReportIssue, ReportModel, Severity } from '../types';
 
@@ -62,10 +63,13 @@ export type ActionItem = {
   checkpoints: Checkpoint[];
   /** Exact page changes to make (from the one-page keyword map): what is there now and what replaces it. */
   changes?: PageChange[];
+  /** Applied to the connected WordPress or Shopify site (spec §16.5), with undo information. */
+  applied?: ApplyRecord | null;
   createdAt: string;
   updatedAt: string;
 };
-export type PageChange = { id: string; label: string; now: string; suggested: string };
+/** `data`: structured values for applying (a new page’s address, title, meta and HTML skeleton). */
+export type PageChange = { id: string; label: string; now: string; suggested: string; data?: Record<string, string> };
 
 export type ActionWorkspace = { domain: string; actions: ActionItem[]; updatedAt: string | null };
 export const emptyActions = (domain: string): ActionWorkspace => ({ domain, actions: [], updatedAt: null });

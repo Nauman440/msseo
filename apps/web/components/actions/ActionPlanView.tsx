@@ -1,12 +1,21 @@
 import { actionKey, actionSummary, needsApproval, openActions, type ActionWorkspace, type Suggestion } from '@seo/core';
 import { Card } from '@/components/ui/Card';
+import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
 import { ActionRow } from './ActionRow';
 import { AddActions, ApproveButton } from './forms';
 import { Roadmap } from './Roadmap';
 
 /** Module 12 page body, shared by the team (/action-plan/<domain>) and customers (/my/actions). */
-export function ActionPlanView({ ws, open: suggested, audience, hasAudit }: { ws: ActionWorkspace; open: Suggestion[]; audience: 'team' | 'customer'; hasAudit: boolean }) {
+export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site = null, connectHref }: {
+  ws: ActionWorkspace;
+  open: Suggestion[];
+  audience: 'team' | 'customer';
+  hasAudit: boolean;
+  /** Spec §16.5: the connected WordPress or Shopify site, and where to connect one. */
+  site?: ConnectionView | null;
+  connectHref?: string;
+}) {
   const domain = ws.domain;
   const sum = actionSummary(ws);
   const top = openActions(ws).slice(0, 10);
@@ -84,7 +93,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit }: { ws
         <h2 id="all-actions" className="font-display text-xl font-bold">All actions</h2>
         <ul className="divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-surface">
           {shown.map((a) => (
-            <ActionRow key={a.id} domain={domain} action={a} audience={audience} />
+            <ActionRow key={a.id} domain={domain} action={a} audience={audience} site={site} connectHref={connectHref} />
           ))}
         </ul>
         {dismissed.length > 0 && (
@@ -92,7 +101,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit }: { ws
             <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">Dismissed ({dismissed.length})</summary>
             <ul className="divide-y divide-border">
               {dismissed.map((a) => (
-                <ActionRow key={a.id} domain={domain} action={a} audience={audience} />
+                <ActionRow key={a.id} domain={domain} action={a} audience={audience} site={site} connectHref={connectHref} />
               ))}
             </ul>
           </details>

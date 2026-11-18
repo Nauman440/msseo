@@ -220,6 +220,18 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com&error=/);
   await expect(page.getByRole('alert').filter({ hasText: 'Connecting Google is not available yet' })).toBeVisible();
 
+  // Spec §16.5: the website connection (WordPress / Shopify). Shopify has no app in e2e; WordPress
+  // refuses another site's address, and http servers (WordPress only returns approvals to https).
+  await expect(page.getByRole('heading', { name: 'Your website', level: 2 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect Shopify' })).toBeDisabled();
+  await page.goto('/api/connections/wordpress/start?domain=summitairhvac.com&site=https://other-site.com');
+  await expect(page.getByRole('alert').filter({ hasText: 'Connect the WordPress site at summitairhvac.com, not other-site.com' })).toBeVisible();
+  await page.getByRole('button', { name: 'Connect WordPress' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'WordPress only sends approvals back to https addresses' })).toBeVisible();
+  const plugin = await page.request.get('/downloads/msscore-connector.zip');
+  expect(plugin.status()).toBe(200);
+  expect((await plugin.body()).subarray(0, 2).toString()).toBe('PK');
+
   // Growth covers up to 3 websites: add one (an address that cannot exist, so its audit stops at DNS), switch, remove.
   await page.goto('/my/sites');
   await page.waitForLoadState('networkidle');

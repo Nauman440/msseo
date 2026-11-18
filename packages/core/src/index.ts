@@ -38,3 +38,6 @@ export * from './actions/actions';
 export * from './analysis/analysis';
 export { analysisDeps, sitemapCount } from './analysis/deps';
 export { ANALYSIS_LLM_MODEL, COUNTRY_ISO, createAnalysisClient, type AnalysisClient, type BusinessInfo, type ChatAnswer, type GridEntry } from './providers/dataforseo-analysis';
+export * from './connections/types';
+export * from './connections/apply';
+export * from './providers/wordpress';

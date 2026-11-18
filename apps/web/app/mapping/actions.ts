@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import {
-  addTopicKeyword, createOpenAiClient, draftableRows, fromMappingRow, moveKeyword, normDomain, updateMappingRow, upsertPageChanges, writeDrafts,
+  addTopicKeyword, briefHtml, createOpenAiClient, draftableRows, fromMappingRow, moveKeyword, normDomain, updateMappingRow, upsertPageChanges, writeDrafts,
   type ConflictPlan, type MappingAction, type MappingStatus,
 } from '@seo/core';
 import { getActions, planContext, saveActions } from '@/lib/actions';
@@ -199,7 +199,13 @@ async function sendPage(domain: string, clusterId: string, pick: Set<string> | n
   const changes = r.row.url
     ? r.fixes.filter((f) => !pick || pick.has(f.id)).map((f) => ({ id: f.id, label: f.label, now: f.now, suggested: f.suggested }))
     : r.brief
-      ? [{ id: 'brief', label: 'New page', now: 'No page yet', suggested: `${r.brief.pageType} at ${r.brief.path}: ${r.brief.title}` }]
+      ? [{
+          id: 'brief',
+          label: 'New page',
+          now: 'No page yet',
+          suggested: `${r.brief.pageType} at ${r.brief.path}: ${r.brief.title}`,
+          data: { path: r.brief.path, title: r.brief.title, h1: r.brief.h1, meta: r.brief.meta, html: briefHtml(r.brief) },
+        }]
       : [];
   if (!changes.length) return 0;
   const [plan, ctx] = await Promise.all([getActions(domain), planContext(domain, true)]);

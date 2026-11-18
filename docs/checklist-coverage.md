@@ -153,4 +153,4 @@ Pieces that already exist and will be reused:
 - **11 Tracking:** Search Console + GA4 connection for customers, key events count, click-to-call and form checks (2.7.6).
 - **13 Reporting:** weekly re-audit, PDF and .md reports, score trend and "changes since last audit", customer dashboard.
 
-**Next (agreed 2026-11-18):** WordPress and Shopify connection (spec §16.5), then Modules 8 + 9.
+**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5): approved fixes from Modules 5 and 12 can be applied to the site and undone. **Next:** Modules 8 + 9.

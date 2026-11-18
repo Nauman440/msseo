@@ -3,6 +3,7 @@ import { suggestions } from '@seo/core';
 import { ActionPlanView } from '@/components/actions/ActionPlanView';
 import { SiteHeader } from '@/components/customer/SiteHeader';
 import { getActions, planContext } from '@/lib/actions';
+import { getConnection, viewOf } from '@/lib/connections';
 import { loadCustomerSite } from '@/lib/customer-site';
 
 export const metadata: Metadata = { title: 'Action plan' };
@@ -14,7 +15,7 @@ type Props = { searchParams: Promise<{ site?: string }> };
 export default async function CustomerActionsPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
-  const [ws, ctx] = await Promise.all([getActions(s.domain), planContext(s.domain)]);
+  const [ws, ctx, conn] = await Promise.all([getActions(s.domain), planContext(s.domain), getConnection(s.domain)]);
   return (
     <>
       <SiteHeader domain={s.domain} tab="actions" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
@@ -29,7 +30,7 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
           </a>
         )}
       </div>
-      <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="customer" hasAudit={Boolean(ctx.report)} />
+      <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="customer" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} />
     </>
   );
 }

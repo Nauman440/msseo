@@ -1,4 +1,6 @@
-import type { ActionItem } from '@seo/core';
+import { canApply, type ActionItem } from '@seo/core';
+import { ApplyButton, UndoButton } from '@/components/connections/forms';
+import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
 import { ActionEditor, ActionStatusSelect, ApproveButton } from './forms';
 import { ACTION_STATUS_LABEL, ACTION_STATUS_TONE, APPROVAL_LABEL, BUCKET_LABEL, VERDICT_LABEL, VERDICT_TONE } from './labels';
@@ -16,7 +18,7 @@ const Chip = ({ tone, children }: { tone: keyof typeof TONE_SOFT; children: Reac
 );
 
 /** One action: summary line, then details (12.4 fields, 12.5 before-state, 12.6 checks). */
-export function ActionRow({ domain, action: a, audience }: { domain: string; action: ActionItem; audience: 'team' | 'customer' }) {
+export function ActionRow({ domain, action: a, audience, site = null, connectHref }: { domain: string; action: ActionItem; audience: 'team' | 'customer'; site?: ConnectionView | null; connectHref?: string }) {
   const waiting = a.approval !== 'none' && !a.approvedAt;
   const canApprove = waiting && (audience === 'team' || a.approval === 'client');
   const b = a.before;
@@ -49,6 +51,7 @@ export function ActionRow({ domain, action: a, audience }: { domain: string; act
           ))}
         </ul>
       )}
+      <SiteApply domain={domain} a={a} site={site} connectHref={connectHref} waiting={waiting} />
       {canApprove && <ApproveButton domain={domain} id={a.id} label={audience === 'team' && a.approval === 'client' ? 'Record client approval' : 'Approve'} />}
       <details className="group">
         <summary className="cursor-pointer text-[13px] font-semibold text-primary-text">Details</summary>
@@ -96,5 +99,42 @@ export function ActionRow({ domain, action: a, audience }: { domain: string; act
         </div>
       </details>
     </li>
+  );
+}
+
+const RESULT_TONE: Record<string, keyof typeof TONE_SOFT> = { applied: 'pass', manual: 'info', failed: 'fail', undone: 'info' };
+const RESULT_LABEL: Record<string, string> = { applied: 'Applied', manual: 'By hand', failed: 'Failed', undone: 'Undone' };
+
+/** Spec §16.5: apply the approved changes to the connected site, see what happened, undo. */
+function SiteApply({ domain, a, site, connectHref, waiting }: { domain: string; a: ActionItem; site: ConnectionView | null; connectHref?: string; waiting: boolean }) {
+  const auto = (a.changes ?? []).filter(canApply).length;
+  if (!a.changes?.length) return null;
+  const live = a.applied && !a.applied.undoneAt;
+  // WordPress needs our plugin for titles, descriptions and redirects.
+  const needsPlugin = site?.platform === 'wordpress' && !site.plugin;
+  return (
+    <div className="flex flex-col gap-2">
+      {a.applied && (
+        <ul aria-label="Applied to the website" className="flex flex-col gap-1.5">
+          {a.applied.results.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-start gap-2 text-[13px]">
+              <Chip tone={RESULT_TONE[r.status] ?? 'info'}>{RESULT_LABEL[r.status] ?? r.status}</Chip>
+              <span className="font-semibold">{r.label}</span>
+              <span className="min-w-0 flex-1 text-ink-2 [overflow-wrap:anywhere]">{r.note}</span>
+            </li>
+          ))}
+          <li className="text-[12px] text-ink-3">{a.applied.undoneAt ? `Undone on ${date(a.applied.undoneAt)}` : `Applied on ${date(a.applied.at)} by ${a.applied.by}`}</li>
+        </ul>
+      )}
+      {live && a.applied!.results.some((r) => r.status === 'applied') && <UndoButton domain={domain} id={a.id} />}
+      {!live && auto > 0 && site && needsPlugin && <p className="text-[13px] text-ink-2">Install the MS SCORE Connector plugin on the website to apply these changes (see Website connection).</p>}
+      {!live && auto > 0 && site && site.status === 'ok' && !needsPlugin && !waiting && <ApplyButton domain={domain} id={a.id} count={auto} />}
+      {!live && auto > 0 && site && site.status === 'ok' && !needsPlugin && waiting && <p className="text-[13px] text-ink-2">Approve first, then it can be applied to the website.</p>}
+      {!live && auto > 0 && !site && connectHref && (
+        <p className="text-[13px] text-ink-2">
+          <a href={connectHref} className="font-semibold text-primary-text underline">Connect the website</a> to apply {auto === 1 ? 'this change' : `these ${auto} changes`} for you.
+        </p>
+      )}
+    </div>
   );
 }
