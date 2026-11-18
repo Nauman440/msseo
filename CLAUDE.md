@@ -827,6 +827,8 @@ KVM 2 comfortably runs both environments for an internal team (2 concurrent audi
 
 ## 16. Modules 3–13 (roadmap and design)
 
+Point-by-point status against the original SEO Coverage Checklist (`docs/seo-coverage-checklist.pdf`) is kept in `docs/checklist-coverage.md`; update it whenever a module or gap is finished.
+
 Modules 1–2 are **audits** (run → report). Most later modules are **working tools** that build up data on a project over time (competitors, keywords, mappings, actions, tracking). So the app has two kinds of things:
 
 - **Audit runs** (`Audit` + pipeline steps + rules + report): Modules 1, 2, 6, 7, 8, 9, 10, 11.
