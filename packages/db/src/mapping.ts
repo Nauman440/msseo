@@ -1,4 +1,5 @@
-import { pageKeywordMap, type MappingWorkspace as Mapping } from '@seo/core';
+import { pageKeywordMap, pageRivalMap, type MappingWorkspace as Mapping } from '@seo/core';
+import { getKeywordWorkspace } from './keywords';
 import { prisma, type Prisma } from './client';
 
 /** Module 5 workspaces in Postgres (one JSON document per website). */
@@ -24,4 +25,11 @@ const hostOf = (url: string) => {
 export async function pageKeywordsFor(url: string): Promise<Record<string, string>> {
   const ws = await getMappingWorkspace(hostOf(url)).catch(() => null);
   return pageKeywordMap(ws);
+}
+
+/** Rule 2.4.1: the pages that rank for each mapped page's keyword (cached results from keyword research). */
+export async function pageRivalsFor(url: string): Promise<Record<string, string[]>> {
+  const domain = hostOf(url);
+  const [ws, kw] = await Promise.all([getMappingWorkspace(domain).catch(() => null), getKeywordWorkspace(domain).catch(() => null)]);
+  return pageRivalMap(ws, kw?.keywords ?? []);
 }

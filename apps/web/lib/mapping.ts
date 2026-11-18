@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  buildMapping, emptyMapping, fetchPageCheck, gapCount, keywordMap, needsCheck, normDomain, normTerm, normUrl, pageBrief, pageFixes, pageKeywordMap, topicKeywords, updateMappingRow,
+  buildMapping, emptyMapping, fetchPageCheck, pageRivalMap, gapCount, keywordMap, needsCheck, normDomain, normTerm, normUrl, pageBrief, pageFixes, pageKeywordMap, topicKeywords, updateMappingRow,
   type MappingWorkspace,
 } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
@@ -88,6 +88,13 @@ export async function rebuildMapping(rawDomain: string): Promise<{ ws: MappingWo
   });
   await saveMapping(ws);
   return { ws };
+}
+
+/** Rule 2.4.1 (in-process audits): the pages that rank for each mapped page's keyword. */
+export async function pageRivalsFromStore(url: string): Promise<Record<string, string[]>> {
+  const domain = domainOf(url);
+  const [ws, kw] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain)]);
+  return pageRivalMap(ws, kw.keywords);
 }
 
 /** Brand, place and "People also ask" questions for drafts, fixes and briefs. */

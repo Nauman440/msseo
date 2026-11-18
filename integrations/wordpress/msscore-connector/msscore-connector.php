@@ -192,8 +192,10 @@ function msscore_register_routes() {
 				),
 			),
 			'callback'            => function ( WP_REST_Request $req ) {
-				$url     = $req->get_param( 'url' );
-				$post_id = url_to_postid( $url );
+				$url = $req->get_param( 'url' );
+				// Match by path on this site's own address (www or not, http or https).
+				$path    = (string) wp_parse_url( $url, PHP_URL_PATH );
+				$post_id = url_to_postid( home_url( '' === $path ? '/' : $path ) );
 				if ( ! $post_id && '/' === msscore_norm_path( $url ) ) {
 					$post_id = (int) get_option( 'page_on_front' );
 				}

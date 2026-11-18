@@ -3,6 +3,7 @@ import { AiAnswers, Recommendations } from './AiAndAdvice';
 import { ComparisonTable, RankingGrid } from './ComparisonTable';
 import { ContentGap, KeywordGap } from './GapSections';
 import { RunAnalysis } from './RunAnalysis';
+import { TopPages, Wins } from './TopPagesAndWins';
 
 /**
  * Module 6 · Deep competitor analysis, the "Analysis" sub-tab of Competitors (team and customers).
@@ -39,7 +40,7 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
           </p>
           <p className="text-[13px] text-ink-2">
             Traffic and keywords, Google and map positions, Business Profiles, speed and pages, and what ChatGPT recommends.{' '}
-            {audience === 'customer' ? 'You can run it once a month.' : 'About $0.45–0.55 per run.'}
+            {audience === 'customer' ? 'You can run it once a month.' : 'About $0.60–0.80 per run.'}
           </p>
         </div>
         {targets.length ? (
@@ -62,7 +63,7 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
           <section aria-labelledby="compare-title" className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-6">
             <div>
               <h2 id="compare-title" className="font-display text-xl font-bold">Side by side</h2>
-              <p className="mt-1 text-sm text-ink-2">Visits and keywords are estimates. The best value in each row is in green. Links from other websites come later, with backlinks.</p>
+              <p className="mt-1 text-sm text-ink-2">Visits and keywords are estimates; speed values are lab tests of each homepage on a phone. The best value in each row is in green. Links from other websites come later, with backlinks.</p>
             </div>
             <ComparisonTable a={a} />
           </section>
@@ -76,6 +77,8 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
             </section>
           )}
           <KeywordGap a={a} csvHref={csv('keywords')} />
+          <Wins a={a} />
+          <TopPages a={a} />
           <ContentGap a={a} csvHref={csv('content')} />
           <AiAnswers a={a} />
         </>

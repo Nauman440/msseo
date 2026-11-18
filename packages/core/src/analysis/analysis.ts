@@ -6,6 +6,9 @@ import type { MappingWorkspace } from '../mapping/mapping';
 import type { AnalysisClient, BusinessInfo, GridEntry } from '../providers/dataforseo-analysis';
 import { COUNTRY_ISO } from '../providers/dataforseo-analysis';
 import type { RankOverview } from '../providers/dataforseo-competitors';
+import type { RankedKeyword } from '../providers/dataforseo-keywords';
+import { cdnOf } from '../audit/rules-site';
+import { answerFormat, missingTopics, pageDetails, topPagesFrom, type PageDetails, type TopPage } from './extras';
 import type { OpenAiClient } from '../providers/openai';
 
 /**
@@ -16,7 +19,8 @@ import type { OpenAiClient } from '../providers/openai';
  * positions · 6.6 the tracked AI questions asked in ChatGPT: who is mentioned and which sites are
  * cited · 6.7 keyword gap, content gap, comparison table and five recommendations.
  */
-export type PageStat = { url: string; words: number; headings: number; faq: boolean; lists: number; schema: string[] };
+/** Older analyses (before 2026-11-18) only have url, words, headings, faq, lists and schema. */
+export type PageStat = { url: string; words: number; headings: number; faq: boolean; lists: number; schema: string[] } & Partial<PageDetails>;
 export type SiteRow = {
   domain: string;
   role: 'you' | 'direct' | 'aspirational';
@@ -38,11 +42,27 @@ export type SiteRow = {
   profile: BusinessInfo | null;
   aiMentions: number;
   aiCited: number;
+  /**
+   * Added 2026-11-18 (missing on older analyses): 6.1.1 12-month visits trend, 6.1.2 top-10 count,
+   * 6.1.3 top pages, 6.3.1 lab vitals, 6.3.2 CDN and server, 6.3.3/6.3.4 sitemap folders, 6.3.5 mobile.
+   */
+  trend?: number[] | null;
+  top10?: number | null;
+  topPages?: TopPage[];
+  lcpMs?: number | null;
+  cls?: number | null;
+  tbtMs?: number | null;
+  cdn?: string | null;
+  server?: string | null;
+  folders?: { folder: string; count: number }[];
+  mobileReady?: boolean | null;
 };
+/** 6.1.5 Searches the client ranks for and a direct competitor does not. */
+export type WinRow = { keyword: string; volume: number | null; position: number | null; over: string[] };
 export type GridRow = { search: string; cells: Record<string, { organic: number | null; map: number | null }> };
 export type GapRow = { keyword: string; volume: number | null; difficulty: number | null; intent: string | null; competitors: string[] };
-export type ContentGapRow = { topic: string; volume: number; yourPosition: number | null; you: PageStat | null; rivals: (PageStat & { domain: string })[] };
-export type AiRow = { prompt: string; mentioned: string[]; cited: string[]; error?: string };
+export type ContentGapRow = { topic: string; volume: number; yourPosition: number | null; you: PageStat | null; rivals: (PageStat & { domain: string })[]; missing?: string[] };
+export type AiRow = { prompt: string; mentioned: string[]; cited: string[]; format?: string; error?: string };
 export type Recommendation = { title: string; why: string; steps: string[] };
 export type CompetitorAnalysis = {
   domain: string;
@@ -53,25 +73,35 @@ export type CompetitorAnalysis = {
   searches: string[];
   grid: GridRow[];
   keywordGap: GapRow[];
+  /** 6.1.5 (missing on older analyses). */
+  wins?: WinRow[];
   contentGap: ContentGapRow[];
-  ai: { rows: AiRow[]; sources: { domain: string; count: number }[] } | null;
+  ai: { rows: AiRow[]; sources: { domain: string; count: number }[]; formats?: { format: string; count: number }[] } | null;
   recommendations: Recommendation[];
   recommendationsBy: 'ai' | 'rules';
   /** Steps that could not run, in plain words. */
   notes: string[];
 };
 
-export const ANALYSIS_LIMITS = { competitors: 6, searches: 5, questions: 10, topics: 6, gap: 50 } as const;
+export const ANALYSIS_LIMITS = { competitors: 6, searches: 5, questions: 10, topics: 6, gap: 50, wins: 30, winRivals: 3 } as const;
 /** Rough cost of one run (USD), used to stop before a spending cap is passed. */
-export const ANALYSIS_ESTIMATE_USD = 0.6;
+export const ANALYSIS_ESTIMATE_USD = 0.8;
 
+export type SpeedSummary = { score: number | null; lcpMs: number | null; cls: number | null; tbtMs: number | null };
 export type AnalysisDeps = {
   dfs: Pick<AnalysisClient, 'serp' | 'businessInfo' | 'chatGpt'>;
   rank: (domain: string) => Promise<{ overview: RankOverview; cost: number }>;
   pages: (urls: string[]) => Promise<PageContent[]>;
-  /** PageSpeed mobile performance score (0–100) of a homepage; missing without a key. */
-  speed?: (url: string) => Promise<number | null>;
-  sitemapCount: (domain: string) => Promise<number | null>;
+  /** PageSpeed mobile: performance score (0–100) and lab vitals of a homepage; missing without a key. */
+  speed?: (url: string) => Promise<SpeedSummary | null>;
+  /** Pages in the sitemap and its biggest folders. */
+  sitemap: (domain: string) => Promise<{ count: number; folders: { folder: string; count: number }[] } | null>;
+  /** Homepage response headers (CDN, server). */
+  headers?: (url: string) => Promise<Record<string, string> | null>;
+  /** 6.1.3 Ranked keywords of a domain (grouped into its top pages). */
+  ranked?: (domain: string) => Promise<{ keywords: RankedKeyword[]; cost: number }>;
+  /** 6.1.5 Keywords `own` ranks for and `rival` does not. */
+  wins?: (own: string, rival: string) => Promise<{ keywords: RankedKeyword[]; cost: number }>;
   ai?: OpenAiClient | null;
 };
 
@@ -101,7 +131,15 @@ function platformOf(p: PageContent | undefined): string | null {
   const builder = Object.keys(BUILDERS).find((x) => p.hints.includes(x));
   return base ? `${PLATFORM_NAME[base]}${builder ? ` + ${BUILDERS[builder]}` : ''}` : builder ? BUILDERS[builder]! : null;
 }
-const stat = (p: PageContent): PageStat => ({ url: p.url, words: p.words, headings: p.headings.filter((h) => h.level === 2 || h.level === 3).length, faq: p.faqMarkup || p.schemaTypes.includes('FAQPage'), lists: p.lists + p.tables, schema: p.schemaTypes.slice(0, 8) });
+const stat = (p: PageContent, now: Date): PageStat => ({
+  url: p.url,
+  words: p.words,
+  headings: p.headings.filter((h) => h.level === 2 || h.level === 3).length,
+  faq: p.faqMarkup || p.schemaTypes.includes('FAQPage'),
+  lists: p.lists + p.tables,
+  schema: p.schemaTypes.slice(0, 8),
+  ...pageDetails(p, now),
+});
 
 async function pool<T>(items: T[], limit: number, fn: (t: T, i: number) => Promise<void>) {
   const queue = items.map((t, i) => [t, i] as const);
@@ -137,13 +175,16 @@ export async function runCompetitorAnalysis(
 
   // 6.1 traffic and keywords · 6.3 homepage, speed, sitemap · 6.1/6.5 grid · 6.6 ChatGPT, all at once.
   const rank = new Map<string, RankOverview>();
-  const speed = new Map<string, number | null>();
-  const sitemap = new Map<string, number | null>();
+  const speed = new Map<string, SpeedSummary | null>();
+  const sitemap = new Map<string, { count: number; folders: { folder: string; count: number }[] } | null>();
+  const headers = new Map<string, Record<string, string> | null>();
+  const topPages = new Map<string, TopPage[]>();
+  const winsBy = new Map<string, RankedKeyword[]>();
   const grid: GridRow[] = searches.map((s) => ({ search: s, cells: {} }));
   const cids = new Map<string, string>();
   const mapRatings = new Map<string, { rating: number | null; reviews: number | null }>();
   const aiRows: AiRow[] = [];
-  const failed = { rank: 0, serp: 0, ai: 0 };
+  const failed = { rank: 0, serp: 0, ai: 0, pages: 0, wins: 0 };
 
   const [homes] = await Promise.all([
     deps.pages(domains.map((d) => `https://${d}/`)).catch(() => [] as PageContent[]),
@@ -158,7 +199,27 @@ export async function runCompetitorAnalysis(
     }),
     pool(domains, 4, async (d) => {
       speed.set(d, deps.speed ? await deps.speed(`https://${d}/`).catch(() => null) : null);
-      sitemap.set(d, await deps.sitemapCount(d).catch(() => null));
+      sitemap.set(d, await deps.sitemap(d).catch(() => null));
+      headers.set(d, deps.headers ? await deps.headers(`https://${d}/`).catch(() => null) : null);
+    }),
+    // 6.1.3 the competitors' strongest pages · 6.1.5 what the client ranks for and the direct competitors do not.
+    pool(deps.ranked ? targets.map((t) => t.domain) : [], 3, async (d) => {
+      try {
+        const r = await deps.ranked!(d);
+        cost += r.cost;
+        topPages.set(d, topPagesFrom(r.keywords));
+      } catch {
+        failed.pages++;
+      }
+    }),
+    pool(deps.wins ? targets.slice(0, ANALYSIS_LIMITS.winRivals).map((t) => t.domain) : [], 3, async (d) => {
+      try {
+        const r = await deps.wins!(domain, d);
+        cost += r.cost;
+        winsBy.set(d, r.keywords);
+      } catch {
+        failed.wins++;
+      }
     }),
     pool(searches, 5, async (s, i) => {
       try {
@@ -187,6 +248,7 @@ export async function runCompetitorAnalysis(
         const citedHosts = r.answer.citations.map((c) => hostOf(c.url)).filter(Boolean);
         aiRows.push({
           prompt: q,
+          format: answerFormat(r.answer.text),
           mentioned: domains.filter((d) => mentionTerms(d, names.get(d) ?? null).some((t) => text.includes(t))),
           cited: [...new Set(citedHosts)],
         });
@@ -199,6 +261,8 @@ export async function runCompetitorAnalysis(
   if (failed.rank) notes.push(`Traffic estimates could not be read for ${failed.rank} ${failed.rank === 1 ? 'site' : 'sites'}.`);
   if (failed.serp) notes.push(`${failed.serp} of ${searches.length} searches could not be checked.`);
   if (failed.ai) notes.push(`${failed.ai} of ${questions.length} ChatGPT questions did not get an answer.`);
+  if (failed.pages) notes.push(`Top pages could not be read for ${failed.pages} ${failed.pages === 1 ? 'competitor' : 'competitors'}.`);
+  if (failed.wins) notes.push(`Searches where you beat them could not be read for ${failed.wins} ${failed.wins === 1 ? 'competitor' : 'competitors'}.`);
   if (!questions.length) notes.push('No AI questions are ticked (Keywords → Questions for AI), so ChatGPT was not asked.');
 
   // 6.5 Business Profiles of the businesses seen in the map pack.
@@ -239,11 +303,12 @@ export async function runCompetitorAnalysis(
       topic: w.topic,
       volume: w.volume,
       yourPosition: w.yourPosition,
-      you: you ? stat(you) : null,
+      you: you ? stat(you, now) : null,
       rivals: w.rivalUrls.flatMap((u) => {
         const p = pageFor(u);
-        return p ? [{ ...stat(p), domain: owner(hostOf(u))! }] : [];
+        return p ? [{ ...stat(p, now), domain: owner(hostOf(u))! }] : [];
       }),
+      missing: missingTopics(you ?? null, w.rivalUrls.flatMap((u) => pageFor(u) ?? [])),
     };
   });
   if (!kw.clusters.length) notes.push('Research keywords first: the content comparison uses your keyword topics.');
@@ -273,9 +338,19 @@ export async function runCompetitorAnalysis(
       etv: rank.get(d)?.etv ?? (d === domain ? ws.own?.etv ?? null : t?.etv ?? null),
       keywords: rank.get(d)?.keywords ?? (d === domain ? ws.own?.keywords ?? null : t?.keywords ?? null),
       top3: rank.get(d)?.top3 ?? null,
-      speed: speed.get(d) ?? null,
+      speed: speed.get(d)?.score ?? null,
       platform: platformOf(home),
-      sitemapUrls: sitemap.get(d) ?? null,
+      sitemapUrls: sitemap.get(d)?.count ?? null,
+      trend: d === domain ? null : t?.trend?.map((p) => p.etv) ?? null,
+      top10: rank.get(d)?.top10 ?? null,
+      topPages: topPages.get(d) ?? [],
+      lcpMs: speed.get(d)?.lcpMs ?? null,
+      cls: speed.get(d)?.cls ?? null,
+      tbtMs: speed.get(d)?.tbtMs ?? null,
+      cdn: headers.get(d) ? cdnOf(headers.get(d)!) ?? null : null,
+      server: headers.get(d)?.server ?? null,
+      folders: sitemap.get(d)?.folders ?? [],
+      mobileReady: home ? home.viewport && !home.zoomBlocked : null,
       schema: home?.schemaTypes.slice(0, 8) ?? [],
       homeWords: home?.words ?? null,
       organicIn: cells.filter((c) => c.organic !== null).length,
@@ -299,8 +374,9 @@ export async function runCompetitorAnalysis(
     searches,
     grid,
     keywordGap,
+    wins: winRows(winsBy),
     contentGap,
-    ai: questions.length ? { rows: aiRows.sort((a, b) => questions.indexOf(a.prompt) - questions.indexOf(b.prompt)), sources: [...sources].map(([d, count]) => ({ domain: d, count })).sort((a, b) => b.count - a.count).slice(0, 12) } : null,
+    ai: questions.length ? { rows: aiRows.sort((a, b) => questions.indexOf(a.prompt) - questions.indexOf(b.prompt)), sources: [...sources].map(([d, count]) => ({ domain: d, count })).sort((a, b) => b.count - a.count).slice(0, 12), formats: formatCounts(aiRows) } : null,
     recommendations: [],
     recommendationsBy: 'rules',
     notes,
@@ -315,6 +391,26 @@ export async function runCompetitorAnalysis(
     }
   }
   return { ...result, recommendations: rules };
+}
+
+/** 6.1.5 Searches the client ranks for and a direct competitor does not, most searched first. */
+function winRows(by: Map<string, RankedKeyword[]>): WinRow[] {
+  const rows = new Map<string, WinRow>();
+  for (const [rival, list] of by) {
+    for (const k of list) {
+      const r = rows.get(k.term) ?? { keyword: k.term, volume: k.volume, position: k.position, over: [] };
+      r.over.push(rival);
+      rows.set(k.term, r);
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.over.length - a.over.length || (b.volume ?? 0) - (a.volume ?? 0)).slice(0, ANALYSIS_LIMITS.wins);
+}
+
+/** 6.6.3 How ChatGPT shaped its answers (lists, steps, tables, prose). */
+function formatCounts(rows: AiRow[]): { format: string; count: number }[] {
+  const c = new Map<string, number>();
+  for (const r of rows) if (r.format) c.set(r.format, (c.get(r.format) ?? 0) + 1);
+  return [...c].map(([format, count]) => ({ format, count })).sort((a, b) => b.count - a.count);
 }
 
 const median = (xs: number[]) => {

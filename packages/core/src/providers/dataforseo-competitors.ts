@@ -60,7 +60,7 @@ const envelope = (items: z.ZodTypeAny) =>
 
 export type CompetitorDomain = { domain: string; avgPosition: number | null; intersections: number | null; etv: number | null; keywords: number | null };
 export type SerpEntry = { kind: 'organic' | 'local'; domain: string; title: string | null; position: number | null; /** Map listing stars and review count (local pack only). */ rating?: number | null; reviews?: number | null };
-export type RankOverview = { etv: number | null; keywords: number | null; top3: number | null };
+export type RankOverview = { etv: number | null; keywords: number | null; top3: number | null; top10?: number | null };
 export type MonthPoint = { month: string; etv: number };
 
 export function createCompetitorClient(cfg: DfsConfig) {
@@ -102,7 +102,7 @@ export function createCompetitorClient(cfg: DfsConfig) {
     async rankOverview(target: string, l: Locale): Promise<{ overview: RankOverview; cost: number }> {
       const { items, cost } = await live('/v3/dataforseo_labs/google/domain_rank_overview/live', rankItem, { target, ...where(l) });
       const o = items[0]?.metrics?.organic;
-      return { cost, overview: { etv: o?.etv ?? null, keywords: o?.count ?? null, top3: o ? (o.pos_1 ?? 0) + (o.pos_2_3 ?? 0) : null } };
+      return { cost, overview: { etv: o?.etv ?? null, keywords: o?.count ?? null, top3: o ? (o.pos_1 ?? 0) + (o.pos_2_3 ?? 0) : null, top10: o ? (o.pos_1 ?? 0) + (o.pos_2_3 ?? 0) + (o.pos_4_10 ?? 0) : null } };
     },
 
     /** Last 12 months of estimated organic traffic (oldest first). */

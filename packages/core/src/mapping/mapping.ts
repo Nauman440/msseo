@@ -494,6 +494,28 @@ export function pageKeywordMap(ws: MappingWorkspace | null | undefined): Record<
   return out;
 }
 
+/**
+ * Rule 2.4.1: for each mapped page, the pages Google ranks for its primary keyword (from the cached
+ * top-10 results of keyword research), without the site itself. Up to 5 pages × 3 results.
+ */
+export function pageRivalMap(ws: MappingWorkspace | null | undefined, keywords: { term: string; serpUrls: string[] | null }[]): Record<string, string[]> {
+  const serp = new Map(keywords.map((k) => [normTerm(k.term), k.serpUrls ?? []]));
+  const own = (u: string) => {
+    try {
+      return new URL(u).hostname.replace(/^www\./, '') === ws?.domain;
+    } catch {
+      return true;
+    }
+  };
+  const out: Record<string, string[]> = {};
+  for (const r of [...(ws?.rows ?? [])].sort((a, b) => b.priority - a.priority)) {
+    if (!r.url || out[normUrl(r.url)] || Object.keys(out).length >= 5) continue;
+    const rivals = (serp.get(normTerm(r.primaryKeyword)) ?? []).filter((u) => !own(u)).slice(0, 3);
+    if (rivals.length) out[normUrl(r.url)] = rivals;
+  }
+  return out;
+}
+
 const STATUS_ORDER: Record<MappingStatus, number> = { todo: 0, in_progress: 1, live: 2, verified: 3 };
 export const mappingSummary = (ws: MappingWorkspace) => ({
   rows: ws.rows.length,

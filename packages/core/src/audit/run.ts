@@ -41,6 +41,8 @@ export type AuditEnv = {
   gsc?: { accessToken: () => Promise<string> };
   /** Module 5: primary keyword per page (normalised URL → keyword) for rules 2.1.4, 2.2.4, 2.3.2, 2.4.3. */
   pageKeywords?: Record<string, string>;
+  /** Rule 2.4.1: the ranking pages to compare each mapped page with (normalised URL → result URLs). */
+  pageRivals?: Record<string, string[]>;
   /** Admin setting lighthouse.maxTemplates: page types measured with PageSpeed (1–6). */
   maxTemplates?: number;
   /** AI-judged checks (step 7): admin limits and an optional cache. Needs `openai`. */
@@ -173,6 +175,9 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
   let aiP: Promise<AiFindings | undefined> = Promise.resolve(undefined);
   let parityP: Promise<ParityResult[]> = Promise.resolve([]);
 
+  // Rule 2.4.1: the pages that rank for each mapped page's keyword, fetched alongside everything else (our own fetch, free).
+  const rivalsP = rivalWordCounts(env.pageRivals, env.log);
+
   if (mode === 'quick') {
     // Our own HTML read of the same pages runs alongside the live DataForSEO checks.
     const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
@@ -264,6 +269,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     parity,
     notices: [...(crawl.notices ?? []), ...gscNotices, ...aiNotices],
     pageKeywords: env.pageKeywords,
+    rivalWords: await rivalsP,
   };
   const report = buildReport(data, { auditId, audience: input.audience, brand: env.brand });
   onProgress({ step: 'report', state: 'done', progress: 100 });
@@ -290,6 +296,19 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
 }
 
 /** Templates from indexable 200 pages (noindex pages are left out, spec §7). */
+async function rivalWordCounts(rivals: Record<string, string[]> | undefined, log: AuditEnv['log']): Promise<Record<string, number[]> | undefined> {
+  if (!rivals || !Object.keys(rivals).length) return undefined;
+  const urls = [...new Set(Object.values(rivals).flat())].slice(0, 15);
+  const pages = await fetchPageContents(urls, log).catch(() => [] as PageContent[]);
+  const words = new Map(pages.filter((p) => p.status > 0 && p.status < 400 && p.words > 50).map((p) => [p.url, p.words]));
+  const out: Record<string, number[]> = {};
+  for (const [page, list] of Object.entries(rivals)) {
+    const w = list.flatMap((u) => (words.has(u) ? [words.get(u)!] : []));
+    if (w.length) out[page] = w;
+  }
+  return out;
+}
+
 function templatesOf(content: PageContent[], inlinks: Map<string, number>): Template[] {
   const pages = content.filter((c) => c.status === 200 && !/noindex|none/.test(c.robots ?? ''));
   return buildTemplates(pages.map((c) => ({ url: c.url, content: c })), inlinks);

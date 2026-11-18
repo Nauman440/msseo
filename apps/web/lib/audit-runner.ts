@@ -23,11 +23,13 @@ async function runSettings(record: AuditRecord) {
   const cache = db ? db.dbAiCache : memoryAiCache;
   const access = db ? await db.auditGscAccess(record) : {};
   if (access.property && !record.input.gscProperty) record.input = { ...record.input, gscProperty: access.property };
-  const { pageKeywordsFromStore } = await import('./mapping');
+  const { pageKeywordsFromStore, pageRivalsFromStore } = await import('./mapping');
   const pageKeywords = await pageKeywordsFromStore(record.input.url).catch(() => ({}));
+  const pageRivals = await pageRivalsFromStore(record.input.url).catch(() => ({}));
   return {
     gsc: access.gsc,
     pageKeywords,
+    pageRivals,
     maxTemplates: s['lighthouse.maxTemplates'],
     aiChecks: s['ai.checks'] ? { maxPages: s['ai.maxPages'], maxTokens: s['ai.maxTokens'], cache } : undefined,
   };

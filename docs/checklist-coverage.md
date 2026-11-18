@@ -2,7 +2,7 @@
 
 Compares every subpoint of the **SEO Coverage Checklist** (`docs/seo-coverage-checklist.pdf`) with what MS SCORE does today. Update this file whenever a module or gap is finished.
 
-Last checked: **18 Nov 2026** against the code on `dev` (commit 3035a0a).
+Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap work; see the decisions row of that date in CLAUDE.md).
 
 **Status:** **Done** = automated in the tool · **Partial** = part of the point is covered (what is missing is named) · **Not yet** = not built · **Later** = planned in a later module.
 
@@ -10,21 +10,21 @@ Last checked: **18 Nov 2026** against the code on `dev` (commit 3035a0a).
 
 | # | Module | Status | Points done |
 | --- | --- | --- | --- |
-| 1 | Site audit: technical SEO | Done | 69 of 71 points (1.5.7 partial until backlinks, 1.13.3 partial); monitoring in "Automate" is Module 13 |
-| 2 | Site audit: on-page SEO | Done | 49 of 50 points (2.4.1 partial); alt-text drafts not yet |
+| 1 | Site audit: technical SEO | Done | 70 of 71 points (1.5.7 partial until backlinks); monitoring in "Automate" is Module 13 |
+| 2 | Site audit: on-page SEO | Done | 50 of 50 points; alt-text drafts (Automate line) not yet |
 | 3 | Competitor identification | Done, 1 partial | 8 of 9 (referring domains wait for Module 8) |
 | 4 | Keyword research | Done, 2 partial | 36 of 38 |
 | 5 | Keyword to page mapping | Done | 13 of 13 |
-| 6 | Deep competitor analysis | Partial | 10 done, 12 partial, 9 not yet, 7 wait for backlinks (of 38) |
+| 6 | Deep competitor analysis | Done except later modules | 24 done, 7 partial (4 of them wait for Module 9), 7 wait for backlinks (of 38) |
 | 7 | Content audit and gap analysis | Not yet | — |
 | 8 | Backlink audit | Not yet | — |
 | 9 | Local SEO audit | Not yet (pieces exist) | — |
 | 10 | AEO / AI search audit | Not yet (pieces exist) | — |
 | 11 | Tracking and conversion audit | Not yet (pieces exist) | — |
-| 12 | Prioritisation and action plan | Done, 1 partial | 6 of 7 |
+| 12 | Prioritisation and action plan | Done | 7 of 7 |
 | 13 | Reporting and monitoring setup | Not yet (pieces exist) | — |
 
-**Biggest gaps in finished modules:** Module 6 (page-by-page comparison details, top pages, "where the client beats them", technical and local extras) and the backlink points that wait for Module 8.
+**What is left in finished modules:** only points that need a later module (backlinks → Module 8; reviews growth, listing consistency and the map grid → Module 9; weekly AI tracking → Module 10), plus six partial points named below (1.5.7, 4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.5.1).
 
 ---
 
@@ -39,7 +39,7 @@ Every subpoint 1.1.1–1.13.3 is an automatic rule in the audit (`packages/core/
 | 1.5.7 Old URLs with backlinks now 404 | Partial | 404s that still get internal links; the backlink half waits for Module 8 |
 | 1.9.5 Popups and interstitials | Done (AI) | AI check of the PageSpeed mobile screenshot; manual item when AI is off |
 | 1.13.1, 1.13.2 International | Done | Only on sites with hreflang |
-| 1.13.3 RTL and translation quality | Partial | x-default and html lang vs hreflang are checked; translation quality is not |
+| 1.13.3 RTL and translation quality | Done | x-default, html lang vs hreflang, text not in the labelled language (detected from common words and scripts: en, es, fr, de, it, pt, nl, Arabic, Hebrew, Cyrillic, Chinese, Japanese), and `dir="rtl"` on right-to-left pages; the quality of a translation itself is not judged |
 
 **Automate line:** weekly re-audit (customers) and "changes since the last audit" are **Done**; new-error alerts by email, daily uptime, SSL, robots.txt and noindex monitoring are **Later** (Module 13); "ticket creation" is the action plan (Module 12).
 
@@ -49,7 +49,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 
 | Point | Status | Note |
 | --- | --- | --- |
-| 2.4.1 Depth vs top-ranking pages | Partial | Compared with the site's own page-type median; vs the top results is in Module 6 (content gap) |
+| 2.4.1 Depth vs top-ranking pages | Done | Mapped pages are compared with the pages Google ranks for their keyword (Module 5 + cached results from keyword research, up to 5 pages × 3 results, own fetch); other pages with their page-type median |
 | 2.5.4 Real photos | Done (AI) | Screenshot of the homepage only |
 
 **Automate line:** missing/duplicate titles and meta, heading checks, thin pages, quick wins: **Done**. Alt-text drafts: **Not yet**. Content decay alerts: rule 2.9.5 is **Done**, the alert email is **Later** (Module 13).
@@ -90,52 +90,52 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 
 All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate line: auto-fill from crawl and keywords, AI title/meta drafts and page briefs: **Done**.
 
-## Module 6 · Deep competitor analysis — Partial
+## Module 6 · Deep competitor analysis — Done except later modules
 
 | Point | Status | Note |
 | --- | --- | --- |
-| 6.1.1 Traffic + 12-month trend | Partial | Traffic in the analysis; the trend is on the shortlist (Module 3), not in the comparison table |
-| 6.1.2 Keyword count, top 3, top 10 | Partial | Count and top 3; **top 10 count not shown** |
-| 6.1.3 Top pages and their keywords | Not yet | |
+| 6.1.1 Traffic + 12-month trend | Done | Visits estimate, and up/down over 12 months for shortlisted competitors |
+| 6.1.2 Keyword count, top 3, top 10 | Done | |
+| 6.1.3 Top pages and their keywords | Done | Each competitor's 5 strongest pages with the searches they rank for (Labs ranked keywords) |
 | 6.1.4 Keywords where they beat the client | Done | Keyword gap top 50 |
-| 6.1.5 Keywords where the client beats them | Not yet | |
-| 6.2.1 Page type and format | Partial | Their ranking pages are compared, page type not labelled |
-| 6.2.2 Title, H1, headings | Partial | Heading count only |
+| 6.1.5 Keywords where the client beats them | Partial | Searches you rank for and your 3 direct competitors do not (Labs domain intersection); searches where both rank and you are higher are not counted |
+| 6.2.1 Page type and format | Done | |
+| 6.2.2 Title, H1, headings | Done | |
 | 6.2.3 Word count and depth | Done | |
-| 6.2.4 Topics and entities missing | Not yet | |
-| 6.2.5 FAQs, tables, images, video | Partial | FAQ and lists/tables; images and video not compared |
-| 6.2.6 Trust signals and pricing | Not yet | |
-| 6.2.7 Calls to action and forms | Not yet | |
+| 6.2.4 Topics and entities missing | Partial | Sections the ranking pages have that your page does not cover; named entities (brands, certifications) are not compared separately |
+| 6.2.5 FAQs, tables, images, video | Done | |
+| 6.2.6 Trust signals and pricing | Done | Reviews, licences/guarantees, prices shown |
+| 6.2.7 Calls to action and forms | Done | Forms and call buttons |
 | 6.2.8 Schema types | Done | |
-| 6.2.9 Freshness | Not yet | |
-| 6.3.1 Speed and Core Web Vitals | Partial | Mobile score; no CWV values |
-| 6.3.2 CMS, builder, CDN | Partial | Platform from page signals; no CDN |
-| 6.3.3 URL and structure patterns | Not yet | |
-| 6.3.4 Indexed page count and types | Partial | Pages in sitemap as a proxy |
-| 6.3.5 Mobile experience | Not yet | |
+| 6.2.9 Freshness | Done | dateModified/datePublished, else the latest year in the text |
+| 6.3.1 Speed and Core Web Vitals | Done | Mobile score plus lab LCP, CLS and blocking time per homepage |
+| 6.3.2 CMS, builder, CDN | Done | Platform and builder from the page, CDN and server from the response |
+| 6.3.3 URL and structure patterns | Done | Biggest sitemap sections per site |
+| 6.3.4 Indexed page count and types | Partial | Pages in the sitemap and its sections; Google's indexed count is not available for other sites |
+| 6.3.5 Mobile experience | Done | Viewport and zoom, plus the mobile speed score |
 | 6.4.1–6.4.6 Backlinks | Later | Module 8 (your decision) |
-| 6.5.1 Profile categories, services, photos, posts | Partial | Category, photos, claimed; no services or posts |
-| 6.5.2 Reviews: count, rating, growth, responses | Partial | Count and rating; no growth or replies |
+| 6.5.1 Profile categories, services, photos, posts | Partial | Category, photos, claimed; services and posts come with Module 9 |
+| 6.5.2 Reviews: count, rating, growth, responses | Partial | Count and rating; growth and replies come with Module 9 |
 | 6.5.3 Listing consistency | Partial | Listing status set by hand (Module 3); checking details is Module 9 |
 | 6.5.4 Map pack position | Partial | Core searches from one location; the grid is Module 9 |
 | 6.6.1 Prompts: mentions and citations | Done | ChatGPT only (your decision) |
 | 6.6.2 Sources AI cites | Done | |
-| 6.6.3 Answer formats AI prefers | Not yet | |
+| 6.6.3 Answer formats AI prefers | Done | Steps, lists, tables, sections, short answers |
 | 6.7.1 Keyword gap top 50 | Done | |
-| 6.7.2 Content gap | Done | |
+| 6.7.2 Content gap | Done | With the missing sections per topic |
 | 6.7.3 Link gap top 30 | Later | Module 8 |
 | 6.7.4 Technical comparison table | Done | Side by side |
 | 6.7.5 Local and AI visibility comparison | Done | |
 | 6.7.6 Five recommendations | Done | |
 
-**Automate line:** monthly runs for customers under the cap: **Done**. New page / new link alerts and automatic gap refresh: **Not yet**.
+**Automate line:** monthly runs for customers under the cap: **Done**. New page / new link alerts and automatic gap refresh: **Later** (Modules 8 and 13).
 
 ## Module 12 · Prioritisation and action plan
 
 | Point | Status | Note |
 | --- | --- | --- |
 | 12.1 Impact × confidence ÷ effort | Done | |
-| 12.2 Grouped Critical/High/Medium/Low | Partial | Severity shown on every action; the list is sorted by priority, not grouped by severity |
+| 12.2 Grouped Critical/High/Medium/Low | Done | "All actions" is grouped by severity, highest priority first in each group |
 | 12.3 Top 10 in plain language | Done | |
 | 12.4 Owner, due date, approval | Done | |
 | 12.5 Before-state | Done | Plus exact before/after changes from the page map |

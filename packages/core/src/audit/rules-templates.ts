@@ -81,11 +81,19 @@ export const templateRules: RuleDef[] = [
   },
   {
     id: '2.4.1', module: 2, category: 'onpage', card: 'content', scope: 'page', severity: 'medium',
-    title: { client: 'Some pages are much shorter than similar pages', expert: 'Word count < 50% of the template median' },
-    explain: { client: 'A page with far less to say than its siblings is less likely to rank.', expert: 'Phase 1 depth check: word count vs the median of the same template (SERP comparison comes later).' },
-    fix: { client: 'Expand the shortest pages to match the others of the same kind.', expert: 'Bring outliers up to the template median.' },
+    title: { client: 'Some pages are much shorter than the pages that rank', expert: 'Word count < 50% of the ranking pages (or the template median)' },
+    explain: { client: 'A page with far less to say than the pages Google shows for the same search is less likely to rank.', expert: 'Depth check: word count vs the median of the top results for the page\'s mapped keyword (Module 5 + cached SERPs); without them, vs the median of the same template.' },
+    fix: { client: 'Expand the shortest pages: cover what the pages that rank cover.', expert: 'Bring outliers up to the ranking pages\' (or template) median.' },
     ice: { impact: 3, confidence: 3, effort: 3 },
     evaluate: ({ data, content }) => {
+      // Pages with the ranking pages' word counts are compared with those; the rest with their template.
+      const rivals = data.rivalWords ?? {};
+      const vsRivals = content.filter((c) => (rivals[norm(c.url)]?.length ?? 0) > 0);
+      if (vsRivals.length) {
+        const rivalThin = new Set(vsRivals.filter((c) => c.words < median(rivals[norm(c.url)]!) / 2).map((c) => c.url));
+        return countPages(vsRivals, (c) => rivalThin.has(c.url), (n) =>
+          n ? { client: `${plural(n, 'page')} ${n === 1 ? 'is' : 'are'} much shorter than the pages that rank for ${n === 1 ? 'its' : 'their'} search`, expert: `${n} mapped pages under half the median word count of the top results` } : { client: 'Your key pages are as deep as the pages that rank', expert: 'No mapped page under half the top results\' median word count' }, 'warn');
+      }
       const byUrl = new Map(content.map((c) => [norm(c.url), c]));
       const groups = (data.templates ?? [])
         .filter((t) => !['home', 'contact', 'legal', 'category', 'about', 'blog_index'].includes(t.type))

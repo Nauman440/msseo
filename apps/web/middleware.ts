@@ -13,7 +13,7 @@ import { authConfig } from './auth.config';
 const PUBLIC_PATHS = new Set(['/', '/privacy', '/terms', '/free', '/signup', '/login', '/forgot-password', '/reset-password', '/robots.txt', '/sitemap.xml', '/llms.txt', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png']);
 // /free/<id> and its status API show only audits started from the public form (checked there).
 // /signup/* pages check the customer session themselves (step 1 is open, steps 2–5 need it).
-const PUBLIC_PREFIXES = ['/brand/', '/opengraph-image', '/twitter-image', '/api/auth/', '/free/', '/api/free/', '/signup/'];
+const PUBLIC_PREFIXES = ['/brand/', '/downloads/', '/opengraph-image', '/twitter-image', '/api/auth/', '/free/', '/api/free/', '/signup/'];
 
 const { auth } = NextAuth(authConfig);
 

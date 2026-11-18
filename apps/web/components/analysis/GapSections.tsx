@@ -53,11 +53,30 @@ export function KeywordGap({ a, csvHref }: { a: CompetitorAnalysis; csvHref: str
 }
 
 function PageFacts({ p }: { p: PageStat }) {
+  const extra = [
+    p.pageType,
+    p.images !== undefined ? `${p.images} images` : '',
+    p.videos ? `${p.videos} video` : '',
+    p.forms !== undefined ? (p.forms ? `${p.forms} form${p.forms === 1 ? '' : 's'}` : 'no form') : '',
+    p.callButtons ? 'call button' : '',
+    p.trust?.length ? p.trust.join(', ') : '',
+    p.price ? 'prices shown' : '',
+    p.updated ? `updated ${p.updated}` : '',
+  ].filter(Boolean);
   return (
-    <p className="text-[13px] text-ink-2 tabular">
-      {p.words.toLocaleString('en-US')} words · {p.headings} subheadings · FAQ {p.faq ? 'yes' : 'no'} · lists/tables {p.lists}
-      {p.schema.length > 0 && ` · ${p.schema.slice(0, 3).join(', ')}`}
-    </p>
+    <div className="flex flex-col gap-0.5 text-[13px] text-ink-2">
+      {(p.title || p.h1) && (
+        <p className="[overflow-wrap:anywhere]">
+          {p.title && <>Title: <span className="text-ink">{p.title}</span></>}
+          {p.h1 && p.h1 !== p.title && <> · H1: <span className="text-ink">{p.h1}</span></>}
+        </p>
+      )}
+      <p className="tabular">
+        {p.words.toLocaleString('en-US')} words · {p.headings} subheadings · FAQ {p.faq ? 'yes' : 'no'} · lists/tables {p.lists}
+        {p.schema.length > 0 && ` · ${p.schema.slice(0, 3).join(', ')}`}
+      </p>
+      {extra.length > 0 && <p>{extra.join(' · ')}</p>}
+    </div>
   );
 }
 
@@ -90,6 +109,12 @@ export function ContentGap({ a, csvHref }: { a: CompetitorAnalysis; csvHref: str
                   <PageFacts p={r} />
                 </div>
               ))}
+              {c.missing && c.missing.length > 0 && (
+                <div className="rounded-[10px] border border-dashed border-border-strong px-3 py-2">
+                  <p className="text-[13px] font-bold">Sections they have that your page does not cover</p>
+                  <p className="text-[13px] text-ink-2">{c.missing.join(' · ')}</p>
+                </div>
+              )}
             </li>
           ))}
         </ul>

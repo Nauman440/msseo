@@ -10,6 +10,8 @@ export type PageContent = {
   url: string;
   status: number;
   lang?: string;
+  /** <html dir> ("rtl" for right-to-left languages). */
+  dir?: string;
   viewport: boolean;
   /** Viewport stops pinch-zoom (user-scalable=no or maximum-scale below 2). */
   zoomBlocked: boolean;
@@ -160,6 +162,7 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     url,
     status,
     lang: root.querySelector('html')?.getAttribute('lang') ?? undefined,
+    dir: root.querySelector('html')?.getAttribute('dir')?.toLowerCase() ?? undefined,
     viewport: Boolean(root.querySelector('meta[name="viewport"]')),
     zoomBlocked: zoomBlocked(root.querySelector('meta[name="viewport"]')?.getAttribute('content')),
     smallFonts: smallFontCount(html),

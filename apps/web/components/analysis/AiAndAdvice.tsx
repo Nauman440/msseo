@@ -46,6 +46,19 @@ export function AiAnswers({ a }: { a: CompetitorAnalysis }) {
           </ul>
         </div>
       )}
+      {a.ai.formats && a.ai.formats.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <h3 className="text-[15px] font-bold">How ChatGPT shapes its answers</h3>
+          <p className="text-[13px] text-ink-2">Write your key pages the same way (steps, lists, short direct answers), so they are easy for AI to quote.</p>
+          <ul className="flex flex-wrap gap-2">
+            {a.ai.formats.map((f) => (
+              <li key={f.format} className="rounded-full border border-border bg-canvas px-3 py-1 text-[13px] font-semibold">
+                {f.format} <span className="font-normal text-ink-2 tabular">· {f.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

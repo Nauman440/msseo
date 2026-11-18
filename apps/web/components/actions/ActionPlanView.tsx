@@ -91,11 +91,24 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
 
       <section aria-labelledby="all-actions" className="flex flex-col gap-3">
         <h2 id="all-actions" className="font-display text-xl font-bold">All actions</h2>
-        <ul className="divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-surface">
-          {shown.map((a) => (
-            <ActionRow key={a.id} domain={domain} action={a} audience={audience} site={site} connectHref={connectHref} />
-          ))}
-        </ul>
+        {/* 12.2 Grouped by severity, highest priority first inside each group. */}
+        {(['critical', 'high', 'medium', 'low'] as const).map((sev) => {
+          const group = shown.filter((a) => a.severity === sev);
+          if (!group.length) return null;
+          return (
+            <div key={sev} className="flex flex-col gap-2">
+              <h3 className="flex items-center gap-2 text-[15px] font-bold">
+                <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-bold', TONE_SOFT[SEVERITY_TONE[sev]])}>{SEVERITY_LABEL[sev]}</span>
+                <span className="text-ink-2 tabular">{group.length} {group.length === 1 ? 'action' : 'actions'}</span>
+              </h3>
+              <ul aria-label={`${SEVERITY_LABEL[sev]} actions`} className="divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-surface">
+                {group.map((a) => (
+                  <ActionRow key={a.id} domain={domain} action={a} audience={audience} site={site} connectHref={connectHref} />
+                ))}
+              </ul>
+            </div>
+          );
+        })}
         {dismissed.length > 0 && (
           <details className="rounded-[18px] border border-border bg-surface">
             <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">Dismissed ({dismissed.length})</summary>

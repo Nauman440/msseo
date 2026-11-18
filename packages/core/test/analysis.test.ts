@@ -77,8 +77,8 @@ function setup() {
     async pages(urls) {
       return urls.map((u) => (u.includes('rival.com/ac-repair') ? page(u, 1200, '<script type="application/ld+json">{"@type":"FAQPage"}</script>') : u.includes('myhvac.com/ac') ? page(u, 300) : page(u, 500, u.includes('rival') ? '<script type="application/ld+json">{"@type":"HVACBusiness"}</script>' : '')));
     },
-    speed: async (u) => (u.includes('myhvac') ? 40 : 80),
-    sitemapCount: async (d) => (d === 'big.com' ? 900 : 40),
+    speed: async (u: string) => ({ score: u.includes('myhvac') ? 40 : 80, lcpMs: 3200, cls: 0.05, tbtMs: 300 }),
+    sitemap: async (d: string) => ({ count: d === 'big.com' ? 900 : 40, folders: [{ folder: '/services/', count: 12 }] }),
     ai: null,
   };
   return { competitors, keywords, deps, calls };

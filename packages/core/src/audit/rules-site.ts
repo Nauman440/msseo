@@ -1,3 +1,4 @@
+import { RTL, untranslated } from './language';
 import { hasSchema, isGenericAnchor, phonesIn, schemaValues, SPAM } from './content-signals';
 import type { PageContent } from './page-content';
 import { countPages, plural, type RuleDef } from './types';
@@ -261,12 +262,12 @@ export const siteRules: RuleDef[] = [
   },
   {
     id: '1.13.3', module: 1, category: 'technical', card: 'intl', scope: 'page', severity: 'low',
-    title: { client: 'No default version, or the language label does not match', expert: 'Missing x-default / hreflang vs <html lang> mismatch' },
+    title: { client: 'Language versions are not set up right', expert: 'x-default, lang vs hreflang, untranslated text, RTL direction' },
     explain: {
-      client: 'A default version tells Google what to show everyone else; the page\'s own language label should match its language tag.',
-      expert: 'x-default covers unmatched locales; the self hreflang should agree with <html lang>.',
+      client: 'A default version tells Google what to show everyone else; each page\'s language label should match its tag and its text, and right-to-left languages need to be set as such.',
+      expert: 'x-default covers unmatched locales; self hreflang should agree with <html lang>; the text should be in that language (detected from common words/script); ar/he/ur/fa pages need dir="rtl".',
     },
-    fix: { client: 'Ask your developer to add a default language version and make the language labels agree.', expert: 'Add hreflang="x-default"; align <html lang> with the self-referencing hreflang.' },
+    fix: { client: 'Add a default language version, make the labels agree, translate pages still in the wrong language, and set right-to-left pages to right-to-left.', expert: 'Add hreflang="x-default"; align <html lang> with self hreflang; translate untranslated alternates; add dir="rtl" on RTL pages.' },
     ice: { impact: 2, confidence: 4, effort: 1 },
     evaluate: ({ content }) => {
       const withTags = content.filter((c) => c.hreflang.length);
@@ -276,9 +277,12 @@ export const siteRules: RuleDef[] = [
         const self = c.hreflang.find((h) => sameUrl(h.href, c.url) && h.lang.toLowerCase() !== 'x-default');
         const noDefault = !c.hreflang.some((h) => h.lang.toLowerCase() === 'x-default');
         const mismatch = Boolean(self && c.lang && primary(self.lang) !== primary(c.lang));
-        return noDefault || mismatch;
+        const label = self?.lang ?? c.lang;
+        const wrongText = untranslated(label, c.text);
+        const rtlMissing = Boolean(label && RTL.has(primary(label)!) && c.dir !== 'rtl');
+        return noDefault || mismatch || wrongText || rtlMissing;
       }, (n) =>
-        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} no default version or a language label mismatch`, expert: `${n} pages without x-default or with <html lang> ≠ self hreflang` } : { client: 'Default version and language labels are right', expert: 'x-default present; lang matches hreflang' }, 'warn');
+        n ? { client: `${plural(n, 'page')} ${n === 1 ? 'has' : 'have'} a language setup problem (default version, label, translation or direction)`, expert: `${n} pages: no x-default, <html lang> ≠ self hreflang, text not in the labelled language, or RTL without dir="rtl"` } : { client: 'Language versions are set up right', expert: 'x-default present; lang matches hreflang; text in the labelled language; RTL direction set' }, 'warn');
     },
   },
 ];
