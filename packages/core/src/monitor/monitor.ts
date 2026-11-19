@@ -1,4 +1,6 @@
 import type { KeywordWorkspace } from '../keywords/types';
+import { diffReports } from '../report/diff';
+import type { ReportModel } from '../types';
 
 /**
  * Module 13 · Reporting and monitoring. 13.1 baseline snapshot · 13.2 weekly summary · 13.3 monthly
@@ -7,7 +9,7 @@ import type { KeywordWorkspace } from '../keywords/types';
  * 13.6 AI share of voice from Module 10 in every snapshot · 13.7 dashboard · 13.8 review meetings.
  * Pure logic: fetching, Google and DataForSEO calls are passed in.
  */
-export type AlertKind = 'down' | 'up' | 'noindex' | 'robots' | 'traffic' | 'reviews' | 'rank';
+export type AlertKind = 'down' | 'up' | 'noindex' | 'robots' | 'traffic' | 'reviews' | 'rank' | 'ssl' | 'errors';
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'info';
 export type MonitorAlert = { id: string; kind: AlertKind; severity: AlertSeverity; title: string; detail: string; url: string | null; at: string; resolvedAt: string | null };
 export type Snapshot = {
@@ -35,7 +37,7 @@ export type MonitorWorkspace = {
   baseline: Snapshot | null;
   snapshots: Snapshot[];
   alerts: MonitorAlert[];
-  state: { robotsHash: string | null; robotsBody: string | null; down: boolean; downSince: string | null; noindex: string[]; lastDaily: string | null; lastWeekly: string | null; lastMonthly: string | null };
+  state: { robotsHash: string | null; robotsBody: string | null; down: boolean; downSince: string | null; noindex: string[]; lastDaily: string | null; lastWeekly: string | null; lastMonthly: string | null; sslExpires?: string | null; lastAuditId?: string | null };
   ranks: { keywords: string[]; custom: boolean; history: RankPoint[] };
   meeting: { cadence: MeetingCadence; next: string | null; notes: string };
 };
@@ -107,6 +109,10 @@ export type FetchResult = { url: string; status: number; html: string; xRobots: 
 export type DailyDeps = {
   fetchPage: (url: string) => Promise<FetchResult>;
   fetchRobots: () => Promise<string | null>;
+  /** When the site's TLS certificate expires (ISO), or null when it could not be read. */
+  certExpiry?: () => Promise<string | null>;
+  /** The newest finished audit and the one before it (new-errors alert). */
+  audits?: () => Promise<{ latest: { id: string; report: ReportModel } | null; previous: ReportModel | null }>;
   /** Clicks per day from Search Console (oldest first), or null when not connected. */
   dailyClicks?: () => Promise<{ date: string; clicks: number }[] | null>;
   keyPages: string[];
@@ -185,6 +191,33 @@ export async function dailyChecks(ws: MonitorWorkspace, deps: DailyDeps, now = n
       const recent = ws.alerts.some((a) => a.kind === 'traffic' && now.getTime() - Date.parse(a.at) < 7 * 86_400_000);
       if (!recent) push(raise(ws, { kind: 'traffic', severity: 'high', title: `Clicks from Google fell ${drop}%`, detail: `${last} clicks in the last 7 days against ${prev} the week before (Search Console, ${days.at(-1)!.date}).`, url: null }, now));
     }
+  }
+  // SSL certificate: expired = critical, under 14 days = high.
+  const expires = deps.certExpiry ? await deps.certExpiry().catch(() => null) : null;
+  if (expires) {
+    ws.state.sslExpires = expires;
+    const days = Math.floor((Date.parse(expires) - now.getTime()) / 86_400_000);
+    if (days < 0) push(raise(ws, { kind: 'ssl', severity: 'critical', title: 'The SSL certificate has expired', detail: `It expired on ${expires.slice(0, 10)}. Browsers now warn visitors that the site is not secure.`, url: `https://${ws.domain}/` }, now));
+    else if (days < 14) push(raise(ws, { kind: 'ssl', severity: 'high', title: `The SSL certificate expires in ${days} ${days === 1 ? 'day' : 'days'}`, detail: `Renew it before ${expires.slice(0, 10)} (most hosts renew automatically: check that renewal is working).`, url: `https://${ws.domain}/` }, now));
+    else resolve(ws, 'ssl', `https://${ws.domain}/`, now);
+  }
+
+  // New problems since the previous audit (critical and high only).
+  const a = deps.audits ? await deps.audits().catch(() => null) : null;
+  if (a?.latest && a.latest.id !== ws.state.lastAuditId) {
+    if (a.previous && ws.state.lastAuditId !== undefined) {
+      const added = diffReports(a.previous, a.latest.report).added.filter((c) => c.issue.status === 'fail' && (c.issue.severity === 'critical' || c.issue.severity === 'high'));
+      if (added.length) {
+        push(raise(ws, {
+          kind: 'errors',
+          severity: added.some((c) => c.issue.severity === 'critical') ? 'critical' : 'high',
+          title: `${added.length} new ${added.length === 1 ? 'problem' : 'problems'} since the last audit`,
+          detail: added.slice(0, 5).map((c) => c.issue.title.client).join(' · '),
+          url: null,
+        }, now));
+      }
+    }
+    ws.state.lastAuditId = a.latest.id;
   }
   ws.state.lastDaily = now.toISOString();
   return { ws, raised };

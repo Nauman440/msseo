@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  compareSnapshots, dailyChecks, detectTags, emptyKeywordWorkspace, emptyMonitor, eventChannel, hashText, monthlyReport, nextMeeting, pickTrackedKeywords, runTrackingAudit,
+  compareSnapshots, dailyChecks, detectTags, draftPost, draftReviewReply, emptyKeywordWorkspace, emptyMonitor, eventChannel, hashText, monthlyReport, nextMeeting, pickTrackedKeywords, runTrackingAudit,
   sourceHygiene, weeklyRun, weeklySummary, type KeywordCluster, type KeywordRecord, type ReportModel,
 } from '../src';
 
@@ -147,6 +147,35 @@ describe('monitoring (Module 13)', () => {
     expect(m.losers.map((w) => w.keyword)).toEqual(['furnace repair']);
     expect(m.actionsDone.map((a) => a.title)).toEqual(['Fix titles']);
     expect(m.alerts).toHaveLength(3);
+  });
+
+  it('alerts on SSL expiry and on new problems since the last audit', async () => {
+    const ws = emptyMonitor('myhvac.com');
+    const issue = (ruleId: string, severity: string, title: string) => ({ ruleId, status: 'fail', severity, title: { client: title, expert: title }, affectedCount: 1 });
+    const report = (issues: ReturnType<typeof issue>[]) => ({ overall: { score: 80 }, issues }) as unknown as ReportModel;
+    const base = { fetchPage: async () => page('<h1>ok</h1>'), fetchRobots: async () => null, keyPages: [] };
+    // First run: remembers the audit and the certificate without alerting.
+    const r1 = await dailyChecks(ws, { ...base, certExpiry: async () => '2027-01-30T00:00:00Z', audits: async () => ({ latest: { id: 'a1', report: report([]) }, previous: null }) }, NOW);
+    expect(r1.raised).toEqual([]);
+    const r2 = await dailyChecks(ws, {
+      ...base,
+      certExpiry: async () => '2026-11-25T00:00:00Z',
+      audits: async () => ({ latest: { id: 'a2', report: report([issue('1.3.2', 'critical', 'Key page hidden from Google'), issue('2.1.3', 'medium', 'Titles too long')]) }, previous: report([]) }),
+    }, NOW);
+    expect(r2.raised.map((a) => [a.kind, a.severity, a.title])).toEqual([
+      ['ssl', 'high', 'The SSL certificate expires in 5 days'],
+      ['errors', 'critical', '1 new problem since the last audit'],
+    ]);
+    expect(r2.raised[1]!.detail).toBe('Key page hidden from Google');
+    const r3 = await dailyChecks(ws, { ...base, certExpiry: async () => '2026-11-01T00:00:00Z', audits: async () => ({ latest: { id: 'a2', report: report([]) }, previous: null }) }, NOW);
+    expect(r3.raised.map((a) => a.title)).toEqual(['The SSL certificate has expired']);
+  });
+
+  it('writes plain reply and post templates without AI', async () => {
+    const facts = { name: 'MyHVAC', phone: '214-555-0100', places: ['Dallas'], services: ['AC repair'], website: 'https://myhvac.com/' };
+    expect((await draftReviewReply(null, { stars: 5, comment: 'Great', reviewer: 'Jane Doe' }, facts)).text).toBe('Thank you Jane! We are glad you were happy with our work, and we appreciate you taking the time to leave a review. — The MyHVAC team');
+    expect((await draftReviewReply(null, { stars: 1, comment: 'Late', reviewer: 'A customer' }, facts)).text).toContain('please call us on 214-555-0100');
+    expect((await draftPost(null, facts, '')).text).toBe('Need ac repair in Dallas? MyHVAC can help. Get in touch today to book a visit or call 214-555-0100.');
   });
 
   it('schedules review meetings', () => {

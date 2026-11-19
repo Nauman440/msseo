@@ -23,4 +23,4 @@ export const CTA_NOTE = 'Free. No card needed. Takes a few minutes.';
 /** Contact for privacy, data and terms questions (shown on /privacy and /terms). */
 export const SUPPORT_EMAIL = 'support@msseo.tech';
 /** "Last updated" date of the privacy policy and terms; change it whenever either text changes. */
-export const LEGAL_UPDATED = '17 November 2026';
+export const LEGAL_UPDATED = '19 November 2026';

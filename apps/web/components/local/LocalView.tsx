@@ -1,6 +1,7 @@
 import type { LocalAudit } from '@seo/core';
 import { cn } from '@/lib/tones';
 import { MapGrid } from './MapGrid';
+import { RivalsTable } from './RivalsTable';
 import { RunLocal } from './RunLocal';
 
 /** Module 9 · Local SEO audit page body, the same for the team and customers. */
@@ -13,7 +14,7 @@ const CHIP = 'whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-bold';
 const mark = (ok: boolean | null) => (ok === null ? <span className="text-ink-3">–</span> : ok ? <span className={cn(CHIP, 'bg-teal-chip text-teal-text')}>Matches</span> : <span className={cn(CHIP, 'bg-high-bg text-high-strong')}>Different</span>);
 const STATUS: Record<string, string> = { pass: 'bg-teal-chip text-teal-text', warn: 'bg-amber-bg text-amber-text', fail: 'bg-high-bg text-high-strong' };
 
-export function LocalView({ a, domain, audience, nextRun }: { a: LocalAudit | null; domain: string; audience: 'team' | 'customer'; nextRun: Date | null }) {
+export function LocalView({ a, domain, audience, nextRun, profilePanel }: { a: LocalAudit | null; domain: string; audience: 'team' | 'customer'; nextRun: Date | null; profilePanel?: React.ReactNode }) {
   const cells = a?.grid ? a.grid.size * a.grid.size * a.grid.searches.length : 0;
   const top3 = a?.grid ? a.grid.searches.reduce((x, s) => x + s.top3, 0) : 0;
   const found = a ? a.citations.filter((c) => c.found).length : 0;
@@ -33,16 +34,17 @@ export function LocalView({ a, domain, audience, nextRun }: { a: LocalAudit | nu
         <div className="flex min-w-0 flex-col gap-1">
           <p className={EYEBROW}>{a ? `Last check · ${day(a.runAt)}${audience === 'team' ? ` · $${a.costUsd.toFixed(2)}` : ''}` : 'Not checked yet'}</p>
           <p className="text-[15px] font-semibold">{a?.businessName ? `${a.businessName}: ` : ''}your Google Business Profile, reviews, listings and where you show in the map across your area.</p>
-          <p className="text-[13px] text-ink-2">{audience === 'customer' ? 'You can run it once a month.' : 'About $0.20–0.35 per run (75 map checks, profile, reviews, posts, listings).'}</p>
+          <p className="text-[13px] text-ink-2">{audience === 'customer' ? 'You can run it once a month.' : 'About $0.25–0.40 per run (75 map checks, profile, reviews, posts, listings, and the top 3 rivals’ profiles).'}</p>
         </div>
         <RunLocal domain={domain} again={Boolean(a)} disabledReason={nextRun ? `Next check available on ${nextRun.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}.` : null} />
       </div>
+      {profilePanel}
       {a && (
         <>
-          {(a.notes.length > 0 || a.pending.reviews || a.pending.updates) && (
+          {(a.notes.length > 0 || a.pending.reviews || a.pending.updates || a.pending.rivals) && (
             <ul className="flex flex-col gap-1 rounded-[14px] border border-border bg-surface px-[18px] py-3.5 text-sm text-ink-2">
               {a.notes.map((x) => <li key={x}>{x}</li>)}
-              {(a.pending.reviews || a.pending.updates) && <li>Reviews or posts are still being collected by Google’s data partner. Open this page again in a few minutes.</li>}
+              {(a.pending.reviews || a.pending.updates || a.pending.rivals) && <li>Reviews or posts are still being collected by Google’s data partner. Open this page again in a few minutes.</li>}
             </ul>
           )}
           <ul aria-label="Local summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
@@ -116,23 +118,7 @@ export function LocalView({ a, domain, audience, nextRun }: { a: LocalAudit | nu
           {(a.rivals.length > 0 || a.fromAudit.length > 0 || a.localLinks) && (
             <section aria-labelledby="bench-title" className={CARD}>
               <h2 id="bench-title" className="font-display text-xl font-bold">Who wins the map, and the rest of your local setup</h2>
-              {a.rivals.length > 0 && (
-                <div className="relative overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead><tr><th className={TH}>Business</th><th className={cn(TH, 'text-right')}>Top 3 at</th><th className={cn(TH, 'text-right')}>Rating</th><th className={cn(TH, 'text-right')}>Reviews</th></tr></thead>
-                    <tbody>
-                      {a.rivals.map((r) => (
-                        <tr key={r.name}>
-                          <td className={cn(TD, 'font-semibold')}>{r.name}{r.domain && <span className="block text-[12px] font-normal text-ink-3">{r.domain}</span>}</td>
-                          <td className={cn(TD, 'text-right tabular')}>{Math.round((r.top3 / Math.max(1, r.points)) * 100)}% of points</td>
-                          <td className={cn(TD, 'text-right tabular')}>{r.rating?.toFixed(1) ?? '–'}</td>
-                          <td className={cn(TD, 'text-right tabular')}>{r.reviews?.toLocaleString('en-US') ?? '–'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {a.rivals.length > 0 && <RivalsTable a={a} />}
               {a.fromAudit.length > 0 && (
                 <ul className="flex flex-col gap-1.5 text-sm">
                   {a.fromAudit.map((f) => (

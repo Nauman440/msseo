@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completePending, completeness, gridPoints, phoneKey, reviewStats, runLocalAudit, type LocalClient, type Profile, type ReportIssue } from '../src';
+import { completePending, completeness, gridPoints, parseProfileLink, phoneKey, reviewStats, runLocalAudit, type LocalClient, type Profile, type ReportIssue } from '../src';
 import { parsePageContent } from '../src/audit/page-content';
 
 /** Module 9 · Local SEO audit. */
@@ -21,7 +21,7 @@ const fake = (opts: { reviewsReadyAfter?: number } = {}) => {
       const mine = at.lat > 32.78 ? [{ title: 'MyHVAC Heating & Air', domain: 'myhvac.com', cid: 'c1', position: 2, rating: 4.6, reviews: 120, category: null, address: null, phone: null, lat: null, lng: null }] : [];
       return { cost: 0.002, results: [{ title: 'Rival Air', domain: 'rival.com', cid: 'r1', position: 1, rating: 4.9, reviews: 400, category: null, address: null, phone: null, lat: null, lng: null }, ...mine] };
     },
-    profile: async () => ({ cost: 0.0054, profile }),
+    profile: async (ref: string) => ({ cost: 0.0054, profile: ref === 'r1' ? { ...profile, title: 'Rival Air', cid: 'r1', domain: 'rival.com', category: 'Air conditioning contractor', photos: 80, rating: 4.9, reviews: 400 } : profile }),
     postReviews: async () => ({ id: 'rev-task', cost: 0.004 }),
     getReviews: async () => {
       reviewChecks++;
@@ -82,7 +82,8 @@ describe('local audit run', () => {
     // 3 searches (the 4th is dropped) × 25 points; the client shows in the 10 northern points at #2.
     expect(f.mapsCalls.filter((c) => c.startsWith('grid:'))).toHaveLength(75);
     expect(a.grid?.searches[0]).toMatchObject({ found: 10, top3: 10, average: 2 });
-    expect(a.rivals[0]).toMatchObject({ name: 'Rival Air', top3: 75, points: 75, reviews: 400 });
+    // 6.5.1 / 6.5.2: the top rival's profile, review handling and posts.
+    expect(a.rivals[0]).toMatchObject({ name: 'Rival Air', top3: 75, points: 75, reviews: 400, cid: 'r1', category: 'Air conditioning contractor', photos: 80, perMonth: 1, replyRate: 50, posts90: 1 });
     expect(a.fromAudit).toEqual([{ ruleId: '2.9.2', label: 'Location pages unique', status: 'pass', message: 'Location pages are unique' }]);
     expect(a.localLinks).toEqual({ count: 1, examples: ['dallasnews.com'] });
     expect(a.pending).toEqual({});
@@ -91,12 +92,35 @@ describe('local audit run', () => {
   it('reads slow reviews on the next visit', async () => {
     const f = fake({ reviewsReadyAfter: 99 });
     const a = await runLocalAudit(input, { client: f.client, homepage: async () => home, wait: async () => undefined, taskBudgetMs: 0 }, NOW);
-    expect(a.pending).toEqual({ reviews: 'rev-task' });
+    expect(a.pending).toEqual({ reviews: 'rev-task', rivals: [{ cid: 'r1', reviews: 'rev-task' }] });
+    expect(a.rivals[0]!.replyRate).toBeUndefined();
     expect(a.reviews).toMatchObject({ total: 120, sample: 0 });
     const ready = fake();
     const done = await completePending(a, ready.client, NOW);
     expect(done?.pending).toEqual({});
     expect(done?.reviews).toMatchObject({ last90: 3 });
+    expect(done?.rivals[0]).toMatchObject({ replyRate: 50, perMonth: 1 });
+  });
+
+  it('uses the Business Profile entered by hand instead of searching Maps', async () => {
+    const f = fake();
+    const a = await runLocalAudit({ ...input, profileRef: 'place_id:p1' }, { client: f.client, homepage: async () => home, wait: async () => undefined }, NOW);
+    expect(f.mapsCalls.filter((c) => c.startsWith('find:'))).toEqual([]);
+    expect(a.profile?.cid).toBe('c1');
+    expect(a.notes).toEqual([]);
+    const other = { ...f.client, profile: async () => ({ cost: 0, profile: { ...profile, domain: 'someone-else.com' } }) } as unknown as LocalClient;
+    const b = await runLocalAudit({ ...input, profileRef: 'cid:9' }, { client: other, homepage: async () => home, wait: async () => undefined }, NOW);
+    expect(b.notes.join(' ')).toContain('links to someone-else.com, not myhvac.com');
+  });
+
+  it('turns Maps links, place ids and CIDs into a profile reference', () => {
+    expect(parseProfileLink('https://maps.google.com/?cid=12345678901234567890')).toBe('cid:12345678901234567890');
+    expect(parseProfileLink('https://www.google.com/maps/place/Coolray/@33.9,-84.5,17z/data=!4m6!3m5!1s0x88f5137:0x1ab2c3d4e5f6a7b8!8m2')).toBe(`cid:${BigInt('0x1ab2c3d4e5f6a7b8').toString()}`);
+    expect(parseProfileLink('https://www.google.com/maps/search/?api=1&query=x&query_place_id=ChIJN1t_tDeuEmsRUsoyG83frY4')).toBe('place_id:ChIJN1t_tDeuEmsRUsoyG83frY4');
+    expect(parseProfileLink('ChIJN1t_tDeuEmsRUsoyG83frY4')).toBe('place_id:ChIJN1t_tDeuEmsRUsoyG83frY4');
+    expect(parseProfileLink('194604053573767737')).toBe('cid:194604053573767737');
+    expect(parseProfileLink('https://maps.app.goo.gl/AbCdEf')).toBeNull();
+    expect(parseProfileLink('not a link')).toBeNull();
   });
 
   it('says so when there is no Business Profile', async () => {

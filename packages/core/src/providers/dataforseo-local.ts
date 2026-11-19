@@ -41,6 +41,12 @@ export type Profile = {
 export type Review = { rating: number | null; date: string | null; answered: boolean };
 export type ListingHit = { domain: string; url: string; title: string | null; snippet: string | null };
 
+/**
+ * Business Data `keyword` for one business: "cid:<digits>" or "place_id:<id>" (docs: my_business_info
+ * accepts both prefixes). A bare number is a CID.
+ */
+export const profileKeyword = (ref: string) => (/^(cid|place_id):/.test(ref) ? ref : `cid:${ref}`);
+
 export function createLocalClient(cfg: DfsConfig) {
   const dfs = createDfsBase(cfg, 'Business Data');
   const lang = (l: Locale) => ({ language_code: l.language });
@@ -61,7 +67,7 @@ export function createLocalClient(cfg: DfsConfig) {
     },
     /** 9.1 the full Business Profile. */
     async profile(cid: string, l: Locale): Promise<{ profile: Profile | null; cost: number }> {
-      const { items, cost } = await dfs.live('/v3/business_data/google/my_business_info/live', { keyword: `cid:${cid}`, location_name: l.country, ...lang(l) });
+      const { items, cost } = await dfs.live('/v3/business_data/google/my_business_info/live', { keyword: profileKeyword(cid), location_name: l.country, ...lang(l) });
       const p = infoItem.safeParse(items[0]);
       if (!p.success || !p.data.title) return { profile: null, cost };
       const d = p.data;
@@ -78,7 +84,7 @@ export function createLocalClient(cfg: DfsConfig) {
     },
     /** 9.4 newest reviews: set the task now, read it a little later. */
     async postReviews(cid: string, l: Locale, depth = 100) {
-      return dfs.post('/v3/business_data/google/reviews/task_post', { keyword: `cid:${cid}`, location_name: l.country, ...lang(l), depth, sort_by: 'newest' });
+      return dfs.post('/v3/business_data/google/reviews/task_post', { keyword: profileKeyword(cid), location_name: l.country, ...lang(l), depth, sort_by: 'newest' });
     },
     async getReviews(id: string): Promise<{ ready: boolean; reviews: Review[]; total: number | null }> {
       const r = await dfs.get('/v3/business_data/google/reviews/task_get', id);
@@ -94,7 +100,7 @@ export function createLocalClient(cfg: DfsConfig) {
     },
     /** 9.5 Business Profile posts. */
     async postUpdates(cid: string, l: Locale, depth = 10) {
-      return dfs.post('/v3/business_data/google/my_business_updates/task_post', { keyword: `cid:${cid}`, location_name: l.country, ...lang(l), depth });
+      return dfs.post('/v3/business_data/google/my_business_updates/task_post', { keyword: profileKeyword(cid), location_name: l.country, ...lang(l), depth });
     },
     async getUpdates(id: string): Promise<{ ready: boolean; dates: string[] }> {
       const r = await dfs.get('/v3/business_data/google/my_business_updates/task_get', id);
@@ -102,7 +108,7 @@ export function createLocalClient(cfg: DfsConfig) {
     },
     /** 9.5 questions and answers on the profile. */
     async questions(cid: string, l: Locale): Promise<{ total: number; unanswered: number; latest: string | null; cost: number }> {
-      const { result, cost } = await dfs.live('/v3/business_data/google/questions_and_answers/live', { keyword: `cid:${cid}`, location_name: l.country, ...lang(l), depth: 20 });
+      const { result, cost } = await dfs.live('/v3/business_data/google/questions_and_answers/live', { keyword: profileKeyword(cid), location_name: l.country, ...lang(l), depth: 20 });
       const r = result as { items?: unknown[] | null; items_without_answers?: unknown[] | null } | null;
       const all = [...(r?.items ?? []), ...(r?.items_without_answers ?? [])].flatMap((i) => { const q = qaItem.safeParse(i); return q.success ? [q.data] : []; });
       const dates = all.map((q) => q.timestamp?.slice(0, 10) ?? '').filter(Boolean).sort();

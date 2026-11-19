@@ -30,7 +30,8 @@ export async function runLocal(rawDomain: string, by: 'team' | 'customer'): Prom
   const domain = normDomain(rawDomain);
   const { env } = providerConfig();
   if (!env) return { problem: 'not-configured' };
-  const [previous, competitors, keywords, audits, backlinks, accounts] = await Promise.all([getDoc<LocalAudit>(KIND, domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`), getBacklinks(domain), listAccounts()]);
+  // The profile entered by hand lives in the "gbp" document (lib/gbp.ts; read directly to avoid an import loop).
+  const [previous, competitors, keywords, audits, backlinks, accounts, gbp] = await Promise.all([getDoc<LocalAudit>(KIND, domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`), getBacklinks(domain), listAccounts(), getDoc<{ ref?: string | null }>('gbp', domain)]);
   if (by === 'customer') {
     const next = nextMonthlyRun(previous?.runAt);
     if (next) return { problem: 'too-soon', next };
@@ -51,6 +52,7 @@ export async function runLocal(rawDomain: string, by: 'team' | 'customer'): Prom
         places: keywords.seeds.locations,
         issues: audits.latest?.issues ?? null,
         localLinkDomains: backlinks.audit ? backlinks.audit.domains.filter((d) => d.local).map((d) => d.domain) : null,
+        profileRef: gbp?.ref ?? null,
       },
       { client: createLocalClient({ ...env.dataforseo, log: (e) => void (e.provider === 'dataforseo' && calls++) }), homepage: (url) => fetchLivePage(url) },
     );

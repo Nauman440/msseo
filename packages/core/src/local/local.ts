@@ -17,7 +17,14 @@ export type ProfileCheck = { id: string; label: string; ok: boolean; detail: str
 export type NapSource = { source: string; name: string | null; phone: string | null; address: string | null; nameOk: boolean | null; phoneOk: boolean | null; addressOk: boolean | null };
 export type Citation = { site: string; label: string; found: boolean; url: string | null; phoneOk: boolean | null };
 export type GridSearch = { search: string; ranks: (number | null)[]; average: number | null; top3: number; found: number };
-export type Rival = { name: string; domain: string | null; top3: number; points: number; rating: number | null; reviews: number | null };
+export type Rival = {
+  name: string; domain: string | null; top3: number; points: number; rating: number | null; reviews: number | null;
+  /** 6.5.1 / 6.5.2 for the top 3 rivals: profile, posts and how they handle reviews. */
+  cid?: string | null; category?: string | null; photos?: number | null; claimed?: boolean | null;
+  posts90?: number | null; latestPost?: string | null; perMonth?: number | null; replyRate?: number | null;
+};
+/** How many map rivals get the full profile, posts and reviews read (≈ $0.02 each). */
+export const RIVAL_DETAILS = 3;
 export type AuditLink = { ruleId: string; label: string; status: string; message: string };
 
 export type LocalAudit = {
@@ -36,12 +43,12 @@ export type LocalAudit = {
   fromAudit: AuditLink[];
   localLinks: { count: number; examples: string[] } | null;
   /** Reviews and posts are DataForSEO tasks; when they are not ready in time, they are read on the next visit. */
-  pending: { reviews?: string; updates?: string };
+  pending: { reviews?: string; updates?: string; rivals?: { cid: string; reviews?: string; updates?: string }[] };
   notes: string[];
 };
 
 export const LOCAL_GRID = { size: 5, searches: 3, radiusKm: 8, zoom: 13 } as const;
-export const LOCAL_ESTIMATE_USD = 0.35;
+export const LOCAL_ESTIMATE_USD = 0.4;
 
 const DIRECTORIES: Record<string, [string, string][]> = {
   'United States': [['yelp.com', 'Yelp'], ['bbb.org', 'BBB'], ['angi.com', 'Angi'], ['homeadvisor.com', 'HomeAdvisor'], ['yellowpages.com', 'Yellow Pages'], ['facebook.com', 'Facebook'], ['nextdoor.com', 'Nextdoor'], ['thumbtack.com', 'Thumbtack'], ['mapquest.com', 'MapQuest'], ['manta.com', 'Manta']],
@@ -158,6 +165,8 @@ export async function runLocalAudit(
     issues?: ReportIssue[] | null;
     localLinkDomains?: string[] | null;
     radiusKm?: number;
+    /** The client's profile entered by hand ("cid:…" or "place_id:…"). */
+    profileRef?: string | null;
   },
   deps: LocalDeps,
   now = new Date(),
@@ -169,9 +178,22 @@ export async function runLocalAudit(
   const name = input.businessName?.trim() || null;
   const homeP = deps.homepage(`https://${domain}/`).catch(() => null);
 
-  // Find the business on Google Maps: by name (or the domain's words), matched on its website.
+  // The profile entered by hand comes first; otherwise find the business on Google Maps by name.
   let found: MapsResult | null = null;
-  try {
+  let profile: Profile | null = null;
+  if (input.profileRef) {
+    try {
+      const r = await deps.client.profile(input.profileRef, locale);
+      cost += r.cost;
+      profile = r.profile;
+      if (profile) found = { title: profile.title, domain: profile.domain, cid: profile.cid, position: 0, rating: profile.rating, reviews: profile.reviews, category: profile.category, address: profile.address, phone: profile.phone, lat: profile.lat, lng: profile.lng };
+    } catch {
+      // falls back to the search below
+    }
+    if (!profile) notes.push('The Business Profile you entered could not be read, so we searched Google Maps for the business instead.');
+    else if (profile.domain && !isOwn(profile.domain, domain)) notes.push(`The Business Profile you entered links to ${profile.domain}, not ${domain}. Check it is the right profile, or update its website link.`);
+  }
+  if (!found) try {
     const query = name ?? domain.split('.')[0]!.replace(/-/g, ' ');
     const r = await deps.client.maps(input.places[0] ? `${query} ${input.places[0]}` : query, locale);
     cost += r.cost;
@@ -179,8 +201,7 @@ export async function runLocalAudit(
   } catch {
     notes.push('Google Maps could not be searched for the business.');
   }
-  let profile: Profile | null = null;
-  if (found?.cid) {
+  if (!profile && found?.cid) {
     try {
       const r = await deps.client.profile(found.cid, locale);
       cost += r.cost;
@@ -189,7 +210,7 @@ export async function runLocalAudit(
       notes.push('The Business Profile details could not be read.');
     }
   }
-  if (!found) notes.push(`No Google Business Profile was found for ${name ?? domain}. Create or claim one: it is what shows in the map results.`);
+  if (!found) notes.push(`No Google Business Profile was found for ${name ?? domain}. If you have one, paste its Google Maps link under "Your Business Profile"; otherwise create or claim one: it is what shows in the map results.`);
 
   const cid = profile?.cid ?? found?.cid ?? null;
   const center = profile?.lat !== null && profile?.lat !== undefined && profile.lng !== null ? { lat: profile.lat, lng: profile.lng! } : found?.lat !== null && found?.lat !== undefined && found.lng !== null ? { lat: found.lat, lng: found.lng! } : null;
@@ -232,7 +253,7 @@ export async function runLocalAudit(
         ranks.get(s)![i] = mine?.position ?? null;
         for (const m of r.results.filter((x) => x.position <= 3 && x !== mine)) {
           const key = m.cid ?? m.title;
-          const e = seen.get(key) ?? { name: m.title, domain: m.domain, top3: 0, points: 0, rating: m.rating, reviews: m.reviews };
+          const e = seen.get(key) ?? { name: m.title, domain: m.domain, top3: 0, points: 0, rating: m.rating, reviews: m.reviews, cid: m.cid };
           e.top3++;
           seen.set(key, e);
         }
@@ -244,6 +265,22 @@ export async function runLocalAudit(
   if (gridFailed) notes.push(`${gridFailed} of ${searches.length * points.length} map checks did not answer.`);
   if (!searches.length) notes.push('Add searches under Competitors → Where to look (or research keywords) to build the map grid.');
 
+  const total = searches.length * points.length || 1;
+  const rivals: Rival[] = [...seen.values()].map((r) => ({ ...r, points: total })).sort((a, b) => b.top3 - a.top3).slice(0, 8);
+  const rivalTasks: { cid: string; reviews?: string; updates?: string }[] = [];
+  await Promise.all(
+    rivals.filter((r) => r.cid).slice(0, RIVAL_DETAILS).map(async (r) => {
+      const [p, rv, up] = await Promise.all([
+        deps.client.profile(r.cid!, locale).catch(() => null),
+        deps.client.postReviews(r.cid!, locale, 50).catch(() => null),
+        deps.client.postUpdates(r.cid!, locale).catch(() => null),
+      ]);
+      cost += (p?.cost ?? 0) + (rv?.cost ?? 0) + (up?.cost ?? 0);
+      if (p?.profile) Object.assign(r, { category: p.profile.category, photos: p.profile.photos, claimed: p.profile.claimed, rating: p.profile.rating ?? r.rating, reviews: p.profile.reviews ?? r.reviews });
+      rivalTasks.push({ cid: r.cid!, ...(rv ? { reviews: rv.id } : {}), ...(up ? { updates: up.id } : {}) });
+    }),
+  );
+
   // Reviews and posts: wait a little, else read them on the next visit.
   const pending: LocalAudit['pending'] = {};
   const budget = deps.taskBudgetMs ?? 45_000;
@@ -252,7 +289,8 @@ export async function runLocalAudit(
   let posts: { posts: number; posts90: number; latestPost: string | null } | null = null;
   let reviewsRead = !reviewTask;
   let postsRead = !updateTask;
-  while (!(reviewsRead && postsRead)) {
+  const rivalsLeft = () => rivalTasks.some((t) => t.reviews || t.updates);
+  while (!(reviewsRead && postsRead) || rivalsLeft()) {
     if (!reviewsRead) {
       const r = await deps.client.getReviews(reviewTask!).catch(() => null);
       if (r?.ready) {
@@ -267,11 +305,13 @@ export async function runLocalAudit(
         postsRead = true;
       }
     }
-    if ((reviewsRead && postsRead) || Date.now() - started >= budget) break;
+    for (const t of rivalTasks) await readRivalTasks(t, rivals, deps.client, now);
+    if ((reviewsRead && postsRead && !rivalsLeft()) || Date.now() - started >= budget) break;
     await wait(5000);
   }
   if (!reviewsRead) pending.reviews = reviewTask!;
   if (!postsRead) pending.updates = updateTask!;
+  if (rivalsLeft()) pending.rivals = rivalTasks.filter((t) => t.reviews || t.updates);
 
   const home = await homeP;
   const sitePhone = home ? schemaValues(home, 'telephone')[0] ?? phonesIn(home.fullText)[0] ?? null : null;
@@ -295,8 +335,6 @@ export async function runLocalAudit(
     const hitsR = r.filter((x): x is number => x !== null);
     return { search: s, ranks: r, average: hitsR.length ? Math.round((hitsR.reduce((a, b) => a + b, 0) / hitsR.length) * 10) / 10 : null, top3: hitsR.filter((x) => x <= 3).length, found: hitsR.length };
   });
-  const total = searches.length * points.length || 1;
-  const rivals = [...seen.values()].map((r) => ({ ...r, points: total })).sort((a, b) => b.top3 - a.top3).slice(0, 8);
 
   const fromAudit: AuditLink[] = AUDIT_RULES.flatMap(([id, label]) => {
     const i = input.issues?.find((x) => x.ruleId === id);
@@ -324,9 +362,34 @@ export async function runLocalAudit(
   };
 }
 
+/** Reads a rival's review and post tasks once they are ready; clears each id it has read. */
+async function readRivalTasks(t: { cid: string; reviews?: string; updates?: string }, rivals: Rival[], client: Pick<LocalClient, 'getReviews' | 'getUpdates'>, now: Date): Promise<boolean> {
+  const r = rivals.find((x) => x.cid === t.cid);
+  let changed = false;
+  if (t.reviews) {
+    const v = await client.getReviews(t.reviews).catch(() => null);
+    if (v?.ready) {
+      const st = reviewStats(v.reviews, r?.reviews ?? v.total, r?.rating ?? null, now);
+      if (r) Object.assign(r, { perMonth: st?.perMonth ?? null, replyRate: st?.replyRate ?? null });
+      delete t.reviews;
+      changed = true;
+    }
+  }
+  if (t.updates) {
+    const u = await client.getUpdates(t.updates).catch(() => null);
+    if (u?.ready) {
+      const p = postStats(u.dates, now);
+      if (r) Object.assign(r, { posts90: p.posts90, latestPost: p.latestPost });
+      delete t.updates;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Reads reviews and posts that were not ready during the run (called when the page is opened). */
 export async function completePending(a: LocalAudit, client: Pick<LocalClient, 'getReviews' | 'getUpdates'>, now = new Date()): Promise<LocalAudit | null> {
-  if (!a.pending.reviews && !a.pending.updates) return null;
+  if (!a.pending.reviews && !a.pending.updates && !a.pending.rivals?.length) return null;
   let next: LocalAudit = { ...a, pending: { ...a.pending } };
   let changed = false;
   if (a.pending.reviews) {
@@ -345,6 +408,14 @@ export async function completePending(a: LocalAudit, client: Pick<LocalClient, '
       delete next.pending.updates;
       changed = true;
     }
+  }
+  if (a.pending.rivals?.length) {
+    const rivals = next.rivals.map((r) => ({ ...r }));
+    const tasks = a.pending.rivals.map((t) => ({ ...t }));
+    for (const t of tasks) if (await readRivalTasks(t, rivals, client, now)) changed = true;
+    const left = tasks.filter((t) => t.reviews || t.updates);
+    next = { ...next, rivals, pending: { ...next.pending, rivals: left.length ? left : undefined } };
+    if (!left.length) delete next.pending.rivals;
   }
   return changed ? next : null;
 }

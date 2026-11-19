@@ -15,7 +15,7 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | 3 | Competitor identification | Done | 9 of 9 |
 | 4 | Keyword research | Done, 1 partial | 37 of 38 |
 | 5 | Keyword to page mapping | Done | 13 of 13 |
-| 6 | Deep competitor analysis | Done, 7 partial | 31 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
+| 6 | Deep competitor analysis | Done, 5 partial | 33 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
 | 7 | Content audit and gap analysis | Done | 9 of 9 (traffic and leads need Search Console / GA4) |
 | 8 | Backlink audit | Done | 10 of 10 (needs the DataForSEO Backlinks API enabled) |
 | 9 | Local SEO audit | Done | 10 of 10 |
@@ -24,7 +24,7 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | 12 | Prioritisation and action plan | Done | 7 of 7 |
 | 13 | Reporting and monitoring setup | Done | 8 of 8 (monthly report printed or saved as PDF from the browser) |
 
-**What is left in finished modules:** partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5, 6.5.1, 6.5.2): they cover the client fully and competitors only in part.
+**What is left in finished modules:** partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5): they cover the client fully and competitors only in part.
 
 ---
 
@@ -41,7 +41,7 @@ Every subpoint 1.1.1–1.13.3 is an automatic rule in the audit (`packages/core/
 | 1.13.1, 1.13.2 International | Done | Only on sites with hreflang |
 | 1.13.3 RTL and translation quality | Done | x-default, html lang vs hreflang, text not in the labelled language (detected from common words and scripts: en, es, fr, de, it, pt, nl, Arabic, Hebrew, Cyrillic, Chinese, Japanese), and `dir="rtl"` on right-to-left pages; the quality of a translation itself is not judged |
 
-**Automate line:** weekly re-audit (customers) and "changes since the last audit" are **Done**; new-error alerts by email, daily uptime, SSL, robots.txt and noindex monitoring are **Later** (Module 13); "ticket creation" is the action plan (Module 12).
+**Automate line:** weekly re-audit (customers), "changes since the last audit", new-error alerts by email, daily uptime, SSL expiry, robots.txt and noindex monitoring are **Done** (Module 13 daily checks); "ticket creation" is the action plan (Module 12).
 
 ## Module 2 · On-page SEO — Done
 
@@ -52,7 +52,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 2.4.1 Depth vs top-ranking pages | Done | Mapped pages are compared with the pages Google ranks for their keyword (Module 5 + cached results from keyword research, up to 5 pages × 3 results, own fetch); other pages with their page-type median |
 | 2.5.4 Real photos | Done (AI) | Screenshot of the homepage only |
 
-**Automate line:** missing/duplicate titles and meta, heading checks, thin pages, quick wins: **Done**. Alt-text drafts: **Not yet**. Content decay alerts: rule 2.9.5 is **Done**, the alert email is **Later** (Module 13).
+**Automate line:** missing/duplicate titles and meta, heading checks, thin pages, quick wins: **Done**. Alt-text drafts: **Not yet**. Content decay alerts: rule 2.9.5 is **Done**; traffic drops are emailed by the Module 13 daily check.
 
 ## Module 3 · Competitor identification
 
@@ -119,8 +119,8 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 6.4.4 Link gap | Done | Sites linking to two or more direct competitors and not to you |
 | 6.4.5 Best linked pages and why | Partial | Your most linked pages; competitors' best linked pages are not listed |
 | 6.4.6 Link types | Done | Directory, news, association, education, government, social, blog, business |
-| 6.5.1 Profile categories, services, photos, posts | Partial | Yours in full on the Local page; competitors: category, photos, claimed |
-| 6.5.2 Reviews: count, rating, growth, responses | Partial | Yours in full on the Local page; competitors: count and rating |
+| 6.5.1 Profile categories, services, photos, posts | Done | Yours in full on the Local page; the top 3 map rivals: main category, photos, claimed and posts in 90 days, side by side with yours |
+| 6.5.2 Reviews: count, rating, growth, responses | Done | Count, rating, new reviews a month and share answered, for you and the top 3 map rivals |
 | 6.5.3 Listing consistency | Done | Local page: name, address and phone on the profile, the website and the directories |
 | 6.5.4 Map pack position | Done | Local page: 5 × 5 map grid for 3 searches, and who wins it |
 | 6.6.1 Prompts: mentions and citations | Done | ChatGPT only (your decision) |
@@ -179,7 +179,9 @@ Local page (team `/local/<domain>`, customers' Local tab), DataForSEO SERP Maps 
 | 9.7 Location pages unique | Done | From the latest site audit (2.9.2, 1.6.6) |
 | 9.8 Local schema | Done | From the latest site audit (1.11.1, 1.11.4) |
 | 9.9 Local links | Done | Local linking sites from the backlink audit, and ideas |
-| 9.10 Local competitor benchmark | Done | Who is in the top 3 across the grid, with rating and reviews |
+| 9.10 Local competitor benchmark | Done | Who is in the top 3 across the grid, with rating and reviews; the top 3 also with category, photos, posts and review replies |
+
+**Beyond the checklist (Business Profile):** the client's profile can be entered by hand (Maps link, share link, place ID or CID) so the audit never guesses the wrong one; an optional Business Profile connection (Google's Business Profile APIs, scope business.manage) lists the profile's reviews, drafts replies and "What's new" posts with AI, and posts them when a person presses Post / Publish. The checklist only asks to **audit** the profile (9.1–9.5, 6.5), not to manage it. The connection needs Google to approve the Cloud project first (not tested live yet).
 
 ## Module 7 · Content audit and gap analysis — Done
 

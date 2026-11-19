@@ -2,6 +2,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { exchangeGscCode } from '@seo/core';
 import { saveCustomerGoogle, saveGscConnection } from '@seo/db';
+import { competitorAccess } from '@/lib/competitors';
+import { saveGbpConnection } from '@/lib/gbp';
 import { GOOGLE_FLOW_COOKIE, googleOAuth, GSC_STATE_COOKIE, publicOrigin } from '@/lib/google-oauth';
 import { getSessionUser } from '@/lib/session';
 
@@ -12,13 +14,16 @@ const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(
 /**
  * GET /api/gsc/callback — Google returns here (the one registered redirect URI) for both:
  *  - the team's agency Search Console connection (admin, from Settings → Search Console), and
- *  - a customer's own Google connection (Search Console + Analytics 4, from their dashboard).
+ *  - a customer's own Google connection (Search Console + Analytics 4, from their dashboard), and
+ *  - a site's Google Business Profile (flow "gbp:<domain>", team or the site's customer, from the Local page).
  * Stores the encrypted refresh token.
  */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   const flow = req.cookies.get(GOOGLE_FLOW_COOKIE)?.value ?? '';
   const customer = user?.role === 'customer' && flow.startsWith('customer:') ? flow.slice('customer:'.length) : null;
+  const gbpDomain = flow.startsWith('gbp:') ? flow.slice('gbp:'.length) : null;
+  if (gbpDomain !== null) return businessProfile(req, gbpDomain);
 
   const back = (query: string) => {
     const path = customer !== null ? (query.startsWith('connected') ? `/my/connect?site=${encodeURIComponent(customer)}` : `/my/connections?site=${encodeURIComponent(customer)}&${query}`) : `/settings/search-console?${query}`;
@@ -43,5 +48,31 @@ export async function GET(req: NextRequest) {
     return back('connected=1');
   } catch (err) {
     return back(`error=${encodeURIComponent(err instanceof Error ? err.message : 'Could not connect Google.')}`);
+  }
+}
+
+/** The Business Profile flow: stores the token on the site, then asks which profile to use. */
+async function businessProfile(req: NextRequest, domain: string) {
+  const viewer = await competitorAccess(domain);
+  const page = viewer?.kind === 'customer' ? `/my/local?site=${encodeURIComponent(domain)}` : `/local/${domain}`;
+  const back = (query: string) => {
+    const res = NextResponse.redirect(new URL(`${page}${page.includes('?') ? '&' : '?'}${query}`, publicOrigin(req.headers)));
+    res.cookies.delete({ name: GSC_STATE_COOKIE, path: '/api/gsc' });
+    res.cookies.delete({ name: GOOGLE_FLOW_COOKIE, path: '/api/gsc' });
+    return res;
+  };
+  if (!viewer) return new NextResponse('Not allowed.', { status: 403 });
+  const params = req.nextUrl.searchParams;
+  if (params.get('error')) return back(`gbpError=${encodeURIComponent(params.get('error') === 'access_denied' ? 'Google sign-in was cancelled.' : `Google: ${params.get('error')}`)}`);
+  const state = params.get('state') ?? '';
+  const expected = req.cookies.get(GSC_STATE_COOKIE)?.value ?? '';
+  if (!state || !expected || !same(state, expected)) return back(`gbpError=${encodeURIComponent('The sign-in link expired. Please try again.')}`);
+  try {
+    const { refreshToken, email, scopes } = await exchangeGscCode(googleOAuth(req.headers), params.get('code') ?? '');
+    if (!scopes.includes('business.manage')) return back(`gbpError=${encodeURIComponent('Business Profile access was not granted. Tick the box on the Google screen.')}`);
+    await saveGbpConnection(domain, { email, refreshToken, scopes });
+    return back('gbp=choose#business-profile');
+  } catch (err) {
+    return back(`gbpError=${encodeURIComponent(err instanceof Error ? err.message : 'Could not connect Google.')}`);
   }
 }

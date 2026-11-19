@@ -89,9 +89,18 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Sharing:</strong> Google user data is not sold, not used for advertising, not used to build user profiles and not used to train
-          artificial-intelligence or machine-learning models. It is not sent to OpenAI or any other AI service: when AI features are used, Search
-          Console and Analytics data are left out of what is sent. A customer’s Google data is only shown to that customer and to the MSScore team
-          working on their website, and in the reports they choose to download or send.
+          artificial-intelligence or machine-learning models. Search Console and Analytics data are never sent to OpenAI or any other AI service:
+          when AI features are used, they are left out of what is sent. A customer’s Google data is only shown to that customer and to the MSScore
+          team working on their website, and in the reports they choose to download or send.
+        </p>
+        <p>
+          <strong>Google Business Profile (optional):</strong> on a website’s Local page, the customer or the team can connect the Google account
+          that manages the business’s profile. Google then asks for permission to manage Business Profiles (scope <code>business.manage</code>).
+          MSScore reads the list of profiles the account manages, the chosen profile’s reviews and posts, and changes the profile only in two ways,
+          each started by a person: posting the reply they wrote to a review when they press <em>Post reply</em>, and publishing the update they
+          wrote when they press <em>Publish</em>. Nothing is posted automatically. When a person presses <em>Write with AI</em> on a review, that
+          review’s text, star rating and the reviewer’s first name are sent to OpenAI once to draft a reply for them to edit; nothing else from the
+          profile is sent. A record of each reply and post (text, date, who sent it) is kept with the website.
         </p>
         <p>
           MSScore’s use and transfer of information received from Google APIs adheres to the{' '}
@@ -119,10 +128,11 @@ export default function PrivacyPage() {
             without any personal data and only to research that website.
           </li>
           <li><strong>Google PageSpeed Insights</strong>: measures page speed of public pages.</li>
-          <li><strong>Google Search Console API and Google Analytics APIs</strong>: as described in section 4.</li>
+          <li><strong>Google Search Console API, Google Analytics APIs and Google Business Profile APIs</strong>: as described in section 4.</li>
           <li>
             <strong>OpenAI</strong>: only when AI recommendations are turned on for an audit; receives the audit findings and page addresses (no
-            Search Console or Analytics data, no passwords, no page HTML) to write a fix plan.
+            Search Console or Analytics data, no passwords, no page HTML) to write a fix plan; and, when a person asks for it, one Business Profile
+            review at a time to draft a reply (see section 4).
           </li>
           <li><strong>Hostinger</strong> (servers), <strong>Cloudflare</strong> (DNS, network protection and backup storage).</li>
           <li><strong>Email delivery provider</strong>: only to send a report to an address you entered.</li>
@@ -134,7 +144,8 @@ export default function PrivacyPage() {
         <ul>
           <li>Accounts: until the account is removed.</li>
           <li>Audits and reports, including any Search Console results in them: until deleted by an administrator or on request.</li>
-          <li>Google connections (Search Console and Analytics): until disconnected; disconnecting deletes the stored token immediately.</li>
+          <li>Google connections (Search Console, Analytics and Business Profile): until disconnected; disconnecting deletes the stored token immediately.</li>
+          <li>The record of Business Profile replies and posts sent from MSScore: the latest 100 per website, until the website is removed.</li>
           <li>Database backups, where kept: up to 14 days, then overwritten.</li>
         </ul>
       </LegalSection>

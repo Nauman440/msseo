@@ -390,6 +390,14 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByRole('button', { name: 'Run the local audit' }).click();
   await expect(page.getByText('no Google Business Profile was found', { exact: false }).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Next check available on/)).toBeVisible();
+  // The Business Profile entered by hand (Maps link, place id or CID).
+  await page.getByLabel('Google Maps link to your Business Profile').fill('not a link');
+  await page.getByRole('button', { name: 'Save profile link' }).click();
+  await expect(page.getByText('That is not a Business Profile link.', { exact: false })).toBeVisible();
+  await page.getByLabel('Google Maps link to your Business Profile').fill('194604053573767737');
+  await page.getByRole('button', { name: 'Save profile link' }).click();
+  await expect(page.getByText('Saved. The next Local audit', { exact: false })).toBeVisible();
+  await expect(page.getByText('Using profile id 194604053573767737')).toBeVisible();
   await page.goto('/backlinks/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');

@@ -4,7 +4,7 @@ export type HttpLog = (event: { provider: string; url: string; status?: number; 
 
 export type RequestOptions = {
   provider: string;
-  method?: 'GET' | 'POST' | 'HEAD';
+  method?: 'GET' | 'POST' | 'HEAD' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
   body?: unknown;
   /** Pre-encoded body sent as is (e.g. form-urlencoded); set the content-type header yourself. */

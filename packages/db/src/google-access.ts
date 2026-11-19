@@ -46,3 +46,12 @@ export async function latestAudit(domain: string): Promise<{ report: ReportModel
     : null;
   return { report: (a?.report as unknown as ReportModel) ?? null, finishedAt: (a?.finishedAt ?? a?.createdAt)?.toISOString() ?? null };
 }
+
+/** The two newest finished audits of a site (Module 13 new-errors alert). */
+export async function lastTwoAudits(domain: string): Promise<{ latest: { id: string; report: ReportModel } | null; previous: ReportModel | null }> {
+  const project = await prisma.project.findUnique({ where: { domain }, select: { id: true } });
+  if (!project) return { latest: null, previous: null };
+  const rows = await prisma.audit.findMany({ where: { projectId: project.id, status: 'completed' }, orderBy: { createdAt: 'desc' }, take: 2, select: { id: true, report: true } });
+  const [a, b] = rows;
+  return { latest: a?.report ? { id: a.id, report: a.report as unknown as ReportModel } : null, previous: (b?.report as unknown as ReportModel) ?? null };
+}

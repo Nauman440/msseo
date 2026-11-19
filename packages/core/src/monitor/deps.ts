@@ -19,7 +19,7 @@ const hostOf = (u: string) => {
   }
 };
 
-export function buildDailyDeps(o: { domain: string; keyPages: string[]; gsc: Access; log?: HttpLog }): DailyDeps {
+export function buildDailyDeps(o: { domain: string; keyPages: string[]; gsc: Access; log?: HttpLog; certExpiry?: DailyDeps['certExpiry']; audits?: DailyDeps['audits'] }): DailyDeps {
   return {
     fetchPage: (u) => fetchHtml(u, o.log),
     fetchRobots: () => fetchRobotsTxt(o.domain, o.log),
@@ -31,6 +31,8 @@ export function buildDailyDeps(o: { domain: string; keyPages: string[]; gsc: Acc
             .sort((a, b) => a.date.localeCompare(b.date))
       : undefined,
     keyPages: o.keyPages,
+    certExpiry: o.certExpiry,
+    audits: o.audits,
   };
 }
 

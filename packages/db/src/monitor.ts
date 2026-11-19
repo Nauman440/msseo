@@ -6,7 +6,8 @@ import { getActionWorkspace } from './actions';
 import { autopilotSpentThisMonth } from './autopilot';
 import { prisma } from './client';
 import { getCompetitorWorkspace } from './competitors';
-import { analyticsFor, hostOf, latestAudit, searchConsoleFor } from './google-access';
+import { certificateExpiry } from '@seo/core/server';
+import { analyticsFor, hostOf, lastTwoAudits, latestAudit, searchConsoleFor } from './google-access';
 import { getKeywordWorkspace } from './keywords';
 import { getMappingWorkspace } from './mapping';
 import { getSettings } from './settings';
@@ -37,7 +38,7 @@ export async function monitorTargets(now = new Date()): Promise<{ domain: string
 
 /** Everything the checks need about a site: Google access, key pages, locale, Business Profile, scores. */
 export async function monitorContext(domain: string) {
-  const [gsc, ga4, latest, mapping, kw, comp, local, aeo] = await Promise.all([
+  const [gsc, ga4, latest, mapping, kw, comp, local, aeo, gbp] = await Promise.all([
     searchConsoleFor(domain).catch(() => null),
     analyticsFor(domain).catch(() => null),
     latestAudit(domain).catch(() => ({ report: null, finishedAt: null })),
@@ -46,6 +47,7 @@ export async function monitorContext(domain: string) {
     getCompetitorWorkspace(domain).catch(() => null),
     getSiteDocument<LocalAudit>('local', domain).catch(() => null),
     getSiteDocument<AeoWorkspace>('aeo', domain).catch(() => null),
+    getSiteDocument<{ ref?: string | null }>('gbp', domain).catch(() => null),
   ]);
   const mapped = (mapping?.rows ?? []).filter((r) => r.url).sort((a, b) => b.priority - a.priority).map((r) => r.url!);
   const typed = (latest.report?.pages ?? []).filter((p) => /^(service|location|service_location|contact)$/.test(p.pageType ?? '')).map((p) => p.url);
@@ -56,7 +58,8 @@ export async function monitorContext(domain: string) {
     kw,
     keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => hostOf(u) === domain).slice(0, 7),
     locale: { country: comp?.country ?? kw?.country ?? 'United States', language: comp?.language ?? kw?.language ?? 'en' },
-    cid: local?.profile?.cid ?? null,
+    // The profile entered by hand ("cid:…" / "place_id:…") when the local audit has not found one.
+    cid: local?.profile?.cid ?? gbp?.ref ?? null,
     aiShare: aeo?.audit?.share.all.find((s) => s.you)?.share ?? null,
   };
 }
@@ -75,7 +78,7 @@ export async function runMonitorDaily(now = new Date()): Promise<MonitorRun[]> {
     try {
       const [ws, ctx] = await Promise.all([getMonitor(t.domain), monitorContext(t.domain)]);
       prepare(ws, ctx, t.customer);
-      const r = await dailyChecks(ws, buildDailyDeps({ domain: t.domain, keyPages: ctx.keyPages, gsc: ctx.gsc }), now);
+      const r = await dailyChecks(ws, buildDailyDeps({ domain: t.domain, keyPages: ctx.keyPages, gsc: ctx.gsc, certExpiry: () => certificateExpiry(t.domain), audits: () => lastTwoAudits(t.domain) }), now);
       await saveMonitor(r.ws);
       out.push({ domain: t.domain, customer: t.customer, raised: r.raised });
     } catch (err) {

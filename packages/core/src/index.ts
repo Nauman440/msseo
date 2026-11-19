@@ -53,3 +53,6 @@ export { fetchPageContents } from './audit/page-content';
 export * from './tracking/tracking';
 export * from './monitor/monitor';
 export * from './monitor/deps';
+export * from './local/profile-link';
+export * from './providers/gbp';
+export * from './local/gbp-drafts';

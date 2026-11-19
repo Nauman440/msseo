@@ -11,6 +11,7 @@ import { ga4Access, getKeywordWorkspace, gscAccess } from './keywords';
 import { getLocal } from './local';
 import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
+import { certificateExpiry } from '@seo/core/server';
 import { getDoc, recordRun, saveDoc } from './site-docs';
 
 /**
@@ -33,8 +34,8 @@ export async function getMonitor(rawDomain: string): Promise<MonitorWorkspace> {
 export const saveMonitor = (ws: MonitorWorkspace) => saveDoc(KIND, ws.domain, ws);
 
 async function context(domain: string) {
-  const [gsc, ga4, audits, mapping, comp, local, aeo] = await Promise.all([
-    gscAccess(domain), ga4Access(domain), customerAudits(`https://${domain}/`), getMapping(domain), getWorkspace(domain), getLocal(domain), getAeo(domain),
+  const [gsc, ga4, audits, mapping, comp, local, aeo, gbp] = await Promise.all([
+    gscAccess(domain), ga4Access(domain), customerAudits(`https://${domain}/`), getMapping(domain), getWorkspace(domain), getLocal(domain), getAeo(domain), getDoc<{ ref?: string | null }>('gbp', domain),
   ]);
   const report = audits.latest ?? null;
   const mapped = mapping.rows.filter((r) => r.url).sort((a, b) => b.priority - a.priority).map((r) => r.url!);
@@ -45,7 +46,11 @@ async function context(domain: string) {
     report,
     keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => domainOf(u) === domain).slice(0, 7),
     locale: { country: comp.country, language: comp.language },
-    cid: local?.profile?.cid ?? null,
+    cid: local?.profile?.cid ?? gbp?.ref ?? null,
+    audits: {
+      latest: audits.latest ? { id: audits.rows.find((r) => r.status === 'completed')?.id ?? 'latest', report: audits.latest } : null,
+      previous: audits.previous ?? null,
+    },
     aiShare: aeo.audit?.share.all.find((s) => s.you)?.share ?? null,
   };
 }
@@ -58,7 +63,7 @@ export async function runMonitorNow(rawDomain: string): Promise<{ ws: MonitorWor
   const { env } = providerConfig();
   let calls = 0;
   const log = (e: { provider: string }) => void (e.provider === 'dataforseo' && calls++);
-  const d = await dailyChecks(ws, buildDailyDeps({ domain, keyPages: ctx.keyPages, gsc: ctx.gsc }));
+  const d = await dailyChecks(ws, buildDailyDeps({ domain, keyPages: ctx.keyPages, gsc: ctx.gsc, certExpiry: () => certificateExpiry(domain), audits: async () => ctx.audits }));
   const w = await weeklyRun(d.ws, buildWeeklyDeps({ domain, gsc: ctx.gsc, ga4: ctx.ga4, dfs: env ? { ...env.dataforseo, log } : null, locale: ctx.locale, cid: ctx.cid, score: ctx.report?.overall.score ?? null, aiShare: ctx.aiShare }));
   await saveMonitor(w.ws);
   if (w.cost > 0) await recordRun('monitoring', (await isCustomerSite(domain)) ? 'customer' : 'team', calls, w.cost);
