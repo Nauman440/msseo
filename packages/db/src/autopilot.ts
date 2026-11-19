@@ -56,7 +56,7 @@ export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite
 export async function autopilotSpentThisMonth(now = new Date()): Promise<number> {
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   // Autopilot runs and the analyses customers start themselves share the same monthly cap.
-  const agg = await prisma.apiUsage.aggregate({ where: { endpoint: { in: ['autopilot', 'competitor-analysis', 'backlinks', 'local', 'aeo'] }, createdAt: { gte: from } }, _sum: { costUsd: true } });
+  const agg = await prisma.apiUsage.aggregate({ where: { endpoint: { in: ['autopilot', 'competitor-analysis', 'backlinks', 'local', 'aeo', 'monitoring'] }, createdAt: { gte: from } }, _sum: { costUsd: true } });
   return Number(agg._sum.costUsd ?? 0);
 }
 

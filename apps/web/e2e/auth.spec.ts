@@ -149,6 +149,8 @@ test('the free report is public, offers the trial, and team audits stay private'
 });
 
 test('a visitor signs up from the free report and lands on their own dashboard', async ({ page, request }) => {
+  // Walks through every customer tab (Modules 3–13), so it needs more than the default 30 s.
+  test.setTimeout(120_000);
   const id = '00000000-0000-4000-8000-00000000f4ee'; // the free audit seeded in the previous test
   await page.goto(`/free/${id}`);
   await page.getByRole('link', { name: 'Start 7-day free trial' }).first().click();
@@ -407,6 +409,26 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByRole('button', { name: 'Check AI search' }).click();
   await expect(page.getByText(/answers checked|Tick questions under|did not finish/)).toBeVisible({ timeout: 60_000 });
   await page.goto('/ai-search/summitairhvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+  await page.goto('/my/actions');
+
+  // Modules 11 and 13 for customers: Tracking and Monitoring tabs, Alerts in the sidebar, the monthly report.
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Tracking' }).click();
+  await expect(page.getByRole('heading', { name: 'Lead quality' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Where leads are recorded (CRM or job software)').fill('Jobber');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await page.getByRole('button', { name: 'Check tracking' }).click();
+  await expect(page.getByText(/points need attention|points look good|did not finish/)).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Monitoring' }).click();
+  await expect(page.getByRole('heading', { name: 'Rankings for the searches that matter' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run checks now' })).toHaveCount(0);
+  await page.goto('/my/alerts');
+  await expect(page.getByRole('heading', { name: 'Alerts', level: 1 })).toBeVisible();
+  await page.goto('/my/reports/monthly?month=2026-10');
+  await expect(page.getByRole('heading', { name: 'October 2026' })).toBeVisible();
+  await page.goto('/monitor/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');
 

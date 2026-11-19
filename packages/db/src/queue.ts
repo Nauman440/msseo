@@ -46,6 +46,10 @@ export const AUTOPILOT_CUSTOMER = 'autopilot-customer';
 export const DAILY_ACTION_CHECKS = 'daily-action-checks';
 /** Module 10: weekly AI search tracking for customer websites, Mondays 07:30 UTC. */
 export const WEEKLY_AI_TRACKING = 'weekly-ai-tracking';
+/** Module 13: daily alerts (06:15 UTC), weekly snapshots (Mondays 10:00 UTC), monthly reports (1st, 11:00 UTC). */
+export const DAILY_MONITOR = 'daily-monitor';
+export const WEEKLY_MONITOR = 'weekly-monitor';
+export const MONTHLY_REPORTS = 'monthly-reports';
 
 /** Queues an autopilot run for one customer (deduplicated for 10 minutes), after `delayMs` (lets the first audit finish). */
 export async function enqueueAutopilot(userId: string, delayMs = 0): Promise<void> {
@@ -69,6 +73,9 @@ export async function ensureWeeklySchedule(): Promise<void> {
     await queue.upsertJobScheduler(QUARTERLY_COMPETITORS, { pattern: '0 7 1 1,4,7,10 *', tz: 'UTC' }, { name: QUARTERLY_COMPETITORS });
     await queue.upsertJobScheduler(DAILY_AUTOPILOT, { pattern: '0 5 * * *', tz: 'UTC' }, { name: DAILY_AUTOPILOT });
     await queue.upsertJobScheduler(DAILY_ACTION_CHECKS, { pattern: '0 8 * * *', tz: 'UTC' }, { name: DAILY_ACTION_CHECKS });
+    await queue.upsertJobScheduler(DAILY_MONITOR, { pattern: '15 6 * * *', tz: 'UTC' }, { name: DAILY_MONITOR });
+    await queue.upsertJobScheduler(WEEKLY_MONITOR, { pattern: '0 10 * * 1', tz: 'UTC' }, { name: WEEKLY_MONITOR });
+    await queue.upsertJobScheduler(MONTHLY_REPORTS, { pattern: '0 11 1 * *', tz: 'UTC' }, { name: MONTHLY_REPORTS });
     await queue.upsertJobScheduler(WEEKLY_AI_TRACKING, { pattern: '30 7 * * 1', tz: 'UTC' }, { name: WEEKLY_AI_TRACKING });
   } finally {
     await queue.close();

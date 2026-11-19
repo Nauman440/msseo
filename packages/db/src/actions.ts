@@ -1,7 +1,6 @@
-import { gscSearchAnalytics, hasDueChecks, judgeCheckpoint, matchGscProperties, runChecks, type ActionItem, type ActionWorkspace, type ReportModel } from '@seo/core';
+import { gscSearchAnalytics, hasDueChecks, judgeCheckpoint, runChecks, type ActionItem, type ActionWorkspace } from '@seo/core';
 import { prisma, type Prisma } from './client';
-import { customerGoogleReady, customerGoogleToken, getCustomerGoogle } from './customer-google';
-import { getGscConnection, gscAccessToken, gscProperties, gscSetup } from './gsc';
+import { latestAudit, searchConsoleFor } from './google-access';
 
 /** Module 12 action plans in Postgres (one JSON document per website). */
 export async function getActionWorkspace(domain: string): Promise<ActionWorkspace | null> {
@@ -14,40 +13,11 @@ export async function saveActionWorkspace(ws: ActionWorkspace): Promise<void> {
   await prisma.actionWorkspace.upsert({ where: { domain: ws.domain }, create: { domain: ws.domain, data }, update: { data } });
 }
 
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
 const normUrl = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const DAY = 86_400_000;
 /** Search Console data arrives about 3 days late. */
 const LAG_DAYS = 3;
-
-/** Read access to the site's Search Console: the customer's own connection first, else the agency one. */
-async function searchConsoleFor(domain: string): Promise<{ token: string; property: string } | null> {
-  if (customerGoogleReady()) {
-    const owners = await prisma.customerAccount.findMany({ select: { userId: true, website: true, extraWebsites: true } });
-    const owner = owners.find((a) => [a.website, ...a.extraWebsites].some((w) => w && hostOf(w) === domain));
-    const conn = owner ? await getCustomerGoogle(owner.userId).catch(() => null) : null;
-    const property = conn?.sites[domain]?.gscProperty;
-    if (owner && property) return { token: await customerGoogleToken(owner.userId), property };
-  }
-  if (!gscSetup().ready || !(await getGscConnection())) return null;
-  const property = matchGscProperties(await gscProperties(), `https://${domain}/`)[0];
-  return property ? { token: await gscAccessToken(), property } : null;
-}
-
-async function latestAudit(domain: string): Promise<{ report: ReportModel | null; finishedAt: string | null }> {
-  const project = await prisma.project.findUnique({ where: { domain }, select: { id: true } });
-  const a = project
-    ? await prisma.audit.findFirst({ where: { projectId: project.id, status: 'completed' }, orderBy: { createdAt: 'desc' }, select: { report: true, finishedAt: true, createdAt: true } })
-    : null;
-  return { report: (a?.report as unknown as ReportModel) ?? null, finishedAt: (a?.finishedAt ?? a?.createdAt)?.toISOString() ?? null };
-}
 
 /** Clicks per day for the action's pages and for every other page, before and after the fix. */
 async function clicksAround(sc: { token: string; property: string }, a: ActionItem, until: number) {

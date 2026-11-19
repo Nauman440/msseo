@@ -113,3 +113,43 @@ export function matchGa4Properties(props: (Ga4Property & { hosts?: string[] })[]
   const hit = (p: Ga4Property & { hosts?: string[] }) => Boolean(p.hosts?.some((h) => h === d || h.endsWith(`.${d}`)) || p.name.toLowerCase().includes(d));
   return props.map((p) => ({ ...p, matches: hit(p) })).sort((a, b) => Number(b.matches) - Number(a.matches) || a.accountName.localeCompare(b.accountName) || a.name.localeCompare(b.name));
 }
+
+/**
+ * Module 11. Admin API keyEvents.list (GET v1beta/properties/{id}/keyEvents, pageSize ≤ 200; KeyEvent has
+ * eventName, custom, countingMethod) and the web streams' measurement ids (webStreamData.measurementId).
+ * Data API dimensions eventName, pagePath, landingPage, sessionSourceMedium, sessionSource,
+ * sessionDefaultChannelGroup; metrics sessions, keyEvents, eventCount (checked 2026-11-19).
+ */
+export async function ga4KeyEvents(token: string, property: string, log?: HttpLog): Promise<{ eventName: string; custom: boolean }[]> {
+  const json = z
+    .object({ keyEvents: z.array(z.object({ eventName: z.string(), custom: z.boolean().optional() })).optional() })
+    .parse(await requestJson(`${ADMIN}/${property}/keyEvents?pageSize=200`, { provider: 'ga4', headers: auth(token), timeoutMs: 20_000, retries: 1, log }));
+  return (json.keyEvents ?? []).map((k) => ({ eventName: k.eventName, custom: k.custom ?? false }));
+}
+
+export async function ga4MeasurementIds(token: string, property: string, log?: HttpLog): Promise<string[]> {
+  const json = z
+    .object({ dataStreams: z.array(z.object({ type: z.string().optional(), webStreamData: z.object({ measurementId: z.string().optional() }).optional() })).optional() })
+    .parse(await requestJson(`${ADMIN}/${property}/dataStreams?pageSize=200`, { provider: 'ga4', headers: auth(token), timeoutMs: 20_000, retries: 1, log }));
+  return (json.dataStreams ?? []).flatMap((s) => (s.webStreamData?.measurementId ? [s.webStreamData.measurementId.toUpperCase()] : []));
+}
+
+export type Ga4Row = { dims: string[]; mets: number[] };
+
+/** A small runReport: the given dimensions and metrics for the last `days` days (≤ `limit` rows). */
+export async function ga4Report(token: string, property: string, o: { days: number; dimensions: string[]; metrics: string[]; limit?: number }, log?: HttpLog): Promise<Ga4Row[]> {
+  const json = z
+    .object({ rows: z.array(z.object({ dimensionValues: z.array(z.object({ value: z.string().optional() })).optional(), metricValues: z.array(z.object({ value: z.string().optional() })).optional() })).optional() })
+    .parse(
+      await requestJson(`${DATA}/${property}:runReport`, {
+        provider: 'ga4',
+        method: 'POST',
+        headers: auth(token),
+        body: { dateRanges: [{ startDate: `${o.days}daysAgo`, endDate: 'yesterday' }], dimensions: o.dimensions.map((name) => ({ name })), metrics: o.metrics.map((name) => ({ name })), limit: o.limit ?? 1000 },
+        timeoutMs: 20_000,
+        retries: 1,
+        log,
+      }),
+    );
+  return (json.rows ?? []).map((r) => ({ dims: (r.dimensionValues ?? []).map((d) => d.value ?? ''), mets: (r.metricValues ?? []).map((m) => Number(m.value ?? 0) || 0) }));
+}

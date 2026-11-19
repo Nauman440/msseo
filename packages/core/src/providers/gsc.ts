@@ -132,7 +132,7 @@ export type GscRow = { keys: string[]; clicks: number; impressions: number; ctr:
 export async function gscSearchAnalytics(
   token: string,
   property: string,
-  q: { startDate: string; endDate: string; dimensions: ('page' | 'query')[]; maxRows?: number },
+  q: { startDate: string; endDate: string; dimensions: ('page' | 'query' | 'date' | 'device' | 'country')[]; maxRows?: number },
   log?: HttpLog,
 ): Promise<GscRow[]> {
   const out: GscRow[] = [];

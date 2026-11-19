@@ -20,9 +20,9 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | 8 | Backlink audit | Done | 10 of 10 (needs the DataForSEO Backlinks API enabled) |
 | 9 | Local SEO audit | Done | 10 of 10 |
 | 10 | AEO / AI search audit | Done | 10 of 10 (ChatGPT, Perplexity, Google AI Overviews; Gemini not tracked) |
-| 11 | Tracking and conversion audit | Not yet (pieces exist) | — |
+| 11 | Tracking and conversion audit | Done | 7 of 7 (GA4 parts need the customer's Google connection; 11.7 is filled in by hand) |
 | 12 | Prioritisation and action plan | Done | 7 of 7 |
-| 13 | Reporting and monitoring setup | Not yet (pieces exist) | — |
+| 13 | Reporting and monitoring setup | Done | 8 of 8 (monthly report printed or saved as PDF from the browser) |
 
 **What is left in finished modules:** partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5, 6.5.1, 6.5.2): they cover the client fully and competitors only in part.
 
@@ -214,11 +214,33 @@ AI search page (team `/ai-search/<domain>`, customers' AI search tab). DataForSE
 | 10.9 Snippet / AI controls | Done | nosnippet, max-snippet, data-nosnippet per page |
 | 10.10 Third-party presence | Done | Directories, review sites, news links, forums AI cites |
 
-## Modules 11 and 13 — not built yet
+## Module 11 · Tracking and conversion audit — Done
 
-Pieces that already exist and will be reused:
+Tracking page (team `/tracking/<domain>`, customers' Tracking tab). Free: the site's own HTML, Search Console and GA4 (Admin API keyEvents + dataStreams, Data API runReport).
 
-- **11 Tracking:** Search Console + GA4 connection for customers, key events count, click-to-call and form checks (2.7.6).
-- **13 Reporting:** weekly re-audit, PDF and .md reports, score trend and "changes since last audit", customer dashboard.
+| Point | Status | Note |
+| --- | --- | --- |
+| 11.1 Search Console + GA4 connected and verified | Done | Connected, data arriving (clicks / visits in 28 days), GA4 tag or a tag manager on every checked page, measurement id matches the connected property |
+| 11.2 Key events present | Done | GA4 key events mapped to calls, forms, chat, WhatsApp, bookings, email vs what the site offers; key events with no events in 28 days |
+| 11.3 Call tracking | Done | CallRail, CallTrackingMetrics, WhatConverts, Invoca, Marchex, ResponseTap, Infinity, Ruler, Google Ads call tracking |
+| 11.4 Source / medium hygiene | Done | Channel groups, Unassigned and (not set) share, self-referrals, payment sites as referrers |
+| 11.5 Form and CTA performance | Done | Visits, key events and rate per landing page (90 days); busy pages with no leads |
+| 11.6 Landing page friction | Done | Shortest form (2+ fields; one-field search boxes ignored), call button, booking, mobile speed from the audit |
+| 11.7 Lead quality / lead-to-job | Done (by hand) | Leads matched to jobs?, CRM, notes |
 
-**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5). **Built 2026-11-19:** Modules 8 and 9, then Modules 7 and 10. **Next (§16.3):** Modules 11 + 13.
+## Module 13 · Reporting and monitoring — Done
+
+Monitoring page (team `/monitor/<domain>`, customers' Monitoring tab and Alerts in the sidebar). Worker jobs: `daily-monitor` (06:15 UTC), `weekly-monitor` (Mondays 10:00 UTC), `monthly-reports` (1st, 11:00 UTC).
+
+| Point | Status | Note |
+| --- | --- | --- |
+| 13.1 Baseline snapshot | Done | The first weekly snapshot: score, clicks, impressions, position, visits, leads, tracked searches on page 1 / top 3, AI share of voice, reviews |
+| 13.2 Weekly summary | Done | Email to the customer every Monday; "This week" on the dashboard |
+| 13.3 Monthly report | Done | Page per month (print or save as PDF), emailed link on the 1st to the customer and the team |
+| 13.4 Alerts | Done | Site down / back up, noindex on key pages, robots.txt changes (block-all = critical), clicks down ≥ 40% week on week, new reviews and lower rating, tracked searches dropping out of the top 10; email to the customer and the team |
+| 13.5 Rank tracking | Done | Up to 20 searches (default: top topics from Module 4), Google top 10 every Monday, ≈ $0.002 each |
+| 13.6 AI prompt tracking | Done | Module 10 weekly tracking; the share of voice is in every snapshot |
+| 13.7 Dashboard per project | Done | Alerts, this week, since the start, trends, rankings, monthly reports |
+| 13.8 Review meeting schedule | Done | Cadence, next date and agenda (team) |
+
+**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5). **Built 2026-11-19:** Modules 8 and 9, Modules 7 and 10, then Modules 11 and 13: every module of the checklist is now built.

@@ -3,7 +3,7 @@ import { cn } from '@/lib/tones';
 import { RunAuditButton } from './RunAuditButton';
 
 /** Site heading and section tabs for a customer's website (design: Dashboard redesign). */
-export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlinks' | 'local' | 'content' | 'ai-search' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
+export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlinks' | 'local' | 'content' | 'ai-search' | 'tracking' | 'monitor' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
 
 const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4';
 
@@ -32,6 +32,8 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
     { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
     { key: 'backlinks', label: 'Backlinks', href: `/my/backlinks?${q}` },
     { key: 'local', label: 'Local', href: `/my/local?${q}` },
+    { key: 'monitor', label: 'Monitoring', href: `/my/monitor?${q}` },
+    { key: 'tracking', label: 'Tracking', href: `/my/tracking?${q}` },
     { key: 'reports', label: 'Reports', href: `/my/reports?${q}` },
     { key: 'connections', label: 'Connections', href: `/my/connections?${q}` },
     { key: 'settings', label: 'Settings', href: '/my/account' },

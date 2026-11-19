@@ -26,7 +26,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       </a>
       {/* Wide screens: fixed sidebar. */}
       {/* The navy column runs the full page height; the menu inside it stays in view while scrolling. */}
-      <div className="hidden w-[248px] shrink-0 bg-night lg:block">
+      <div className="hidden w-[248px] shrink-0 bg-night lg:block print:hidden">
       <aside className="sticky top-0 flex h-dvh flex-col gap-3.5 overflow-y-auto px-3.5 py-[22px]">
         <Link href="/my" aria-label="Your dashboard" className="px-2.5">
           <Logo tone="light" height={30} />
@@ -35,7 +35,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       </aside>
       </div>
       {/* Phones and tablets: top bar with the same menu behind a button. */}
-      <header className="sticky top-0 z-30 bg-night lg:hidden">
+      <header className="sticky top-0 z-30 bg-night lg:hidden print:hidden">
         <details className="group">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between px-4 [&::-webkit-details-marker]:hidden">
             <Logo tone="light" height={26} />
@@ -47,7 +47,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       <main id="main" className="min-w-0 flex-1">
         <div className="mx-auto flex max-w-[1120px] flex-col gap-[22px] px-4 py-7 sm:px-9">
           {account?.status === 'trial' && (
-            <div className="flex flex-wrap items-center justify-between gap-3.5 rounded-[14px] border border-primary-tint bg-primary-chip px-[18px] py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3.5 rounded-[14px] border border-primary-tint bg-primary-chip px-[18px] py-3.5 print:hidden">
               <p className="text-sm leading-normal text-[#7C2D12]">
                 <strong>{trialLeft > 0 ? `Free trial: ${trialLeft} ${trialLeft === 1 ? 'day' : 'days'} left.` : 'Your free trial has ended.'}</strong>{' '}
                 {trialLeft > 0 ? `Your plan starts on ${day(account.trialEndsAt)}. Cancel before then and you are not charged.` : 'We will contact you to confirm your plan.'}

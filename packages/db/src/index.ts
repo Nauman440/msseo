@@ -16,3 +16,5 @@ export * from './analysis';
 export * from './connections';
 export * from './site-documents';
 export * from './aeo-weekly';
+export * from './google-access';
+export * from './monitor';
