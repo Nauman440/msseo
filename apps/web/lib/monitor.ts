@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, nextMeeting, normDomain, pickTrackedKeywords, weeklyRun, type MeetingCadence, type MonitorWorkspace, type MonthlyReport,
+  analysisTargets, buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, nextMeeting, normDomain, pickTrackedKeywords, weeklyRun, type MeetingCadence, type MonitorWorkspace, type MonthlyReport,
 } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { getActions } from './actions';
@@ -52,6 +52,7 @@ async function context(domain: string) {
       previous: audits.previous ?? null,
     },
     aiShare: aeo.audit?.share.all.find((s) => s.you)?.share ?? null,
+    competitors: analysisTargets(comp).map((c) => c.domain).slice(0, 3),
   };
 }
 
@@ -64,7 +65,7 @@ export async function runMonitorNow(rawDomain: string): Promise<{ ws: MonitorWor
   let calls = 0;
   const log = (e: { provider: string }) => void (e.provider === 'dataforseo' && calls++);
   const d = await dailyChecks(ws, buildDailyDeps({ domain, keyPages: ctx.keyPages, gsc: ctx.gsc, certExpiry: () => certificateExpiry(domain), audits: async () => ctx.audits }));
-  const w = await weeklyRun(d.ws, buildWeeklyDeps({ domain, gsc: ctx.gsc, ga4: ctx.ga4, dfs: env ? { ...env.dataforseo, log } : null, locale: ctx.locale, cid: ctx.cid, score: ctx.report?.overall.score ?? null, aiShare: ctx.aiShare }));
+  const w = await weeklyRun(d.ws, buildWeeklyDeps({ domain, gsc: ctx.gsc, ga4: ctx.ga4, dfs: env ? { ...env.dataforseo, log } : null, locale: ctx.locale, cid: ctx.cid, score: ctx.report?.overall.score ?? null, aiShare: ctx.aiShare, competitors: ctx.competitors }));
   await saveMonitor(w.ws);
   if (w.cost > 0) await recordRun('monitoring', (await isCustomerSite(domain)) ? 'customer' : 'team', calls, w.cost);
   return { ws: w.ws, alerts: d.raised.length + w.raised.length, cost: w.cost };

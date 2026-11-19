@@ -95,3 +95,13 @@ describe('backlink audit run', () => {
     expect(backlinksToCsv(ws, 'outreach')).toContain('dallaschamber.org,gap,Links to 3 competitors,,info@dallaschamber.org,Sara,contacted,');
   });
 });
+
+describe('backlink audit, closing 6.4.3 and 6.4.5', () => {
+  it('reads each competitor\'s anchor mix and most linked pages', async () => {
+    const { client } = fakeClient();
+    const a = await runBacklinkAudit(input, client, NOW);
+    expect(a.competitors[0]!.anchorMix).toBeTruthy();
+    expect(Object.values(a.competitors[0]!.anchorMix!).reduce((s, x) => s + x, 0)).toBeCloseTo(100, 0);
+    expect(a.competitors[0]!.topPages).toEqual([{ url: 'https://myhvac.com/', status: 200, title: 'Home', backlinks: 500, domains: 40 }]);
+  });
+});

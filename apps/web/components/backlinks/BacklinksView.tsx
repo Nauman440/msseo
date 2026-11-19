@@ -1,5 +1,6 @@
 import type { BacklinkWorkspace } from '@seo/core';
 import { cn } from '@/lib/tones';
+import { CompetitorLinkDetails } from './CompetitorLinks';
 import { RunBacklinks } from './forms';
 import { GapAndMentions, LostAndBroken, Outreach } from './Opportunities';
 import { AnchorSection, QualitySection, TopLinkedPages, VersusCompetitors } from './Sections';
@@ -29,7 +30,7 @@ export function BacklinksView({ ws, audience, nextRun }: { ws: BacklinkWorkspace
         <div className="flex min-w-0 flex-col gap-1">
           <p className={EYEBROW}>{a ? `Last check · ${day(a.runAt)}${audience === 'team' ? ` · $${a.costUsd.toFixed(2)}` : ''}` : 'Not checked yet'}</p>
           <p className="text-[15px] font-semibold">Who links to your website, which links help or hurt, and where to get more.</p>
-          <p className="text-[13px] text-ink-2">{audience === 'customer' ? 'You can run it once a month.' : 'About $0.35–0.50 per run (DataForSEO Backlinks API, which must be enabled on the account).'}</p>
+          <p className="text-[13px] text-ink-2">{audience === 'customer' ? 'You can run it once a month.' : 'About $0.40–0.55 per run (DataForSEO Backlinks API, which must be enabled on the account).'}</p>
         </div>
         <RunBacklinks domain={ws.domain} again={Boolean(a)} disabledReason={nextRun ? `Next check available on ${nextRun.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}.` : null} />
       </div>
@@ -50,6 +51,7 @@ export function BacklinksView({ ws, audience, nextRun }: { ws: BacklinkWorkspace
             ))}
           </ul>
           <VersusCompetitors a={a} />
+          <CompetitorLinkDetails a={a} />
           <GapAndMentions ws={ws} csvHref={csv('gap')} />
           <LostAndBroken ws={ws} csvHref={csv('broken')} />
           <QualitySection a={a} csvHref={csv('domains')} />

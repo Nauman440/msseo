@@ -4,6 +4,7 @@ import { ComparisonTable, RankingGrid } from './ComparisonTable';
 import { ContentGap, KeywordGap } from './GapSections';
 import { RunAnalysis } from './RunAnalysis';
 import { TopPages, Wins } from './TopPagesAndWins';
+import { Ahead } from './Ahead';
 
 /**
  * Module 6 · Deep competitor analysis, the "Analysis" sub-tab of Competitors (team and customers).
@@ -40,7 +41,7 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
           </p>
           <p className="text-[13px] text-ink-2">
             Traffic and keywords, Google and map positions, Business Profiles, speed and pages, and what ChatGPT recommends.{' '}
-            {audience === 'customer' ? 'You can run it once a month.' : 'About $0.60–0.80 per run.'}
+            {audience === 'customer' ? 'You can run it once a month.' : 'About $0.70–0.90 per run.'}
           </p>
         </div>
         {targets.length ? (
@@ -78,6 +79,7 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
           )}
           <KeywordGap a={a} csvHref={csv('keywords')} />
           <Wins a={a} />
+          <Ahead a={a} />
           <TopPages a={a} />
           <ContentGap a={a} csvHref={csv('content')} />
           <AiAnswers a={a} />

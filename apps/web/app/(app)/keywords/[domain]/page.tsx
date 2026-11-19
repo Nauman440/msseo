@@ -43,7 +43,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
           view: KEYWORD_VIEWS.includes(view as KeywordView) ? (view as KeywordView) : 'overview',
           order: TOPIC_ORDERS.some((o) => o.value === sort) ? (sort as TopicOrder) : 'priority',
           allTopics: topics === 'all',
-          from: from === 'gap' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
+          from: from === 'gap' || from === 'pages' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
           mapping: { topic, show, all },
         }}
         mappedTopics={mapping.rows.length}

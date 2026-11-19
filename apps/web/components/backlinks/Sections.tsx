@@ -23,7 +23,7 @@ export const QUALITY: Record<Quality, { label: string; tone: string; bar: string
   toxic: { label: 'Toxic', tone: 'bg-high-bg text-high-strong', bar: 'bg-chart-fail' },
 };
 export const LINK_TYPE: Record<LinkType, string> = { directory: 'Directory', news: 'News', association: 'Association', education: 'Education', government: 'Government', social: 'Social', blog: 'Blog', business: 'Business', other: 'Other' };
-const ANCHOR: Record<AnchorKind, string> = { brand: 'Your brand', exact: 'Exact keyword', partial: 'Part of a keyword', generic: 'Generic ("click here")', url: 'Web address', empty: 'No text (images)', other: 'Other' };
+export const ANCHOR: Record<AnchorKind, string> = { brand: 'Your brand', exact: 'Exact keyword', partial: 'Part of a keyword', generic: 'Generic ("click here")', url: 'Web address', empty: 'No text (images)', other: 'Other' };
 
 /** 6.4.1 / 6.4.2 You against the direct competitors. */
 export function VersusCompetitors({ a }: { a: BacklinkAudit }) {

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 const SORTS: KeywordSort[] = ['term', 'volume', 'difficulty', 'cpc', 'position'];
 const SHOWS = ['kept', 'removed', 'all'] as const;
-const FROMS: KeywordFrom[] = ['gap', 'ranked', 'gsc', 'ideas'];
+const FROMS: KeywordFrom[] = ['gap', 'pages', 'ranked', 'gsc', 'ideas'];
 
 /** GET /api/keywords/[domain]?q=&show=&intent=&sort=&desc=&offset= — one page of the keyword table. */
 export async function GET(req: Request, { params }: { params: Promise<{ domain: string }> }) {

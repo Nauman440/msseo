@@ -43,6 +43,7 @@ export function ComparisonTable({ a, compact = false }: { a: CompetitorAnalysis;
     { label: 'Website platform', value: (s) => s.platform ?? '–' },
     { label: 'CDN / server', value: (s) => [s.cdn, s.server].filter(Boolean).join(' · ') || '–' },
     { label: 'Pages in sitemap', value: (s) => n(s.sitemapUrls), best: (s) => s.sitemapUrls, higher: true },
+    { label: 'Pages Google has indexed (about)', value: (s) => (s.indexed === undefined ? '–' : n(s.indexed)), best: (s) => s.indexed ?? null, higher: true },
     { label: 'Biggest sections', value: (s) => (s.folders?.length ? s.folders.slice(0, 3).map((f) => `${f.folder} ${f.count}`).join(', ') : '–') },
     { label: 'Business schema on homepage', value: (s) => (hasBusinessSchema(s) ? 'Yes' : 'No') },
     { label: 'Words on homepage', value: (s) => n(s.homeWords) },

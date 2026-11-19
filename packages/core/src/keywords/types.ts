@@ -32,6 +32,8 @@ export type KeywordRecord = {
   serpFeatures?: string[] | null;
   /** Competitors (domains) whose keyword gap brought this keyword in. */
   gapFrom?: string[];
+  /** 4.2.6 Competitor pages (their strongest by search volume) that rank for it. */
+  fromPages?: string[];
   clusterId: string | null;
   addedAt: string;
 };

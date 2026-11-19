@@ -1,4 +1,6 @@
 import { fetchRobotsTxt } from '../aeo/aeo';
+import { sitemapUrlList } from '../analysis/deps';
+import { createBacklinksClient } from '../providers/dataforseo-backlinks';
 import type { DfsConfig, Locale } from '../providers/dataforseo-competitors';
 import { createKeywordClient } from '../providers/dataforseo-keywords';
 import { createLocalClient } from '../providers/dataforseo-local';
@@ -36,9 +38,10 @@ export function buildDailyDeps(o: { domain: string; keyPages: string[]; gsc: Acc
   };
 }
 
-export function buildWeeklyDeps(o: { domain: string; gsc: Access; ga4: Access; dfs: DfsConfig | null; locale: Locale; cid: string | null; score: number | null; aiShare: number | null; log?: HttpLog }): WeeklyDeps {
+export function buildWeeklyDeps(o: { domain: string; gsc: Access; ga4: Access; dfs: DfsConfig | null; locale: Locale; cid: string | null; score: number | null; aiShare: number | null; competitors?: string[]; log?: HttpLog }): WeeklyDeps {
   const kw = o.dfs ? createKeywordClient({ ...o.dfs, log: o.log }) : null;
   const local = o.dfs && o.cid ? createLocalClient({ ...o.dfs, log: o.log }) : null;
+  const links = o.dfs ? createBacklinksClient({ ...o.dfs, log: o.log }) : null;
   const mine = (u: string) => {
     const h = hostOf(u);
     return h === o.domain || h.endsWith(`.${o.domain}`);
@@ -68,5 +71,16 @@ export function buildWeeklyDeps(o: { domain: string; gsc: Access; ga4: Access; d
       : undefined,
     score: o.score,
     aiShare: o.aiShare,
+    // New linking sites need the DataForSEO Backlinks API; without it only new pages are checked (free).
+    competitors: (o.competitors ?? []).slice(0, 3).map((d) => ({
+      domain: d,
+      sitemapUrls: () => sitemapUrlList(d, 5000, o.log),
+      newLinkingSites: links
+        ? async () => {
+            const r = await links.newLost(d, day(7));
+            return { count: r.series.reduce((s, x) => s + x.newDomains, 0), cost: r.cost };
+          }
+        : undefined,
+    })),
   };
 }

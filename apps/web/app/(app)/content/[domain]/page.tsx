@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { normDomain } from '@seo/core';
 import { ContentView } from '@/components/content/ContentView';
 import { Container, SectionHeader } from '@/components/landing/primitives';
+import { getAltText } from '@/lib/alt-text';
 import { getContent } from '@/lib/content';
 import { requireUser } from '@/lib/session';
 
@@ -20,7 +21,7 @@ export default async function TeamContentPage({ params }: Props) {
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
-  const audit = await getContent(domain);
+  const [audit, alt] = await Promise.all([getContent(domain), getAltText(domain)]);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">
@@ -31,7 +32,7 @@ export default async function TeamContentPage({ params }: Props) {
           <Link href={`/action-plan/${domain}`} className={link}>Action plan</Link>
         </div>
       </div>
-      <ContentView audit={audit} domain={domain} audience="team" />
+      <ContentView audit={audit} domain={domain} audience="team" alt={alt} />
     </Container>
   );
 }

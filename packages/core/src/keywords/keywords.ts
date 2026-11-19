@@ -10,6 +10,8 @@ import type { BusinessType, KeywordRecord, KeywordSeeds, KeywordSource, KeywordS
  * 4.5–4.6 clusters and priority (cluster.ts), 4.7 AI prompts (prompts.ts), CSV in and out.
  */
 export const MAX_KEYWORDS = 1500;
+/** 4.2.6 How many of each competitor's strongest pages are mined for keywords. */
+const TOP_PAGES = 5;
 /** Rankings, ideas and suggestions fetched within this many days are reused (no new cost). */
 export const REUSE_DAYS = 7;
 /** Popular searches without a place that get local versions (× 2 places). */
@@ -177,6 +179,27 @@ export async function researchKeywords(
       }
       return r.cost;
     }, `competitor:${normDomain(d)}`)),
+    // 4.2.6 The competitors' strongest pages (most search volume across the keywords they rank for):
+    // every keyword those pages rank for, remembered with the page.
+    ...(opts.competitors ?? []).slice(0, 3).map((d) => () => run(`Top pages of ${d}`, async () => {
+      const r = await client.rankedKeywords(normDomain(d), locale, 200);
+      const byUrl = new Map<string, { volume: number; terms: typeof r.keywords }>();
+      for (const k of r.keywords) {
+        if (!k.url) continue;
+        const e = byUrl.get(k.url) ?? { volume: 0, terms: [] };
+        e.volume += k.volume ?? 0;
+        e.terms.push(k);
+        byUrl.set(k.url, e);
+      }
+      for (const [url, e] of [...byUrl.entries()].sort((a, b) => b[1].volume - a[1].volume).slice(0, TOP_PAGES)) {
+        for (const k of e.terms) {
+          c.add(k.term, 'competitor', { ...k, position: null, url: null });
+          const rec = c.map.get(normTerm(k.term));
+          if (rec) c.map.set(rec.term, { ...rec, fromPages: [...new Set([...(rec.fromPages ?? []), url])].slice(0, 3) });
+        }
+      }
+      return r.cost;
+    }, `pages:${normDomain(d)}`)),
     ...ideaSeeds.map((s) => () => run(`Ideas for "${s}"`, async () => {
       const r = await client.suggestions(s, locale, 80);
       for (const k of r.keywords) c.add(k.term, 'suggestion', k);
@@ -324,7 +347,7 @@ export type KeywordRow = {
   features: string[];
 };
 export type KeywordSort = 'term' | 'volume' | 'difficulty' | 'cpc' | 'position';
-export type KeywordFrom = 'gap' | 'ranked' | 'gsc' | 'ideas';
+export type KeywordFrom = 'gap' | 'pages' | 'ranked' | 'gsc' | 'ideas';
 export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; /** Cluster id. */ topic?: string; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number };
 
 const FEATURE_NAMES: Record<string, string> = {
@@ -336,7 +359,7 @@ const FEATURE_NAMES: Record<string, string> = {
 export const featureLabels = (codes: string[] | null | undefined) => [...new Set((codes ?? []).map((c) => FEATURE_NAMES[c]).filter((x): x is string => Boolean(x)))];
 const isGap = (k: KeywordRecord) => k.sources.includes('competitor') && k.position === null;
 const fromMatches = (k: KeywordRecord, from?: KeywordFrom) =>
-  !from || (from === 'gap' ? isGap(k) : from === 'ranked' ? k.sources.includes('ranked') : from === 'gsc' ? k.sources.includes('gsc') : k.sources.some((s) => s === 'suggestion' || s === 'autocomplete' || s === 'seed'));
+  !from || (from === 'gap' ? isGap(k) : from === 'pages' ? Boolean(k.fromPages?.length) : from === 'ranked' ? k.sources.includes('ranked') : from === 'gsc' ? k.sources.includes('gsc') : k.sources.some((s) => s === 'suggestion' || s === 'autocomplete' || s === 'seed'));
 export const KEYWORD_PAGE = 100;
 
 /** Filters, sorts and pages the keyword list on the server, so the browser never gets all 1,500 rows. */
@@ -371,13 +394,13 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
 
 // ---- CSV ----------------------------------------------------------------------------------
 
-const HEADER = ['keyword', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources', 'competitor_gap', 'serp_features'];
+const HEADER = ['keyword', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources', 'competitor_gap', 'serp_features', 'competitor_pages'];
 
 export function keywordsToCsv(ws: KeywordWorkspace): string {
   const names = new Map(ws.clusters.map((c) => [c.id, c.name]));
   const rows = ws.keywords.map((k) => [
     k.term, k.status, k.removeReason ?? '', k.clusterId ? names.get(k.clusterId) ?? '' : '', k.volume ?? '', k.difficulty ?? '', k.cpc === null ? '' : k.cpc.toFixed(2),
-    k.intent ?? '', k.position ?? '', k.url ?? '', k.gscClicks ?? '', k.gscImpressions ?? '', k.sources.join(' '), isGap(k) ? 'yes' : '', (k.serpFeatures ?? []).join(' '),
+    k.intent ?? '', k.position ?? '', k.url ?? '', k.gscClicks ?? '', k.gscImpressions ?? '', k.sources.join(' '), isGap(k) ? 'yes' : '', (k.serpFeatures ?? []).join(' '), (k.fromPages ?? []).join(' '),
   ]);
   return `﻿${[HEADER, ...rows].map((r) => r.map((v) => csvCell(v)).join(',')).join('\r\n')}\r\n`;
 }

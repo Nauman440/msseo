@@ -1,5 +1,5 @@
 import {
-  buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, pickTrackedKeywords, providerConfig, weeklyRun, weeklySummary, WEEKLY_MONITOR_ESTIMATE_USD,
+  analysisTargets, buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, pickTrackedKeywords, providerConfig, weeklyRun, weeklySummary, WEEKLY_MONITOR_ESTIMATE_USD,
   type AeoWorkspace, type LocalAudit, type MonitorAlert, type MonitorWorkspace, type MonthlyReport,
 } from '@seo/core';
 import { getActionWorkspace } from './actions';
@@ -61,6 +61,7 @@ export async function monitorContext(domain: string) {
     // The profile entered by hand ("cid:…" / "place_id:…") when the local audit has not found one.
     cid: local?.profile?.cid ?? gbp?.ref ?? null,
     aiShare: aeo?.audit?.share.all.find((s) => s.you)?.share ?? null,
+    competitors: comp ? analysisTargets(comp).map((c) => c.domain).slice(0, 3) : [],
   };
 }
 
@@ -101,7 +102,7 @@ export async function runMonitorWeekly(now = new Date()): Promise<WeeklyMonitorR
       if (ws.state.lastWeekly && now.getTime() - Date.parse(ws.state.lastWeekly) < 6 * 86_400_000) continue;
       prepare(ws, ctx, t.customer);
       const paid = Boolean(env) && (!t.customer || (settings['autopilot.enabled'] && (await autopilotSpentThisMonth(now)) + WEEKLY_MONITOR_ESTIMATE_USD <= settings['autopilot.monthlyCap']));
-      const r = await weeklyRun(ws, buildWeeklyDeps({ domain: t.domain, gsc: ctx.gsc, ga4: ctx.ga4, dfs: paid && env ? env.dataforseo : null, locale: ctx.locale, cid: ctx.cid, score: ctx.report?.overall.score ?? null, aiShare: ctx.aiShare }), now);
+      const r = await weeklyRun(ws, buildWeeklyDeps({ domain: t.domain, gsc: ctx.gsc, ga4: ctx.ga4, dfs: paid && env ? env.dataforseo : null, locale: ctx.locale, cid: ctx.cid, score: ctx.report?.overall.score ?? null, aiShare: ctx.aiShare, competitors: ctx.competitors }), now);
       await saveMonitor(r.ws);
       if (r.cost > 0) await prisma.apiUsage.create({ data: { provider: 'dataforseo', endpoint: t.customer ? 'monitoring' : 'monitoring-team', units: r.ws.ranks.keywords.length, costUsd: r.cost } }).catch(() => undefined);
       out.push({ domain: t.domain, customer: t.customer, raised: r.raised, summary: weeklySummary(r.ws), cost: r.cost, paidChecks: paid });

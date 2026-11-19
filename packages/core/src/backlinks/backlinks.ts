@@ -17,7 +17,12 @@ export type AnchorKind = 'brand' | 'exact' | 'partial' | 'generic' | 'url' | 'em
 export type ScoredDomain = RefDomain & { quality: Quality; relevant: boolean; local: boolean; type: LinkType };
 export type GapDomain = { domain: string; rank: number | null; linksTo: string[]; type: LinkType };
 export type BrokenRow = Backlink & { suggestion: string | null };
-export type CompetitorLinks = { domain: string; rank: number | null; referringDomains: number | null; backlinks: number | null; spamScore: number | null; newDomains90: number | null };
+export type CompetitorLinks = {
+  domain: string; rank: number | null; referringDomains: number | null; backlinks: number | null; spamScore: number | null; newDomains90: number | null;
+  /** 6.4.3 Their anchor text mix (% of linking sites per kind) and 6.4.5 their most linked pages (2026-11-19 on). */
+  anchorMix?: Record<AnchorKind, number> | null;
+  topPages?: LinkedPage[];
+};
 
 export type BacklinkAudit = {
   domain: string;
@@ -47,12 +52,20 @@ export const emptyBacklinks = (domain: string): BacklinkWorkspace => ({ domain, 
 
 export const BACKLINK_LIMITS = { domains: 200, anchors: 100, pages: 20, lost: 100, broken: 100, gap: 30, competitors: 3, mentions: 100 } as const;
 /** Rough cost of one run (USD) before the real charge is read from the balance. */
-export const BACKLINK_ESTIMATE_USD = 0.45;
+export const BACKLINK_ESTIMATE_USD = 0.55;
 
 const SOCIAL = /(^|\.)(facebook|instagram|twitter|x|linkedin|youtube|pinterest|tiktok|reddit|quora|medium)\.com$/;
 const DIRECTORY = /yelp|yellowpages|yell\.com|bbb\.org|angi|homeadvisor|thumbtack|houzz|manta|mapquest|foursquare|nextdoor|checkatrade|trustpilot|bark\.com|porch|hotfrog|cylex|brownbook|merchantcircle|chamberofcommerce|superpages|citysearch|local\.com|ezlocal|showmelocal/;
 const NEWS = /news|times|post|herald|gazette|tribune|journal|chronicle|daily|patch\.com|press|magazine/;
 const ASSOCIATION = /association|assoc|chamber|council|institute|federation|society|union|guild|\.org$/;
+
+/** 8.4 / 6.4.3 Share of linking sites per anchor kind (%). */
+export function mixOf(anchors: { domains: number; kind: AnchorKind }[]): Record<AnchorKind, number> {
+  const raw: Record<AnchorKind, number> = { brand: 0, exact: 0, partial: 0, generic: 0, url: 0, empty: 0, other: 0 };
+  for (const a of anchors) raw[a.kind] += a.domains;
+  const total = Object.values(raw).reduce((x, y) => x + y, 0) || 1;
+  return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Math.round((v / total) * 1000) / 10])) as Record<AnchorKind, number>;
+}
 
 /** 6.4.6 What kind of site a linking domain is (heuristic from the name and TLD). */
 export function linkType(domain: string): LinkType {
@@ -148,9 +161,20 @@ export async function runBacklinkAudit(
     soft('Lost links', () => client.lostLinks(domain, `${day(ago90)} 00:00:00 +00:00`, BACKLINK_LIMITS.lost)),
     soft('Broken backlinks', () => client.brokenLinks(domain, BACKLINK_LIMITS.broken)),
     input.brand ? soft('Brand mentions', () => client.mentions(input.brand!, BACKLINK_LIMITS.mentions)) : Promise.resolve(null),
-    Promise.all(rivals.map(async (r) => {
-      const [s, t] = await Promise.all([soft(`Links of ${r}`, () => client.summary(r)), soft(`New links of ${r}`, () => client.newLost(r, day(ago90)))]);
-      return { domain: r, rank: s?.summary.rank ?? null, referringDomains: s?.summary.referringDomains ?? null, backlinks: s?.summary.backlinks ?? null, spamScore: s?.summary.spamScore ?? null, newDomains90: t ? t.series.reduce((x, y) => x + y.newDomains, 0) : null };
+    Promise.all(rivals.map(async (r): Promise<CompetitorLinks> => {
+      const [s, t, an, tp] = await Promise.all([
+        soft(`Links of ${r}`, () => client.summary(r)),
+        soft(`New links of ${r}`, () => client.newLost(r, day(ago90))),
+        soft(`Anchor texts of ${r}`, () => client.anchors(r, BACKLINK_LIMITS.anchors)),
+        soft(`Top linked pages of ${r}`, () => client.topPages(r, 5)),
+      ]);
+      const rivalBrand = [normTerm(r.split('.')[0]!.replace(/-/g, ' ')), r.split('.')[0]!].filter((x) => x.length >= 3);
+      return {
+        domain: r, rank: s?.summary.rank ?? null, referringDomains: s?.summary.referringDomains ?? null, backlinks: s?.summary.backlinks ?? null, spamScore: s?.summary.spamScore ?? null,
+        newDomains90: t ? t.series.reduce((x, y) => x + y.newDomains, 0) : null,
+        anchorMix: an ? mixOf(an.anchors.map((a) => ({ ...a, kind: anchorKind(a.anchor, rivalBrand, input.keywords) }))) : null,
+        topPages: tp?.pages.slice(0, 5) ?? [],
+      };
     })),
     Promise.all(pairs.map(async ([a, b]) => ({ pair: [a, b], r: await soft(`Link gap ${a} + ${b}`, () => client.linkGap(a, b, domain, 100)) }))),
   ]);
@@ -175,10 +199,7 @@ export async function runBacklinkAudit(
 
   const brandWords = [normTerm(input.brand ?? ''), normTerm(domain.split('.')[0]!.replace(/-/g, ' ')), domain.split('.')[0]!].filter((x) => x.length >= 3);
   const anchors = (anchorsR?.anchors ?? []).map((a) => ({ ...a, kind: anchorKind(a.anchor, brandWords, input.keywords) }));
-  const mixRaw: Record<AnchorKind, number> = { brand: 0, exact: 0, partial: 0, generic: 0, url: 0, empty: 0, other: 0 };
-  for (const a of anchors) mixRaw[a.kind] += a.domains;
-  const total = Object.values(mixRaw).reduce((x, y) => x + y, 0) || 1;
-  const anchorMix = Object.fromEntries(Object.entries(mixRaw).map(([k, v]) => [k, Math.round((v / total) * 1000) / 10])) as Record<AnchorKind, number>;
+  const anchorMix = mixOf(anchors);
 
   const home = `https://${domain}/`;
   const broken = (brokenR?.links ?? []).map((l) => ({ ...l, suggestion: redirectFor(l.to, input.pages, home) }));

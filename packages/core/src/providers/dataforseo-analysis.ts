@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DfsConfig, Locale } from './dataforseo-competitors';
+import { createDfsBase } from './dataforseo-base';
 import { HttpError, requestJson } from './http';
 
 /**
@@ -73,8 +74,18 @@ export function createAnalysisClient(cfg: DfsConfig) {
     return { items: (t.result?.[0]?.items ?? []) as z.infer<T>[], cost: parsed.cost ?? 0 };
   }
   const where = (l: Locale) => ({ location_name: l.country, language_code: l.language });
+  const serpBase = createDfsBase(cfg, 'SERP');
 
   return {
+    /**
+     * 6.3.4 About how many pages Google has indexed for a domain: a "site:" search (se_results_count,
+     * an estimate). Search operators cost 5× a normal search (docs), about $0.003 on the regular endpoint.
+     */
+    async indexedCount(domain: string, l: Locale): Promise<{ count: number | null; cost: number }> {
+      const { result, cost } = await serpBase.live('/v3/serp/google/organic/live/regular', { keyword: `site:${domain}`, ...where(l), depth: 10 });
+      const n = (result as { se_results_count?: number | null } | null)?.se_results_count;
+      return { count: typeof n === 'number' ? n : null, cost };
+    },
     /** Page 1 for one search: organic results and the map pack, with ratings and Business Profile ids. */
     async serp(keyword: string, l: Locale): Promise<{ entries: GridEntry[]; cost: number }> {
       const { items, cost } = await live('/v3/serp/google/organic/live/advanced', serpItem, { keyword, ...where(l), depth: 10, device: 'desktop', resolve_goto_urls: true });

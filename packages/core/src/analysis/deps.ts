@@ -40,6 +40,20 @@ export async function sitemapInfo(domain: string, log?: HttpLog): Promise<{ coun
   return null;
 }
 
+/** Module 6 "Automate": every URL in a site's sitemap (index: up to 20 child sitemaps), capped; null when there is none. */
+export async function sitemapUrlList(domain: string, cap = 5000, log?: HttpLog): Promise<string[] | null> {
+  for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml']) {
+    const xml = await text(`https://${domain}${path}`, log);
+    if (!xml) continue;
+    const map = parseSitemap(xml);
+    if (!map.valid) continue;
+    if (!map.isIndex) return map.urls.slice(0, cap);
+    const children = await Promise.all(map.urls.slice(0, 20).map((u) => text(u, log)));
+    return children.flatMap((x) => (x ? parseSitemap(x).urls : [])).slice(0, cap);
+  }
+  return null;
+}
+
 /** Homepage response headers, lower-case names (CDN and server detection). */
 async function homeHeaders(url: string, log?: HttpLog): Promise<Record<string, string> | null> {
   try {
@@ -71,8 +85,9 @@ export function analysisDeps(env: AuditEnv, locale: Locale, log?: HttpLog): Anal
   const competitors = createCompetitorClient(dfs);
   const keywords = createKeywordClient(dfs);
   const key = env.pagespeedKey;
+  const analysis = createAnalysisClient(dfs);
   return {
-    dfs: createAnalysisClient(dfs),
+    dfs: analysis,
     rank: (d) => competitors.rankOverview(d, locale),
     pages: (urls) => fetchPageContents(urls, log),
     speed: key
@@ -86,6 +101,8 @@ export function analysisDeps(env: AuditEnv, locale: Locale, log?: HttpLog): Anal
     // Same Labs calls as keyword research (docs checked there): ranked keywords → top pages; reversed domain intersection → wins.
     ranked: (d) => keywords.rankedKeywords(d, locale, 100),
     wins: (own, rival) => keywords.keywordGap(own, rival, locale, 100),
+    shared: (own, rival) => keywords.sharedKeywords(own, rival, locale, 200),
+    indexed: (domain) => analysis.indexedCount(domain, locale),
     ai: env.openai ? createOpenAiClient({ ...env.openai, log }) : null,
   };
 }

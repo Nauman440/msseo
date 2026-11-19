@@ -11,11 +11,11 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | # | Module | Status | Points done |
 | --- | --- | --- | --- |
 | 1 | Site audit: technical SEO | Done | 71 of 71 points; monitoring in "Automate" is Module 13 |
-| 2 | Site audit: on-page SEO | Done | 50 of 50 points; alt-text drafts (Automate line) not yet |
+| 2 | Site audit: on-page SEO | Done | 50 of 50 points, and the Automate line (alt-text drafts on the Content page) |
 | 3 | Competitor identification | Done | 9 of 9 |
-| 4 | Keyword research | Done, 1 partial | 37 of 38 |
+| 4 | Keyword research | Done | 38 of 38 |
 | 5 | Keyword to page mapping | Done | 13 of 13 |
-| 6 | Deep competitor analysis | Done, 5 partial | 33 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
+| 6 | Deep competitor analysis | Done | 38 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
 | 7 | Content audit and gap analysis | Done | 9 of 9 (traffic and leads need Search Console / GA4) |
 | 8 | Backlink audit | Done | 10 of 10 (needs the DataForSEO Backlinks API enabled) |
 | 9 | Local SEO audit | Done | 10 of 10 |
@@ -24,7 +24,7 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | 12 | Prioritisation and action plan | Done | 7 of 7 |
 | 13 | Reporting and monitoring setup | Done | 8 of 8 (monthly report printed or saved as PDF from the browser) |
 
-**What is left in finished modules:** partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5): they cover the client fully and competitors only in part.
+**What is left in finished modules:** nothing on the checklist. Not tested against live data yet: the Backlinks API parts (6.4.x, Module 8, new-link alerts) wait for the DataForSEO Backlinks subscription, and the Business Profile connection waits for Google's API approval.
 
 ---
 
@@ -52,7 +52,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 2.4.1 Depth vs top-ranking pages | Done | Mapped pages are compared with the pages Google ranks for their keyword (Module 5 + cached results from keyword research, up to 5 pages × 3 results, own fetch); other pages with their page-type median |
 | 2.5.4 Real photos | Done (AI) | Screenshot of the homepage only |
 
-**Automate line:** missing/duplicate titles and meta, heading checks, thin pages, quick wins: **Done**. Alt-text drafts: **Not yet**. Content decay alerts: rule 2.9.5 is **Done**; traffic drops are emailed by the Module 13 daily check.
+**Automate line:** missing/duplicate titles and meta, heading checks, thin pages, quick wins: **Done**. Alt-text drafts: **Done** (Content page: images without alt on the audited pages, drafted by AI from the image itself or from a descriptive file name, CSV download; pasted in by a person). Content decay alerts: rule 2.9.5 is **Done**; traffic drops are emailed by the Module 13 daily check.
 
 ## Module 3 · Competitor identification
 
@@ -78,7 +78,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 4.2.2, 4.2.3 Competitor rankings, keyword gap | Done | Domain intersection with up to 3 competitors |
 | 4.2.4 Suggestions, ideas | Done | |
 | 4.2.5 PAA and autocomplete | Done | |
-| 4.2.6 Keywords from competitor top pages | Partial | Covered through their ranked keywords and the gap, not page by page |
+| 4.2.6 Keywords from competitor top pages | Done | Each top competitor's 5 strongest pages (most search volume across their ranked keywords): every keyword those pages rank for, with the page; "Found from → Competitors' top pages" filter and CSV column |
 | 4.3.1–4.3.7 Metrics | Done | Volume, trend, difficulty, CPC, intent, SERP features, position + URL |
 | 4.4.1–4.4.4 Cleaning | Done | |
 | 4.5.1–4.5.4 Clustering, one cluster = one page, intent, SERP check | Done | One page per topic is enforced in Module 5 |
@@ -90,7 +90,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 
 All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate line: auto-fill from crawl and keywords, AI title/meta drafts and page briefs: **Done**.
 
-## Module 6 · Deep competitor analysis — Done except later modules
+## Module 6 · Deep competitor analysis — Done
 
 | Point | Status | Note |
 | --- | --- | --- |
@@ -98,11 +98,11 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 6.1.2 Keyword count, top 3, top 10 | Done | |
 | 6.1.3 Top pages and their keywords | Done | Each competitor's 5 strongest pages with the searches they rank for (Labs ranked keywords) |
 | 6.1.4 Keywords where they beat the client | Done | Keyword gap top 50 |
-| 6.1.5 Keywords where the client beats them | Partial | Searches you rank for and your 3 direct competitors do not (Labs domain intersection); searches where both rank and you are higher are not counted |
+| 6.1.5 Keywords where the client beats them | Done | Searches you rank for and your 3 direct competitors do not ("Searches you win"), and searches both rank for where you are higher ("Searches where you are ahead", Labs domain intersection with both positions) |
 | 6.2.1 Page type and format | Done | |
 | 6.2.2 Title, H1, headings | Done | |
 | 6.2.3 Word count and depth | Done | |
-| 6.2.4 Topics and entities missing | Partial | Sections the ranking pages have that your page does not cover; named entities (brands, certifications) are not compared separately |
+| 6.2.4 Topics and entities missing | Done | Sections the ranking pages have that your page does not cover, and names they mention that it does not (brands, certifications, places: capitalised names and acronyms on 2+ rival pages) |
 | 6.2.5 FAQs, tables, images, video | Done | |
 | 6.2.6 Trust signals and pricing | Done | Reviews, licences/guarantees, prices shown |
 | 6.2.7 Calls to action and forms | Done | Forms and call buttons |
@@ -111,13 +111,13 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 6.3.1 Speed and Core Web Vitals | Done | Mobile score plus lab LCP, CLS and blocking time per homepage |
 | 6.3.2 CMS, builder, CDN | Done | Platform and builder from the page, CDN and server from the response |
 | 6.3.3 URL and structure patterns | Done | Biggest sitemap sections per site |
-| 6.3.4 Indexed page count and types | Partial | Pages in the sitemap and its sections; Google's indexed count is not available for other sites |
+| 6.3.4 Indexed page count and types | Done | Pages in the sitemap and its sections, plus about how many pages Google has indexed ("site:" search, an estimate) for you and each competitor |
 | 6.3.5 Mobile experience | Done | Viewport and zoom, plus the mobile speed score |
 | 6.4.1 Referring domains and growth | Done | Backlinks page: you vs direct competitors (linking sites, new in 90 days) |
 | 6.4.2 Referring domain quality | Done | Strength and spam score for you and each competitor; your linking sites graded |
-| 6.4.3 Anchor text profile | Partial | Yours in full; competitors' anchors are not compared |
+| 6.4.3 Anchor text profile | Done | Yours in full; each direct competitor's anchor mix side by side with yours (Backlinks page) |
 | 6.4.4 Link gap | Done | Sites linking to two or more direct competitors and not to you |
-| 6.4.5 Best linked pages and why | Partial | Your most linked pages; competitors' best linked pages are not listed |
+| 6.4.5 Best linked pages and why | Done | Your most linked pages and each direct competitor's 5 most linked pages, with what usually earns those links |
 | 6.4.6 Link types | Done | Directory, news, association, education, government, social, blog, business |
 | 6.5.1 Profile categories, services, photos, posts | Done | Yours in full on the Local page; the top 3 map rivals: main category, photos, claimed and posts in 90 days, side by side with yours |
 | 6.5.2 Reviews: count, rating, growth, responses | Done | Count, rating, new reviews a month and share answered, for you and the top 3 map rivals |
@@ -133,7 +133,7 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 6.7.5 Local and AI visibility comparison | Done | |
 | 6.7.6 Five recommendations | Done | |
 
-**Automate line:** monthly runs for customers under the cap: **Done**. New page / new link alerts and automatic gap refresh: **Later** (Modules 8 and 13).
+**Automate line:** monthly runs for customers under the cap: **Done**. New page / new link alerts: **Done** (weekly monitoring: new pages in the shortlisted competitors' sitemaps, free; 3+ new linking sites in a week, Backlinks API). Gap lists refresh with each monthly run.
 
 ## Module 12 · Prioritisation and action plan
 

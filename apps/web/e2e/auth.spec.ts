@@ -408,6 +408,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Check content' }).click();
   await expect(page.getByText(/pages reviewed|No pages to review yet/)).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Draft alt text' }).click();
+  await expect(page.getByText(/drafts written.$|^No images without alt text on the|Run a site audit first|could not be written/)).toBeVisible({ timeout: 60_000 });
+  expect((await page.request.get('/api/content/summitairhvac.com/alt-text')).headers()['content-type']).toContain('text/csv');
+  expect((await page.request.get('/api/content/rival-hvac.com/alt-text')).status()).toBe(404);
   const brief = await page.request.get('/api/content/summitairhvac.com/brief');
   expect(await brief.text()).toContain('# Content brief');
   expect((await page.request.get('/api/content/rival-hvac.com/brief')).status()).toBe(404);

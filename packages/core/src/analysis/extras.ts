@@ -79,6 +79,48 @@ export function missingTopics(you: PageContent | null, rivals: PageContent[], li
   return [...seen.values()].sort((a, b) => b.count - a.count || a.text.length - b.text.length).slice(0, limit).map((x) => x.text);
 }
 
+// Capitalised words that are not names: sentence starters, days, months, UI words.
+const NOT_ENTITY = new Set([
+  'the', 'a', 'an', 'and', 'or', 'our', 'your', 'we', 'you', 'they', 'it', 'this', 'that', 'these', 'those', 'if', 'when', 'what', 'why', 'how', 'who', 'where', 'all', 'any', 'each', 'every', 'with',
+  'for', 'from', 'in', 'on', 'at', 'to', 'of', 'by', 'is', 'are', 'be', 'can', 'do', 'does', 'get', 'call', 'contact', 'book', 'learn', 'read', 'more', 'home', 'about', 'services', 'service', 'faq',
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+  'menu', 'search', 'privacy', 'policy', 'terms', 'cookies', 'copyright', 'rights', 'reserved', 'click', 'here', 'yes', 'no', 'free', 'new', 'now', 'today', 'usa', 'us',
+]);
+
+/**
+ * 6.2.4 Named entities (brands, certifications, products, places) that the ranking pages mention and
+ * the client's page does not: capitalised phrases and acronyms used inside sentences, found on at
+ * least two rival pages (one when there is only one), never the rivals' own names.
+ */
+export function missingEntities(you: PageContent | null, rivals: PageContent[], rivalNames: string[] = [], limit = 10): string[] {
+  const own = (you?.fullText ?? you?.text ?? '').toLowerCase();
+  const names = rivalNames.map((n) => n.toLowerCase()).filter(Boolean);
+  const pagesWith = new Map<string, { text: string; pages: Set<number> }>();
+  rivals.forEach((r, i) => {
+    // Inside a sentence only: skip the first word after a full stop, so "Our team…" is not a name.
+    const text = r.text.replace(/\s+/g, ' ');
+    const re = /(?<![.!?:]\s)(?<=\s)((?:[A-Z][a-zA-Z&'-]{1,}|[A-Z]{2,6})(?:\s(?:[A-Z][a-zA-Z&'-]{1,}|[A-Z]{2,6})){0,2})/g;
+    for (const m of text.matchAll(re)) {
+      const phrase = m[1]!.trim();
+      const parts = phrase.split(' ');
+      if (parts.every((p) => NOT_ENTITY.has(p.toLowerCase()))) continue;
+      const clean = parts.filter((p, j) => !(j === 0 && NOT_ENTITY.has(p.toLowerCase()))).join(' ');
+      if (clean.length < 3 || NOT_ENTITY.has(clean.toLowerCase())) continue;
+      const key = clean.toLowerCase();
+      if (names.some((n) => n.includes(key) || key.includes(n))) continue;
+      const e = pagesWith.get(key) ?? { text: clean, pages: new Set<number>() };
+      e.pages.add(i);
+      pagesWith.set(key, e);
+    }
+  });
+  const need = rivals.length > 1 ? 2 : 1;
+  return [...pagesWith.entries()]
+    .filter(([key, e]) => e.pages.size >= need && !own.includes(key))
+    .sort((a, b) => b[1].pages.size - a[1].pages.size || a[1].text.length - b[1].text.length)
+    .slice(0, limit)
+    .map(([, e]) => e.text);
+}
+
 /** 6.3.3 / 6.3.4 The biggest folders of a sitemap ("/services/ 24, /blog/ 120"). */
 export function sitemapFolders(urls: string[], limit = 6): { folder: string; count: number }[] {
   const counts = new Map<string, number>();

@@ -115,6 +115,12 @@ export function ContentGap({ a, csvHref }: { a: CompetitorAnalysis; csvHref: str
                   <p className="text-[13px] text-ink-2">{c.missing.join(' · ')}</p>
                 </div>
               )}
+              {c.entities && c.entities.length > 0 && (
+                <div className="rounded-[10px] border border-dashed border-border-strong px-3 py-2">
+                  <p className="text-[13px] font-bold">Names they mention that your page does not (brands, certifications, places)</p>
+                  <p className="text-[13px] text-ink-2">{c.entities.join(' · ')}</p>
+                </div>
+              )}
             </li>
           ))}
         </ul>

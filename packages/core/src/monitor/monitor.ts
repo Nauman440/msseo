@@ -9,7 +9,7 @@ import type { ReportModel } from '../types';
  * 13.6 AI share of voice from Module 10 in every snapshot · 13.7 dashboard · 13.8 review meetings.
  * Pure logic: fetching, Google and DataForSEO calls are passed in.
  */
-export type AlertKind = 'down' | 'up' | 'noindex' | 'robots' | 'traffic' | 'reviews' | 'rank' | 'ssl' | 'errors';
+export type AlertKind = 'down' | 'up' | 'noindex' | 'robots' | 'traffic' | 'reviews' | 'rank' | 'ssl' | 'errors' | 'competitor';
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'info';
 export type MonitorAlert = { id: string; kind: AlertKind; severity: AlertSeverity; title: string; detail: string; url: string | null; at: string; resolvedAt: string | null };
 export type Snapshot = {
@@ -37,13 +37,13 @@ export type MonitorWorkspace = {
   baseline: Snapshot | null;
   snapshots: Snapshot[];
   alerts: MonitorAlert[];
-  state: { robotsHash: string | null; robotsBody: string | null; down: boolean; downSince: string | null; noindex: string[]; lastDaily: string | null; lastWeekly: string | null; lastMonthly: string | null; sslExpires?: string | null; lastAuditId?: string | null };
+  state: { robotsHash: string | null; robotsBody: string | null; down: boolean; downSince: string | null; noindex: string[]; lastDaily: string | null; lastWeekly: string | null; lastMonthly: string | null; sslExpires?: string | null; lastAuditId?: string | null; rivals?: Record<string, { pages: string[]; checkedAt: string }> };
   ranks: { keywords: string[]; custom: boolean; history: RankPoint[] };
   meeting: { cadence: MeetingCadence; next: string | null; notes: string };
 };
 export const MONITOR_LIMITS = { keywords: 20, snapshots: 104, alerts: 200, history: 104 } as const;
-/** One Google check per tracked keyword ($0.002) + one Business Profile read. */
-export const WEEKLY_MONITOR_ESTIMATE_USD = 0.06;
+/** One Google check per tracked keyword ($0.002), one Business Profile read, new links of 3 competitors. */
+export const WEEKLY_MONITOR_ESTIMATE_USD = 0.12;
 
 export const emptyMonitor = (domain: string, now = new Date()): MonitorWorkspace => ({
   domain,
@@ -231,6 +231,8 @@ export type WeeklyDeps = {
   reviews?: () => Promise<{ reviews: number | null; rating: number | null; cost: number } | null>;
   score: number | null;
   aiShare: number | null;
+  /** Module 6 "Automate": the shortlisted competitors' sitemap URLs and new linking sites in the last week. */
+  competitors?: { domain: string; sitemapUrls: () => Promise<string[] | null>; newLinkingSites?: () => Promise<{ count: number; cost: number } | null> }[];
 };
 
 async function pool<T>(items: T[], limit: number, fn: (t: T) => Promise<void>) {
@@ -282,6 +284,31 @@ export async function weeklyRun(ws: MonitorWorkspace, deps: WeeklyDeps, now = ne
   if (rv?.rating != null && prev?.rating != null && prev.rating - rv.rating >= 0.2) {
     const a = raise(ws, { kind: 'reviews', severity: 'medium', title: 'Google rating went down', detail: `${prev.rating.toFixed(1)} → ${rv.rating.toFixed(1)}. Check the newest reviews and reply.`, url: null }, now);
     if (a) raised.push(a);
+  }
+  // Competitors: new pages in their sitemap since last week, and new linking websites.
+  for (const c of deps.competitors ?? []) {
+    const [urls, links] = await Promise.all([c.sitemapUrls().catch(() => null), c.newLinkingSites ? c.newLinkingSites().catch(() => null) : null]);
+    cost += links?.cost ?? 0;
+    if (urls) {
+      const before = ws.state.rivals?.[c.domain];
+      const known = new Set(before?.pages ?? []);
+      const fresh = urls.filter((u) => !known.has(hashText(u)));
+      if (before && fresh.length) {
+        const a = raise(ws, {
+          kind: 'competitor',
+          severity: 'medium',
+          title: `${c.domain} published ${fresh.length} new ${fresh.length === 1 ? 'page' : 'pages'}`,
+          detail: fresh.slice(0, 5).map((u) => { try { return new URL(u).pathname; } catch { return u; } }).join(' · ') + (fresh.length > 5 ? ` and ${fresh.length - 5} more` : ''),
+          url: fresh[0] ?? null,
+        }, now);
+        if (a) raised.push(a);
+      }
+      ws.state.rivals = { ...(ws.state.rivals ?? {}), [c.domain]: { pages: urls.map(hashText), checkedAt: now.toISOString() } };
+    }
+    if (links && links.count >= 3) {
+      const a = raise(ws, { kind: 'competitor', severity: 'medium', title: `${c.domain} gained ${links.count} new linking websites this week`, detail: 'See which sites link to them and not to you on the Backlinks page (link gap).', url: null }, now);
+      if (a) raised.push(a);
+    }
   }
   const ranked = Object.values(positions);
   const snapshot: Snapshot = {

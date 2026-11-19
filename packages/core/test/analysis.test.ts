@@ -139,3 +139,20 @@ describe('deep competitor analysis', () => {
     expect(analysisToCsv(a, 'content').split('\r\n')[0]).toContain('topic,searches_per_month');
   });
 });
+
+describe('deep competitor analysis, closing 6.1.5 and 6.3.4', () => {
+  it('lists searches where you are ahead and the indexed pages of every site', async () => {
+    const { competitors, keywords, deps } = setup();
+    const a = await runCompetitorAnalysis(
+      { competitors, keywords },
+      {
+        ...deps,
+        shared: async (_own, rival) => ({ cost: 0.01, rows: [{ term: 'ac repair dallas', volume: 900, own: 3, rival: rival === 'rival.com' ? 6 : 1 }] }),
+        indexed: async (d) => ({ cost: 0.003, count: d === 'myhvac.com' ? 45 : 1200 }),
+      },
+      now,
+    );
+    expect(a.ahead).toEqual([{ keyword: 'ac repair dallas', volume: 900, position: 3, behind: [{ domain: 'rival.com', position: 6 }] }]);
+    expect(a.sites.map((s) => [s.domain, s.indexed])).toEqual([['myhvac.com', 45], ['rival.com', 1200], ['big.com', 1200]]);
+  });
+});

@@ -8,7 +8,7 @@ import { COUNTRY_ISO } from '../providers/dataforseo-analysis';
 import type { RankOverview } from '../providers/dataforseo-competitors';
 import type { RankedKeyword } from '../providers/dataforseo-keywords';
 import { cdnOf } from '../audit/rules-site';
-import { answerFormat, missingTopics, pageDetails, topPagesFrom, type PageDetails, type TopPage } from './extras';
+import { answerFormat, missingEntities, missingTopics, pageDetails, topPagesFrom, type PageDetails, type TopPage } from './extras';
 import type { OpenAiClient } from '../providers/openai';
 
 /**
@@ -56,12 +56,16 @@ export type SiteRow = {
   server?: string | null;
   folders?: { folder: string; count: number }[];
   mobileReady?: boolean | null;
+  /** 6.3.4 About how many pages Google has indexed ("site:" search, an estimate; 2026-11-19 on). */
+  indexed?: number | null;
 };
 /** 6.1.5 Searches the client ranks for and a direct competitor does not. */
 export type WinRow = { keyword: string; volume: number | null; position: number | null; over: string[] };
+/** 6.1.5 Searches both rank for and the client is higher (2026-11-19 on). */
+export type AheadRow = { keyword: string; volume: number | null; position: number; behind: { domain: string; position: number }[] };
 export type GridRow = { search: string; cells: Record<string, { organic: number | null; map: number | null }> };
 export type GapRow = { keyword: string; volume: number | null; difficulty: number | null; intent: string | null; competitors: string[] };
-export type ContentGapRow = { topic: string; volume: number; yourPosition: number | null; you: PageStat | null; rivals: (PageStat & { domain: string })[]; missing?: string[] };
+export type ContentGapRow = { topic: string; volume: number; yourPosition: number | null; you: PageStat | null; rivals: (PageStat & { domain: string })[]; missing?: string[]; entities?: string[] };
 export type AiRow = { prompt: string; mentioned: string[]; cited: string[]; format?: string; error?: string };
 export type Recommendation = { title: string; why: string; steps: string[] };
 export type CompetitorAnalysis = {
@@ -75,6 +79,8 @@ export type CompetitorAnalysis = {
   keywordGap: GapRow[];
   /** 6.1.5 (missing on older analyses). */
   wins?: WinRow[];
+  /** 6.1.5 Searches you both rank for and you are higher. */
+  ahead?: AheadRow[];
   contentGap: ContentGapRow[];
   ai: { rows: AiRow[]; sources: { domain: string; count: number }[]; formats?: { format: string; count: number }[] } | null;
   recommendations: Recommendation[];
@@ -85,7 +91,7 @@ export type CompetitorAnalysis = {
 
 export const ANALYSIS_LIMITS = { competitors: 6, searches: 5, questions: 10, topics: 6, gap: 50, wins: 30, winRivals: 3 } as const;
 /** Rough cost of one run (USD), used to stop before a spending cap is passed. */
-export const ANALYSIS_ESTIMATE_USD = 0.8;
+export const ANALYSIS_ESTIMATE_USD = 0.9;
 
 export type SpeedSummary = { score: number | null; lcpMs: number | null; cls: number | null; tbtMs: number | null };
 export type AnalysisDeps = {
@@ -102,6 +108,10 @@ export type AnalysisDeps = {
   ranked?: (domain: string) => Promise<{ keywords: RankedKeyword[]; cost: number }>;
   /** 6.1.5 Keywords `own` ranks for and `rival` does not. */
   wins?: (own: string, rival: string) => Promise<{ keywords: RankedKeyword[]; cost: number }>;
+  /** 6.1.5 Searches both rank for, with both positions. */
+  shared?: (own: string, rival: string) => Promise<{ rows: { term: string; volume: number | null; own: number | null; rival: number | null }[]; cost: number }>;
+  /** 6.3.4 Indexed pages estimate ("site:" search). */
+  indexed?: (domain: string) => Promise<{ count: number | null; cost: number }>;
   ai?: OpenAiClient | null;
 };
 
@@ -180,6 +190,8 @@ export async function runCompetitorAnalysis(
   const headers = new Map<string, Record<string, string> | null>();
   const topPages = new Map<string, TopPage[]>();
   const winsBy = new Map<string, RankedKeyword[]>();
+  const sharedBy = new Map<string, { term: string; volume: number | null; own: number | null; rival: number | null }[]>();
+  const indexed = new Map<string, number | null>();
   const grid: GridRow[] = searches.map((s) => ({ search: s, cells: {} }));
   const cids = new Map<string, string>();
   const mapRatings = new Map<string, { rating: number | null; reviews: number | null }>();
@@ -219,6 +231,24 @@ export async function runCompetitorAnalysis(
         winsBy.set(d, r.keywords);
       } catch {
         failed.wins++;
+      }
+    }),
+    pool(deps.shared ? targets.slice(0, ANALYSIS_LIMITS.winRivals).map((t) => t.domain) : [], 3, async (d) => {
+      try {
+        const r = await deps.shared!(domain, d);
+        cost += r.cost;
+        sharedBy.set(d, r.rows);
+      } catch {
+        failed.wins++;
+      }
+    }),
+    pool(deps.indexed ? domains : [], 4, async (d) => {
+      try {
+        const r = await deps.indexed!(d);
+        cost += r.cost;
+        indexed.set(d, r.count);
+      } catch {
+        indexed.set(d, null);
       }
     }),
     pool(searches, 5, async (s, i) => {
@@ -309,6 +339,7 @@ export async function runCompetitorAnalysis(
         return p ? [{ ...stat(p, now), domain: owner(hostOf(u))! }] : [];
       }),
       missing: missingTopics(you ?? null, w.rivalUrls.flatMap((u) => pageFor(u) ?? [])),
+      entities: missingEntities(you ?? null, w.rivalUrls.flatMap((u) => pageFor(u) ?? []), targets.flatMap((t) => [t.domain.split('.')[0]!, t.name ?? ''])),
     };
   });
   if (!kw.clusters.length) notes.push('Research keywords first: the content comparison uses your keyword topics.');
@@ -350,6 +381,7 @@ export async function runCompetitorAnalysis(
       cdn: headers.get(d) ? cdnOf(headers.get(d)!) ?? null : null,
       server: headers.get(d)?.server ?? null,
       folders: sitemap.get(d)?.folders ?? [],
+      indexed: indexed.has(d) ? indexed.get(d)! : undefined,
       mobileReady: home ? home.viewport && !home.zoomBlocked : null,
       schema: home?.schemaTypes.slice(0, 8) ?? [],
       homeWords: home?.words ?? null,
@@ -375,6 +407,7 @@ export async function runCompetitorAnalysis(
     grid,
     keywordGap,
     wins: winRows(winsBy),
+    ahead: aheadRows(sharedBy),
     contentGap,
     ai: questions.length ? { rows: aiRows.sort((a, b) => questions.indexOf(a.prompt) - questions.indexOf(b.prompt)), sources: [...sources].map(([d, count]) => ({ domain: d, count })).sort((a, b) => b.count - a.count).slice(0, 12), formats: formatCounts(aiRows) } : null,
     recommendations: [],
@@ -404,6 +437,20 @@ function winRows(by: Map<string, RankedKeyword[]>): WinRow[] {
     }
   }
   return [...rows.values()].sort((a, b) => b.over.length - a.over.length || (b.volume ?? 0) - (a.volume ?? 0)).slice(0, ANALYSIS_LIMITS.wins);
+}
+
+/** 6.1.5 Searches both rank for where the client is higher than one or more direct competitors. */
+export function aheadRows(by: Map<string, { term: string; volume: number | null; own: number | null; rival: number | null }[]>): AheadRow[] {
+  const rows = new Map<string, AheadRow>();
+  for (const [rival, list] of by) {
+    for (const k of list) {
+      if (k.own === null || k.rival === null || k.own >= k.rival) continue;
+      const r = rows.get(k.term) ?? { keyword: k.term, volume: k.volume, position: k.own, behind: [] };
+      r.behind.push({ domain: rival, position: k.rival });
+      rows.set(k.term, r);
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.behind.length - a.behind.length || (b.volume ?? 0) - (a.volume ?? 0)).slice(0, ANALYSIS_LIMITS.wins);
 }
 
 /** 6.6.3 How ChatGPT shaped its answers (lists, steps, tables, prose). */

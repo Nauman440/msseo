@@ -110,6 +110,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
             <option value="">Anywhere</option>
             <option value="gsc">Search Console</option>
             <option value="gap">Competitors</option>
+            <option value="pages">Competitors’ top pages</option>
             <option value="ranked">Your rankings</option>
             <option value="ideas">{business === 'shop' ? 'Your products' : 'Your services'}</option>
           </select>

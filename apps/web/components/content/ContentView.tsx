@@ -1,4 +1,5 @@
-import type { ContentAudit, Verdict } from '@seo/core';
+import type { AltDraft, ContentAudit, Verdict } from '@seo/core';
+import { AltTextSection } from './AltText';
 import { cn } from '@/lib/tones';
 import { DecaySection, InventorySection } from './Inventory';
 import { CalendarSection, CoverageSection, GapSection, PillarSection, QualitySection } from './Plan';
@@ -9,7 +10,7 @@ import { VERDICT } from './verdict';
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export function ContentView({ audit, domain, audience }: { audit: ContentAudit | null; domain: string; audience: 'team' | 'customer' }) {
+export function ContentView({ audit, domain, audience, alt }: { audit: ContentAudit | null; domain: string; audience: 'team' | 'customer'; alt: { runAt: string; pagesChecked: number; missing: number; drafts: AltDraft[] } | null }) {
   const a = audit;
   const used = a ? [a.usedSearchConsole && 'Search Console', a.usedAnalytics && 'Google Analytics', 'the latest site audit', 'your keywords'].filter(Boolean).join(', ') : '';
   return (
@@ -52,6 +53,7 @@ export function ContentView({ audit, domain, audience }: { audit: ContentAudit |
           <CalendarSection items={a.calendar} />
         </>
       )}
+      <AltTextSection domain={domain} doc={alt} />
     </div>
   );
 }

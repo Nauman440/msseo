@@ -58,6 +58,14 @@ const autocompleteItem = z.object({ type: z.string(), suggestion: str }).passthr
 const serpItem = z
   .object({ type: z.string(), url: str, domain: str, rank_group: num, items: z.array(z.object({ type: str, title: str }).passthrough()).nullable().optional() })
   .passthrough();
+/** domain_intersection with intersections: true carries both domains' SERP elements (docs checked 2026-11-19). */
+const sharedItem = z
+  .object({
+    keyword_data: keywordData,
+    first_domain_serp_element: z.object({ rank_group: num }).passthrough().nullable().optional(),
+    second_domain_serp_element: z.object({ rank_group: num }).passthrough().nullable().optional(),
+  })
+  .passthrough();
 /** domain_intersection item: the same keyword_data as ranked_keywords, plus target1's SERP element. */
 const gapItem = z
   .object({ keyword_data: keywordData, first_domain_serp_element: z.object({ rank_group: num, url: str }).passthrough().nullable().optional() })
@@ -195,6 +203,16 @@ export function createKeywordClient(cfg: DfsConfig) {
         cost,
         // position/url are the competitor's, kept only to say where they rank.
         keywords: items.map((i) => ({ ...metrics(i.keyword_data), position: i.first_domain_serp_element?.rank_group ?? null, url: i.first_domain_serp_element?.url ?? null })),
+      };
+    },
+    /** 6.1.5 Searches both domains rank for, with each one's position (Labs domain_intersection, intersections: true). */
+    async sharedKeywords(own: string, rival: string, l: Locale, limit = 200): Promise<{ rows: { term: string; volume: number | null; own: number | null; rival: number | null }[]; cost: number }> {
+      const { items, cost } = await live('/v3/dataforseo_labs/google/domain_intersection/live', sharedItem, {
+        target1: own, target2: rival, intersections: true, ...where(l), item_types: ['organic'], limit, order_by: ['keyword_data.keyword_info.search_volume,desc'],
+      });
+      return {
+        cost,
+        rows: items.map((i) => ({ term: metrics(i.keyword_data).term, volume: metrics(i.keyword_data).volume, own: i.first_domain_serp_element?.rank_group ?? null, rival: i.second_domain_serp_element?.rank_group ?? null })),
       };
     },
   };
