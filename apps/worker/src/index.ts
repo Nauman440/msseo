@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, runDueActionChecks, saveAuditRecord } from '@seo/db';
+import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, runDueActionChecks, saveAuditRecord } from '@seo/db';
 import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { customerAutopilot, dailyAutopilot } from './autopilot';
 import { refreshCompetitors } from './competitors';
@@ -45,7 +45,8 @@ const worker = new Worker<AuditJobData>(
     // Module 5: keywords mapped to this site's pages feed the on-page rules.
     const pageKeywords = await pageKeywordsFor(record.input.url).catch(() => ({}));
     const pageRivals = await pageRivalsFor(record.input.url).catch(() => ({}));
-    await executeAudit(record, { ...env, gsc: access.gsc, pageKeywords, pageRivals, maxTemplates: settings['lighthouse.maxTemplates'], aiChecks, log: http }, saveAuditRecord);
+    const backlinkBroken = await backlinkBrokenFor(record.input.url).catch(() => []);
+    await executeAudit(record, { ...env, gsc: access.gsc, pageKeywords, pageRivals, backlinkBroken, maxTemplates: settings['lighthouse.maxTemplates'], aiChecks, log: http }, saveAuditRecord);
     log.info({ auditId: record.id, status: record.status, score: record.report?.overall.score, error: record.error }, 'audit finished');
 
     // "Email me the full report": never fails the job; the result is logged.

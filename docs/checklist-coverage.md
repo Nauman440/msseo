@@ -10,21 +10,21 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 
 | # | Module | Status | Points done |
 | --- | --- | --- | --- |
-| 1 | Site audit: technical SEO | Done | 70 of 71 points (1.5.7 partial until backlinks); monitoring in "Automate" is Module 13 |
+| 1 | Site audit: technical SEO | Done | 71 of 71 points; monitoring in "Automate" is Module 13 |
 | 2 | Site audit: on-page SEO | Done | 50 of 50 points; alt-text drafts (Automate line) not yet |
-| 3 | Competitor identification | Done, 1 partial | 8 of 9 (referring domains wait for Module 8) |
+| 3 | Competitor identification | Done | 9 of 9 |
 | 4 | Keyword research | Done, 2 partial | 36 of 38 |
 | 5 | Keyword to page mapping | Done | 13 of 13 |
-| 6 | Deep competitor analysis | Done except later modules | 24 done, 7 partial (4 of them wait for Module 9), 7 wait for backlinks (of 38) |
+| 6 | Deep competitor analysis | Done, 7 partial | 31 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
 | 7 | Content audit and gap analysis | Not yet | — |
-| 8 | Backlink audit | Not yet | — |
-| 9 | Local SEO audit | Not yet (pieces exist) | — |
+| 8 | Backlink audit | Done | 10 of 10 (needs the DataForSEO Backlinks API enabled) |
+| 9 | Local SEO audit | Done | 10 of 10 |
 | 10 | AEO / AI search audit | Not yet (pieces exist) | — |
 | 11 | Tracking and conversion audit | Not yet (pieces exist) | — |
 | 12 | Prioritisation and action plan | Done | 7 of 7 |
 | 13 | Reporting and monitoring setup | Not yet (pieces exist) | — |
 
-**What is left in finished modules:** only points that need a later module (backlinks → Module 8; reviews growth, listing consistency and the map grid → Module 9; weekly AI tracking → Module 10), plus six partial points named below (1.5.7, 4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.5.1).
+**What is left in finished modules:** weekly AI tracking (4.7.3 → Module 10), plus partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5, 6.5.1, 6.5.2): they cover the client fully and competitors only in part.
 
 ---
 
@@ -36,7 +36,7 @@ Every subpoint 1.1.1–1.13.3 is an automatic rule in the audit (`packages/core/
 | --- | --- | --- |
 | 1.3.3, 1.3.4, 1.3.5 (indexed part), 1.4.1 (submitted part) | Done | Need a Search Console property on the audit; hidden otherwise |
 | 1.3.6 Manual actions and security issues | Done (manual) | Not in Google's API: shown as a manual check with a link, Expert mode |
-| 1.5.7 Old URLs with backlinks now 404 | Partial | 404s that still get internal links; the backlink half waits for Module 8 |
+| 1.5.7 Old URLs with backlinks now 404 | Done | 404s that still get internal links, plus pages other websites link to that are now broken (from the latest backlink audit) |
 | 1.9.5 Popups and interstitials | Done (AI) | AI check of the PageSpeed mobile screenshot; manual item when AI is off |
 | 1.13.1, 1.13.2 International | Done | Only on sites with hreflang |
 | 1.13.3 RTL and translation quality | Done | x-default, html lang vs hreflang, text not in the labelled language (detected from common words and scripts: en, es, fr, de, it, pt, nl, Arabic, Hebrew, Cyrillic, Chinese, Japanese), and `dir="rtl"` on right-to-left pages; the quality of a translation itself is not judged |
@@ -65,7 +65,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 3.5 Split by type | Done | Direct / search / local / directory / publisher, manual override |
 | 3.6 Shortlist 5–8 + 2–3 | Done | Warnings outside the range; autopilot shortlists for customers |
 | 3.7 Directories and publishers saved | Done | "Listings and links" tab with status |
-| 3.8 Strength snapshot | Partial | Traffic, keywords, 12-month trend done; **referring domains wait for Module 8** |
+| 3.8 Strength snapshot | Done | Traffic, keywords, 12-month trend; linking websites filled in by the backlink audit for the shortlisted competitors |
 | 3.9 Quarterly refresh | Done | Quarterly job + monthly autopilot, new-competitor email |
 
 ## Module 4 · Keyword research
@@ -113,17 +113,22 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 6.3.3 URL and structure patterns | Done | Biggest sitemap sections per site |
 | 6.3.4 Indexed page count and types | Partial | Pages in the sitemap and its sections; Google's indexed count is not available for other sites |
 | 6.3.5 Mobile experience | Done | Viewport and zoom, plus the mobile speed score |
-| 6.4.1–6.4.6 Backlinks | Later | Module 8 (your decision) |
-| 6.5.1 Profile categories, services, photos, posts | Partial | Category, photos, claimed; services and posts come with Module 9 |
-| 6.5.2 Reviews: count, rating, growth, responses | Partial | Count and rating; growth and replies come with Module 9 |
-| 6.5.3 Listing consistency | Partial | Listing status set by hand (Module 3); checking details is Module 9 |
-| 6.5.4 Map pack position | Partial | Core searches from one location; the grid is Module 9 |
+| 6.4.1 Referring domains and growth | Done | Backlinks page: you vs direct competitors (linking sites, new in 90 days) |
+| 6.4.2 Referring domain quality | Done | Strength and spam score for you and each competitor; your linking sites graded |
+| 6.4.3 Anchor text profile | Partial | Yours in full; competitors' anchors are not compared |
+| 6.4.4 Link gap | Done | Sites linking to two or more direct competitors and not to you |
+| 6.4.5 Best linked pages and why | Partial | Your most linked pages; competitors' best linked pages are not listed |
+| 6.4.6 Link types | Done | Directory, news, association, education, government, social, blog, business |
+| 6.5.1 Profile categories, services, photos, posts | Partial | Yours in full on the Local page; competitors: category, photos, claimed |
+| 6.5.2 Reviews: count, rating, growth, responses | Partial | Yours in full on the Local page; competitors: count and rating |
+| 6.5.3 Listing consistency | Done | Local page: name, address and phone on the profile, the website and the directories |
+| 6.5.4 Map pack position | Done | Local page: 5 × 5 map grid for 3 searches, and who wins it |
 | 6.6.1 Prompts: mentions and citations | Done | ChatGPT only (your decision) |
 | 6.6.2 Sources AI cites | Done | |
 | 6.6.3 Answer formats AI prefers | Done | Steps, lists, tables, sections, short answers |
 | 6.7.1 Keyword gap top 50 | Done | |
 | 6.7.2 Content gap | Done | With the missing sections per topic |
-| 6.7.3 Link gap top 30 | Later | Module 8 |
+| 6.7.3 Link gap top 30 | Done | Backlinks page, with CSV |
 | 6.7.4 Technical comparison table | Done | Side by side |
 | 6.7.5 Local and AI visibility comparison | Done | |
 | 6.7.6 Five recommendations | Done | |
@@ -142,15 +147,47 @@ All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate
 | 12.6 Verification 7/14/28 days with control pages | Done | |
 | 12.7 30/60/90 roadmap | Done | In the plan, reports and PDF |
 
-## Modules 7–11 and 13 — not built yet
+## Module 8 · Backlink audit — Done
+
+Backlinks page (team `/backlinks/<domain>`, customers' Backlinks tab), DataForSEO Backlinks + Content Analysis APIs. Needs the Backlinks API enabled on the DataForSEO account.
+
+| Point | Status | Note |
+| --- | --- | --- |
+| 8.1 Totals | Done | Linking websites, backlinks, strength (0–100) |
+| 8.2 Quality and relevance | Done | Strong / good / weak / toxic from strength and spam score; "related" and "local" from the linking site's name (a simple word match) |
+| 8.3 Toxic links and spikes | Done | Spam score 60+; weeks with 3× the usual new linking sites |
+| 8.4 Anchor distribution | Done | Brand, web address, exact, partial, generic, no text |
+| 8.5 Lost links (90 days) | Done | |
+| 8.6 Backlinks to broken pages | Done | With the page to redirect to; also feeds rule 1.5.7 |
+| 8.7 Unlinked brand mentions | Done | Needs the business name; pages that mention it and do not link |
+| 8.8 Top linked pages | Done | |
+| 8.9 Opportunities from the competitor gap | Done | Sites linking to two or more direct competitors and not to you |
+| 8.10 Outreach list | Done | Owner, contact, status, notes, CSV; sent by a person, never by the tool |
+
+## Module 9 · Local SEO audit — Done
+
+Local page (team `/local/<domain>`, customers' Local tab), DataForSEO SERP Maps and Business Data APIs.
+
+| Point | Status | Note |
+| --- | --- | --- |
+| 9.1 Profile completeness | Done | 10 checks: claimed, categories, description, phone, website, hours, photos, attributes, logo |
+| 9.2 Name, address, phone everywhere | Done | Profile, website (schema and text) and directory listings (phone) |
+| 9.3 Listings on top directories | Done | Per country, found by searching Google for the business name |
+| 9.4 Reviews | Done | Count, rating, new per month and reply rate from the newest 100 |
+| 9.5 Posts, photos, Q&A | Done | |
+| 9.6 Map pack ranking grid | Done | 5 × 5 points, 8 km each way, 3 searches |
+| 9.7 Location pages unique | Done | From the latest site audit (2.9.2, 1.6.6) |
+| 9.8 Local schema | Done | From the latest site audit (1.11.1, 1.11.4) |
+| 9.9 Local links | Done | Local linking sites from the backlink audit, and ideas |
+| 9.10 Local competitor benchmark | Done | Who is in the top 3 across the grid, with rating and reviews |
+
+## Modules 7, 10, 11 and 13 — not built yet
 
 Pieces that already exist and will be reused:
 
 - **7 Content audit:** page inventory with Search Console queries (5.1), decay rule 2.9.5, thin and duplicate rules, content gap from 6, page briefs from 5.
-- **8 Backlinks:** nothing yet (also completes 1.5.7, 3.8 and 6.4).
-- **9 Local SEO:** map ratings and reviews (3, 6.5), local schema rules (1.11), duplicate location pages (2.9.2), NAP check on the site (1.11.4).
 - **10 AEO:** AI crawler access (1.2.4), answer-ready content rules (2.8), tracked AI questions (4.7), ChatGPT runs (6.6).
 - **11 Tracking:** Search Console + GA4 connection for customers, key events count, click-to-call and form checks (2.7.6).
 - **13 Reporting:** weekly re-audit, PDF and .md reports, score trend and "changes since last audit", customer dashboard.
 
-**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5): approved fixes from Modules 5 and 12 can be applied to the site and undone. **Next:** Modules 8 + 9.
+**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5). **Built 2026-11-19:** Modules 8 and 9. **Next (§16.3):** Modules 7 + 10.

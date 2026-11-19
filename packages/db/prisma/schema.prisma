@@ -279,3 +279,15 @@ model SiteConnection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// One JSON document per website and kind (Module 8 "backlinks": audit + outreach list; Module 9
+/// "local": the local audit). See @seo/core BacklinkWorkspace and LocalAudit.
+model SiteDocument {
+  kind      String
+  domain    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([kind, domain])
+}

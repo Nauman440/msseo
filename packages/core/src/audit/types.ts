@@ -44,6 +44,8 @@ export type AuditData = {
   notices?: AudienceText[];
   /** Module 5: the primary keyword chosen for each page (normalised URL → keyword). */
   pageKeywords?: Record<string, string>;
+  /** Rule 1.5.7: pages on the site that other websites link to and that are now broken (Module 8). */
+  backlinkBroken?: string[];
   /** Rule 2.4.1: word counts of the pages that rank for each mapped page's keyword (normalised URL → words). */
   rivalWords?: Record<string, number[]>;
 };

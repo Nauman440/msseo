@@ -54,6 +54,12 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
             <Link href={`/competitors/${p.domain}`} className={TOOL}>
               Competitors
             </Link>
+            <Link href={`/backlinks/${p.domain}`} className={TOOL}>
+              Backlinks
+            </Link>
+            <Link href={`/local/${p.domain}`} className={TOOL}>
+              Local
+            </Link>
             <Link href={`/audits/new?url=${encodeURIComponent(`https://${p.domain}/`)}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
               Re-audit
             </Link>

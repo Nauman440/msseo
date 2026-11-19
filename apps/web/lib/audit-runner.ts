@@ -26,10 +26,13 @@ async function runSettings(record: AuditRecord) {
   const { pageKeywordsFromStore, pageRivalsFromStore } = await import('./mapping');
   const pageKeywords = await pageKeywordsFromStore(record.input.url).catch(() => ({}));
   const pageRivals = await pageRivalsFromStore(record.input.url).catch(() => ({}));
+  const { backlinkBrokenFromStore } = await import('./backlinks');
+  const backlinkBroken = await backlinkBrokenFromStore(record.input.url).catch(() => []);
   return {
     gsc: access.gsc,
     pageKeywords,
     pageRivals,
+    backlinkBroken,
     maxTemplates: s['lighthouse.maxTemplates'],
     aiChecks: s['ai.checks'] ? { maxPages: s['ai.maxPages'], maxTokens: s['ai.maxTokens'], cache } : undefined,
   };

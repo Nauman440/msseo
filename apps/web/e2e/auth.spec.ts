@@ -369,6 +369,29 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');
 
+  // Modules 8 and 9 for customers: Backlinks and Local tabs. DataForSEO points at a closed port in
+  // e2e, so the backlink run fails cleanly and the local run finishes without a Business Profile.
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Backlinks' }).click();
+  await expect(page.getByText('Not checked yet')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Outreach list' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Check backlinks' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'The backlink audit did not finish' })).toBeVisible();
+  await page.getByLabel('Website').fill('dallaschamber.org');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByText('Added to the outreach list.')).toBeVisible();
+  const outreach = await page.request.get('/api/backlinks/summitairhvac.com/csv?list=outreach');
+  expect(await outreach.text()).toContain('dallaschamber.org,manual');
+  expect((await page.request.get('/api/backlinks/rival-hvac.com/csv?list=outreach')).status()).toBe(404);
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Local', exact: true }).click();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Run the local audit' }).click();
+  await expect(page.getByText('no Google Business Profile was found', { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Next check available on/)).toBeVisible();
+  await page.goto('/backlinks/summitairhvac.com');
+  await expect(page).toHaveURL(/\/my$/);
+  await page.goto('/my/actions');
+
   // Account settings from the site tabs: plan, details and password.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Account settings', level: 1 })).toBeVisible();

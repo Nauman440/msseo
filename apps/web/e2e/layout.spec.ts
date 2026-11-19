@@ -22,6 +22,8 @@ const ROUTES = [
   { path: '/keywords/example.com?view=inputs', heading: 'example.com' },
   { path: '/keywords/example.com?view=mapping', heading: 'example.com' },
   { path: '/action-plan/example.com', heading: 'example.com' },
+  { path: '/backlinks/example.com', heading: 'example.com' },
+  { path: '/local/example.com', heading: 'example.com' },
   { path: '/settings/account', heading: 'Your account' },
   { path: '/signup', heading: 'Choose your plan' },
   { path: '/signup/account?plan=growth', heading: "Let's get you more customers" },

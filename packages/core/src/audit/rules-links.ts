@@ -65,13 +65,28 @@ function linkRule(links: LinkCheck[] | undefined, pick: (l: LinkCheck) => boolea
 export const linkRules: RuleDef[] = [
   {
     id: '1.5.7', module: 1, category: 'technical', card: 'errors', scope: 'page', severity: 'critical',
-    title: { client: 'Your pages link to pages that no longer exist', expert: 'Internal links to 404/410 URLs' },
-    explain: { client: 'Old pages that are gone but still linked lose visitors and any value they had in Google.', expert: 'Phase 1: 4xx URLs still receiving internal links (backlinks added in Module 8).' },
+    title: { client: 'Links lead to pages that no longer exist', expert: 'Internal links or backlinks to 404/410 URLs' },
+    explain: { client: 'Old pages that are gone but still linked (from your own pages or other websites) lose visitors and the value those links bring in Google.', expert: '4xx URLs still receiving internal links, plus pages other websites link to that now return 4xx/5xx (Module 8 backlink audit).' },
     fix: { client: 'Redirect each missing page to the closest live page, and update the links.', expert: '301 removed URLs to their best replacement; update internal links.' },
     ice: { impact: 5, confidence: 4, effort: 2 },
-    evaluate: ({ data }) =>
-      linkRule(data.links, (l) => l.internal && l.status !== 0 && !(l.status >= 500), (n, p) => ({ client: `${plural(n, 'link')} on ${plural(p, 'page')} go to missing pages`, expert: `${n} internal link targets return 404/410` }),
-        { client: 'Internal links lead to live pages', expert: 'No internal links to 404/410' }),
+    evaluate: ({ data }) => {
+      const internal = linkRule(data.links, (l) => l.internal && l.status !== 0 && !(l.status >= 500), (n, p) => ({ client: `${plural(n, 'link')} on ${plural(p, 'page')} go to missing pages`, expert: `${n} internal link targets return 404/410` }),
+        { client: 'Internal links lead to live pages', expert: 'No internal links to 404/410' });
+      const fromOthers = [...new Set(data.backlinkBroken ?? [])];
+      if (!fromOthers.length) return internal;
+      // Module 8: pages other websites link to that are now broken (the backlink half of 1.5.7).
+      const affected = [...new Set([...(internal?.status === 'fail' ? internal.affected ?? [] : []), ...fromOthers])];
+      return {
+        status: 'fail',
+        affected,
+        applicable: (internal?.applicable ?? 0) + fromOthers.length,
+        metrics: { ...(internal?.metrics ?? {}), backlinked: fromOthers.length },
+        message: {
+          client: `${plural(fromOthers.length, 'page')} other websites link to no longer ${fromOthers.length === 1 ? 'exists' : 'exist'}${internal?.status === 'fail' ? ', and some of your own links go to missing pages' : ''}`,
+          expert: `${fromOthers.length} backlinked URLs return 4xx/5xx${internal?.status === 'fail' ? `; ${internal.affected?.length ?? 0} internal link targets 404/410` : ''}`,
+        },
+      };
+    },
   },
   {
     id: '1.12.5', module: 1, category: 'technical', card: 'links', scope: 'page', severity: 'high',

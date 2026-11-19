@@ -34,6 +34,8 @@ export type CompetitorRecord = {
   isNew: boolean;
   firstSeenAt: string;
   refreshedAt: string | null;
+  /** 3.8 Websites linking to it (Backlinks API, filled by the backlink audit for the shortlist). */
+  referringDomains?: number | null;
   /** Map listing stars and number of reviews (from the map pack in the core searches). */
   rating?: number | null;
   reviews?: number | null;

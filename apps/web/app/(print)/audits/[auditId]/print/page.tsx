@@ -5,6 +5,9 @@ import { canViewAudit } from '@/lib/access';
 import { getSavedWorkspace } from '@/lib/competitors';
 import { getActions } from '@/lib/actions';
 import { getAnalysis } from '@/lib/analysis';
+import { getBacklinks } from '@/lib/backlinks';
+import { getLocal } from '@/lib/local';
+import { LinksAndLocal } from '@/components/pdf/LinksAndLocal';
 import { Recommendations } from '@/components/analysis/AiAndAdvice';
 import { ComparisonTable } from '@/components/analysis/ComparisonTable';
 import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
@@ -35,7 +38,10 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
   const report = await getReport(auditId);
   if (!report) notFound();
   const mode = parseMode(query.mode, report.audience);
-  const [competitors, actions, analysis] = report.auditId === 'demo' ? [null, null, null] : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain)]);
+  const [competitors, actions, analysis, links, local] =
+    report.auditId === 'demo'
+      ? [null, null, null, null, null]
+      : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain), getBacklinks(report.project.domain).then((w) => w.audit), getLocal(report.project.domain)]);
   const summary = reportSummary(report)[mode];
   const footer = `${report.brand} · ${report.project.domain}`;
 
@@ -60,6 +66,11 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
               <ComparisonTable a={analysis} compact />
             </div>
             <Recommendations a={analysis} />
+          </section>
+        )}
+        {(links || local) && (
+          <section className="pdf-section">
+            <LinksAndLocal links={links} local={local} />
           </section>
         )}
         {actions?.actions.some((a) => a.status !== 'dismissed') && (

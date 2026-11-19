@@ -41,3 +41,8 @@ export { ANALYSIS_LLM_MODEL, COUNTRY_ISO, createAnalysisClient, type AnalysisCli
 export * from './connections/types';
 export * from './connections/apply';
 export * from './providers/wordpress';
+export * from './providers/dataforseo-base';
+export * from './providers/dataforseo-backlinks';
+export * from './providers/dataforseo-local';
+export * from './backlinks/backlinks';
+export * from './local/local';

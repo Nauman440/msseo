@@ -41,6 +41,8 @@ export type AuditEnv = {
   gsc?: { accessToken: () => Promise<string> };
   /** Module 5: primary keyword per page (normalised URL → keyword) for rules 2.1.4, 2.2.4, 2.3.2, 2.4.3. */
   pageKeywords?: Record<string, string>;
+  /** Rule 1.5.7: backlinked pages that are broken, from the latest backlink audit (Module 8). */
+  backlinkBroken?: string[];
   /** Rule 2.4.1: the ranking pages to compare each mapped page with (normalised URL → result URLs). */
   pageRivals?: Record<string, string[]>;
   /** Admin setting lighthouse.maxTemplates: page types measured with PageSpeed (1–6). */
@@ -270,6 +272,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     notices: [...(crawl.notices ?? []), ...gscNotices, ...aiNotices],
     pageKeywords: env.pageKeywords,
     rivalWords: await rivalsP,
+    backlinkBroken: env.backlinkBroken,
   };
   const report = buildReport(data, { auditId, audience: input.audience, brand: env.brand });
   onProgress({ step: 'report', state: 'done', progress: 100 });
