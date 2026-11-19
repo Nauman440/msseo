@@ -220,6 +220,14 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com&error=/);
   await expect(page.getByRole('alert').filter({ hasText: 'Connecting Google is not available yet' })).toBeVisible();
 
+  // Signed in: the landing page's top bar links to the dashboard instead of Log in / Sign up.
+  await page.goto('/');
+  const account = page.getByRole('navigation', { name: 'Account' });
+  await expect(account.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/my');
+  await expect(account.getByRole('link', { name: 'Sign up' })).toHaveCount(0);
+  await expect(account.getByRole('link', { name: 'Log in' })).toHaveCount(0);
+  await page.goto('/my/connections?site=summitairhvac.com');
+
   // Spec §16.5: the website connection (WordPress / Shopify). Shopify has no app in e2e; WordPress
   // refuses another site's address, and http servers (WordPress only returns approvals to https).
   await expect(page.getByRole('heading', { name: 'Your website', level: 2 })).toBeVisible();

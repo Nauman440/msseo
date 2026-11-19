@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
+import { AccountLinks } from './AccountLinks';
 import { AuditForm } from './AuditForm';
 import { Check } from './icons';
 import { ComingSoon, Container, CtaLink } from './primitives';
@@ -36,12 +37,7 @@ export function TopBar() {
           </p>
           {/* Returning customers and the team sign in here; new customers start the 7-day trial. */}
           <nav aria-label="Account" className="flex w-auto shrink-0 items-center justify-end gap-3 text-sm font-bold lg:w-[150px]">
-            <Link href="/login" className="inline-flex min-h-9 items-center whitespace-nowrap hover:underline">
-              Log in
-            </Link>
-            <Link href="/signup" className="inline-flex min-h-9 items-center whitespace-nowrap rounded-control border border-primary-ink/40 px-3 hover:border-primary-ink">
-              Sign up
-            </Link>
+            <AccountLinks />
           </nav>
         </Container>
       </div>
