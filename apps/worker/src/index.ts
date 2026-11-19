@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, runDueActionChecks, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, runWeeklyAiTracking, runDueActionChecks, saveAuditRecord } from '@seo/db';
+import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, WEEKLY_AI_TRACKING, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
 import { customerAutopilot, dailyAutopilot } from './autopilot';
 import { refreshCompetitors } from './competitors';
 import { renderPdfBytes } from './pdf/render';
@@ -76,6 +76,11 @@ const scheduler = new Worker(
   async (job) => {
     if (job.name === QUARTERLY_COMPETITORS) {
       await refreshCompetitors(log);
+      return;
+    }
+    if (job.name === WEEKLY_AI_TRACKING) {
+      const r = await runWeeklyAiTracking(new Date(), (m) => log.info(m, 'ai tracking'));
+      log.info(r, 'weekly ai tracking finished');
       return;
     }
     if (job.name === DAILY_ACTION_CHECKS) {

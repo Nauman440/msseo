@@ -3,7 +3,7 @@ import { cn } from '@/lib/tones';
 import { RunAuditButton } from './RunAuditButton';
 
 /** Site heading and section tabs for a customer's website (design: Dashboard redesign). */
-export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlinks' | 'local' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
+export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlinks' | 'local' | 'content' | 'ai-search' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
 
 const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4';
 
@@ -20,14 +20,15 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
 }) {
   const q = `site=${encodeURIComponent(domain)}`;
   // Weekly plan and Rankings are built from Search Console, so they wait for Google.
-  const tabs: { key: SiteTab | 'ai' | 'settings'; label: string; href?: string; locked?: boolean; soon?: boolean }[] = [
+  const tabs: { key: SiteTab | 'settings'; label: string; href?: string; locked?: boolean; soon?: boolean }[] = [
     { key: 'overview', label: 'Overview', href: `/my?${q}` },
     { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}` : undefined },
     { key: 'keywords', label: 'Keywords', href: `/my/keywords?${q}` },
     { key: 'actions', label: 'Action plan', href: `/my/actions?${q}` },
     { key: 'plan', label: 'Weekly plan', href: `/my/plan?${q}`, locked: !connected },
     { key: 'rankings', label: 'Rankings', href: `/my/rankings?${q}`, locked: !connected },
-    { key: 'ai', label: 'AI search', soon: true },
+    { key: 'content', label: 'Content', href: `/my/content?${q}` },
+    { key: 'ai-search', label: 'AI search', href: `/my/ai-search?${q}` },
     { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
     { key: 'backlinks', label: 'Backlinks', href: `/my/backlinks?${q}` },
     { key: 'local', label: 'Local', href: `/my/local?${q}` },

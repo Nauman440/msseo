@@ -91,6 +91,22 @@ export async function ga4Summary(token: string, property: string, days = 28, log
   return { sessions: num(0), keyEvents: num(1), days };
 }
 
+/** Module 7.1: sessions and key events per landing page (dimension `landingPage`, the page path). */
+export async function ga4LandingPages(token: string, property: string, days = 90, log?: HttpLog): Promise<{ path: string; sessions: number; keyEvents: number }[]> {
+  const rows = z.object({ rows: z.array(z.object({ dimensionValues: z.array(z.object({ value: z.string() })), metricValues: z.array(z.object({ value: z.string() })) })).optional() }).parse(
+    await requestJson(`${DATA}/${property}:runReport`, {
+      provider: 'ga4',
+      method: 'POST',
+      headers: auth(token),
+      body: { dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'yesterday' }], dimensions: [{ name: 'landingPage' }], metrics: [{ name: 'sessions' }, { name: 'keyEvents' }], limit: 1000 },
+      timeoutMs: 20_000,
+      retries: 1,
+      log,
+    }),
+  );
+  return (rows.rows ?? []).map((r) => ({ path: r.dimensionValues[0]?.value ?? '', sessions: Math.round(Number(r.metricValues[0]?.value ?? 0)) || 0, keyEvents: Math.round(Number(r.metricValues[1]?.value ?? 0)) || 0 }));
+}
+
 /** Properties whose web stream matches the site's domain come first (best match). */
 export function matchGa4Properties(props: (Ga4Property & { hosts?: string[] })[], domain: string): (Ga4Property & { hosts?: string[]; matches: boolean })[] {
   const d = domain.replace(/^www\./, '').toLowerCase();

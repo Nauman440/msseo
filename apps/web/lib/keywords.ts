@@ -75,28 +75,43 @@ export async function researchCompetitors(domain: string): Promise<{ domains: st
  * Search Console rows by search and page for the last 90 days (ending 3 days ago): the site's
  * customer's own connection first, else the team's agency connection. Empty when neither can see it.
  */
-export async function gscQueryPages(domain: string): Promise<{ query: string; page: string; clicks: number; impressions: number; position: number }[]> {
-  if (!usingDatabase()) return [];
+/** Search Console access for a site: the customer's own connection first, else the team's agency one. */
+export async function gscAccess(domain: string): Promise<{ token: string; property: string } | null> {
+  if (!usingDatabase()) return null;
   try {
     const db = await import('@seo/db');
-    // The site's customer connected their own Google: use their chosen property first.
     const owner = await accountFor(domain);
     const own = owner && db.customerGoogleReady() ? await db.getCustomerGoogle(owner.userId).catch(() => null) : null;
     const ownProperty = own?.sites[domain]?.gscProperty ?? null;
-    let token: string;
-    let property: string | undefined;
-    if (own && ownProperty) {
-      token = await db.customerGoogleToken(owner!.userId);
-      property = ownProperty;
-    } else {
-      // Otherwise the team's agency connection, when it can see the site.
-      if (!db.gscSetup().ready || !(await db.getGscConnection())) return [];
-      property = matchGscProperties(await db.gscProperties(), `https://${domain}/`)[0];
-      if (!property) return [];
-      token = await db.gscAccessToken();
-    }
+    if (own && ownProperty) return { token: await db.customerGoogleToken(owner!.userId), property: ownProperty };
+    if (!db.gscSetup().ready || !(await db.getGscConnection())) return null;
+    const property = matchGscProperties(await db.gscProperties(), `https://${domain}/`)[0];
+    return property ? { token: await db.gscAccessToken(), property } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** GA4 for a site: only through the customer's own Google connection (the team has no agency GA4). */
+export async function ga4Access(domain: string): Promise<{ token: string; property: string } | null> {
+  if (!usingDatabase()) return null;
+  try {
+    const db = await import('@seo/db');
+    const owner = await accountFor(domain);
+    const own = owner && db.customerGoogleReady() ? await db.getCustomerGoogle(owner.userId).catch(() => null) : null;
+    const property = own?.sites[domain]?.ga4Property ?? null;
+    return own && property ? { token: await db.customerGoogleToken(owner!.userId), property } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function gscQueryPages(domain: string): Promise<{ query: string; page: string; clicks: number; impressions: number; position: number }[]> {
+  const access = await gscAccess(domain);
+  if (!access) return [];
+  try {
     const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
-    const rows = await gscSearchAnalytics(token, property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
+    const rows = await gscSearchAnalytics(access.token, access.property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
     return rows.flatMap((r) => (r.keys[0] && r.keys[1] ? [{ query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position }] : []));
   } catch {
     return [];

@@ -8,6 +8,9 @@ import { getAnalysis } from '@/lib/analysis';
 import { getBacklinks } from '@/lib/backlinks';
 import { getLocal } from '@/lib/local';
 import { LinksAndLocal } from '@/components/pdf/LinksAndLocal';
+import { ContentAndAi } from '@/components/pdf/ContentAndAi';
+import { getAeo } from '@/lib/aeo';
+import { getContent } from '@/lib/content';
 import { Recommendations } from '@/components/analysis/AiAndAdvice';
 import { ComparisonTable } from '@/components/analysis/ComparisonTable';
 import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
@@ -38,10 +41,10 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
   const report = await getReport(auditId);
   if (!report) notFound();
   const mode = parseMode(query.mode, report.audience);
-  const [competitors, actions, analysis, links, local] =
+  const [competitors, actions, analysis, links, local, content, aeo] =
     report.auditId === 'demo'
-      ? [null, null, null, null, null]
-      : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain), getBacklinks(report.project.domain).then((w) => w.audit), getLocal(report.project.domain)]);
+      ? [null, null, null, null, null, null, null]
+      : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain), getBacklinks(report.project.domain).then((w) => w.audit), getLocal(report.project.domain), getContent(report.project.domain), getAeo(report.project.domain).then((w) => w.audit)]);
   const summary = reportSummary(report)[mode];
   const footer = `${report.brand} · ${report.project.domain}`;
 
@@ -71,6 +74,11 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
         {(links || local) && (
           <section className="pdf-section">
             <LinksAndLocal links={links} local={local} />
+          </section>
+        )}
+        {(content || aeo) && (
+          <section className="pdf-section">
+            <ContentAndAi content={content} aeo={aeo} />
           </section>
         )}
         {actions?.actions.some((a) => a.status !== 'dismissed') && (

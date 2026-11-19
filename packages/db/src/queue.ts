@@ -44,6 +44,8 @@ export const DAILY_AUTOPILOT = 'daily-autopilot';
 export const AUTOPILOT_CUSTOMER = 'autopilot-customer';
 /** Module 12: daily check of finished actions due their 7/14/28-day verification, 08:00 UTC. */
 export const DAILY_ACTION_CHECKS = 'daily-action-checks';
+/** Module 10: weekly AI search tracking for customer websites, Mondays 07:30 UTC. */
+export const WEEKLY_AI_TRACKING = 'weekly-ai-tracking';
 
 /** Queues an autopilot run for one customer (deduplicated for 10 minutes), after `delayMs` (lets the first audit finish). */
 export async function enqueueAutopilot(userId: string, delayMs = 0): Promise<void> {
@@ -67,6 +69,7 @@ export async function ensureWeeklySchedule(): Promise<void> {
     await queue.upsertJobScheduler(QUARTERLY_COMPETITORS, { pattern: '0 7 1 1,4,7,10 *', tz: 'UTC' }, { name: QUARTERLY_COMPETITORS });
     await queue.upsertJobScheduler(DAILY_AUTOPILOT, { pattern: '0 5 * * *', tz: 'UTC' }, { name: DAILY_AUTOPILOT });
     await queue.upsertJobScheduler(DAILY_ACTION_CHECKS, { pattern: '0 8 * * *', tz: 'UTC' }, { name: DAILY_ACTION_CHECKS });
+    await queue.upsertJobScheduler(WEEKLY_AI_TRACKING, { pattern: '30 7 * * 1', tz: 'UTC' }, { name: WEEKLY_AI_TRACKING });
   } finally {
     await queue.close();
   }

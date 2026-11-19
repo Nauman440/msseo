@@ -69,6 +69,8 @@ export function schemaValues(c: PageContent, field: string): string[] {
     else if (v && typeof v === 'object') {
       for (const [k, val] of Object.entries(v)) {
         if (k === field && (typeof val === 'string' || typeof val === 'number')) out.push(String(val));
+        // Lists of plain values (e.g. sameAs: ["https://facebook.com/…", …]).
+        else if (k === field && Array.isArray(val) && val.every((x) => typeof x === 'string' || typeof x === 'number')) out.push(...val.map(String));
         else walk(val);
       }
     }

@@ -42,6 +42,8 @@ export type PageContent = {
   lists: number;
   tables: number;
   faqMarkup: boolean;
+  /** Elements marked data-nosnippet (kept out of Google snippets and AI Overviews; Module 10.9). */
+  dataNosnippet?: number;
   breadcrumbMarkup: boolean;
   /** Whole-page text incl. header/footer (for phone, address, licence and review signals). */
   fullText: string;
@@ -168,6 +170,7 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     smallFonts: smallFontCount(html),
     generator: root.querySelector('meta[name="generator"]')?.getAttribute('content') ?? undefined,
     robots: root.querySelector('meta[name="robots"]')?.getAttribute('content')?.toLowerCase() ?? undefined,
+    dataNosnippet: root.querySelectorAll('[data-nosnippet]').length,
     canonical: absolute(root.querySelector('link[rel="canonical"]')?.getAttribute('href'), url),
     title: clean(root.querySelector('title')?.text) || undefined,
     description: root.querySelector('meta[name="description"]')?.getAttribute('content') ?? undefined,

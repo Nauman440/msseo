@@ -13,18 +13,18 @@ Last checked: **18 Nov 2026** against the code on `dev` (after the checklist gap
 | 1 | Site audit: technical SEO | Done | 71 of 71 points; monitoring in "Automate" is Module 13 |
 | 2 | Site audit: on-page SEO | Done | 50 of 50 points; alt-text drafts (Automate line) not yet |
 | 3 | Competitor identification | Done | 9 of 9 |
-| 4 | Keyword research | Done, 2 partial | 36 of 38 |
+| 4 | Keyword research | Done, 1 partial | 37 of 38 |
 | 5 | Keyword to page mapping | Done | 13 of 13 |
 | 6 | Deep competitor analysis | Done, 7 partial | 31 of 38 (backlinks and local parts are on the Backlinks and Local pages) |
-| 7 | Content audit and gap analysis | Not yet | — |
+| 7 | Content audit and gap analysis | Done | 9 of 9 (traffic and leads need Search Console / GA4) |
 | 8 | Backlink audit | Done | 10 of 10 (needs the DataForSEO Backlinks API enabled) |
 | 9 | Local SEO audit | Done | 10 of 10 |
-| 10 | AEO / AI search audit | Not yet (pieces exist) | — |
+| 10 | AEO / AI search audit | Done | 10 of 10 (ChatGPT, Perplexity, Google AI Overviews; Gemini not tracked) |
 | 11 | Tracking and conversion audit | Not yet (pieces exist) | — |
 | 12 | Prioritisation and action plan | Done | 7 of 7 |
 | 13 | Reporting and monitoring setup | Not yet (pieces exist) | — |
 
-**What is left in finished modules:** weekly AI tracking (4.7.3 → Module 10), plus partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5, 6.5.1, 6.5.2): they cover the client fully and competitors only in part.
+**What is left in finished modules:** partial points named below (4.2.6, 6.1.5, 6.2.4, 6.3.4, 6.4.3, 6.4.5, 6.5.1, 6.5.2): they cover the client fully and competitors only in part.
 
 ---
 
@@ -84,7 +84,7 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 4.5.1–4.5.4 Clustering, one cluster = one page, intent, SERP check | Done | One page per topic is enforced in Module 5 |
 | 4.6.1–4.6.5 Prioritisation | Done | Value and chance editable with the client |
 | 4.7.1, 4.7.2 30–50 AI questions, grouped | Done | |
-| 4.7.3 Saved for weekly tracking | Partial | Saved and ticked; the weekly runs come with Module 10 |
+| 4.7.3 Saved for weekly tracking | Done | Ticked questions are asked every Monday (Module 10) |
 
 ## Module 5 · Keyword to page mapping — Done
 
@@ -181,13 +181,44 @@ Local page (team `/local/<domain>`, customers' Local tab), DataForSEO SERP Maps 
 | 9.9 Local links | Done | Local linking sites from the backlink audit, and ideas |
 | 9.10 Local competitor benchmark | Done | Who is in the top 3 across the grid, with rating and reviews |
 
-## Modules 7, 10, 11 and 13 — not built yet
+## Module 7 · Content audit and gap analysis — Done
+
+Content page (team `/content/<domain>`, customers' Content tab). No DataForSEO cost: the latest audit, the sitemap, Search Console, GA4 (customer connection) and OpenAI.
+
+| Point | Status | Note |
+| --- | --- | --- |
+| 7.1 Inventory with clicks and conversions | Done | Audited + sitemap pages; clicks, impressions, position (90 days), visits and key events (GA4) |
+| 7.2 Keep / improve / merge / remove | Done | Merge: settled merge or near-duplicate; remove: < 300 words, no visits (only with Search Console); improve: decay, thin, positions 4–20, page plan |
+| 7.3 Decay list | Done | ≥ 30% fewer clicks than the 90 days before, from ≥ 20 |
+| 7.4 Competitor topic gap | Done | Module 6 content gap + page-plan topics without a page |
+| 7.5 Service × location coverage | Done | Grid of services × places served; only pages that can be service or place pages count |
+| 7.6 Pillar / cluster plan | Done | One main page per service, its keyword topics as supporting pages |
+| 7.7 Quality check | Done | AI scores originality, accuracy and experience for the 5 main pages |
+| 7.8 Content calendar | Done | Busy-season topics a month before their deadline, then by priority, 4 a month |
+| 7.9 Brief template | Done | .md download; full per-page briefs stay in Module 5 |
+
+## Module 10 · AEO / AI search audit — Done
+
+AI search page (team `/ai-search/<domain>`, customers' AI search tab). DataForSEO AI Optimization (ChatGPT, Perplexity) and SERP (Google AI Overviews); ≈ $0.21 for 5 questions in the live test.
+
+| Point | Status | Note |
+| --- | --- | --- |
+| 10.1 AI crawler access | Done | robots.txt per AI bot (10 bots) + the firewall check 1.2.4 |
+| 10.2 Prompt runs across assistants | Done | Up to 10 ticked questions in ChatGPT, Perplexity and Google AI Overviews; customer sites every Monday (worker job `weekly-ai-tracking`) under the autopilot cap. Gemini is not asked (cost) |
+| 10.3 Mentions and citations vs competitors | Done | Per answer: who is named, who is linked |
+| 10.4 Share of voice | Done | Per assistant and overall, with the weekly trend line |
+| 10.5 Sources AI cites | Done | Ranked list of cited websites (Google's own links left out) |
+| 10.6 Entity signals | Done | Name consistency, Organization/LocalBusiness schema, sameAs, social links, Business Profile, about page |
+| 10.7 Answer-ready content | Done | From the audit rules 2.8.x |
+| 10.8 Accuracy of AI answers | Done | ChatGPT is asked about the business; OpenAI compares the answer with the known facts |
+| 10.9 Snippet / AI controls | Done | nosnippet, max-snippet, data-nosnippet per page |
+| 10.10 Third-party presence | Done | Directories, review sites, news links, forums AI cites |
+
+## Modules 11 and 13 — not built yet
 
 Pieces that already exist and will be reused:
 
-- **7 Content audit:** page inventory with Search Console queries (5.1), decay rule 2.9.5, thin and duplicate rules, content gap from 6, page briefs from 5.
-- **10 AEO:** AI crawler access (1.2.4), answer-ready content rules (2.8), tracked AI questions (4.7), ChatGPT runs (6.6).
 - **11 Tracking:** Search Console + GA4 connection for customers, key events count, click-to-call and form checks (2.7.6).
 - **13 Reporting:** weekly re-audit, PDF and .md reports, score trend and "changes since last audit", customer dashboard.
 
-**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5). **Built 2026-11-19:** Modules 8 and 9. **Next (§16.3):** Modules 7 + 10.
+**Built 2026-11-18:** WordPress and Shopify connection (spec §16.5). **Built 2026-11-19:** Modules 8 and 9, then Modules 7 and 10. **Next (§16.3):** Modules 11 + 13.

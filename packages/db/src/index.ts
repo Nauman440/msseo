@@ -15,3 +15,4 @@ export * from './analysis';
 // where audits are queued or run, not in every route that touches the database.
 export * from './connections';
 export * from './site-documents';
+export * from './aeo-weekly';
