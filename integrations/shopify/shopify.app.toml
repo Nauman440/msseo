@@ -1,16 +1,20 @@
 # MS SCORE Shopify app settings (pushed with the Shopify CLI: `shopify app deploy`).
 # The app itself is msseo.tech; nothing here is built or hosted by Shopify.
-# client_id is filled in by `shopify app config link` (it is public, not a secret).
+# client_id is public, not a secret. The client secret goes only into Coolify (SHOPIFY_CLIENT_SECRET).
+# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
 
+client_id = "d1ceed9bbf6da3173b54fbe8cc244394"
 name = "MS SCORE"
-client_id = ""
 application_url = "https://msseo.tech/"
 # Not shown inside the Shopify admin: the store owner approves once, then works in MS SCORE.
 embedded = false
 
+[webhooks]
+api_version = "2027-01"
+
 [access_scopes]
 # Same list as SHOPIFY_SCOPES in packages/core/src/providers/shopify.ts.
-scopes = "read_products,write_products,read_content,write_content,read_online_store_navigation,write_online_store_navigation"
+scopes = "read_content,read_online_store_navigation,read_products,write_content,write_online_store_navigation,write_products"
 # MS SCORE asks for the scopes in its own approval link (authorization code grant), so the scopes in
 # that link must be honoured rather than Shopify-managed installation.
 use_legacy_install_flow = true
@@ -21,5 +25,7 @@ redirect_urls = [
   "https://staging.msseo.tech/api/connections/shopify/callback",
 ]
 
-[webhooks]
-api_version = "2026-10"
+[build]
+include_config_on_deploy = true
+# MS SCORE is never run with `shopify app dev`, so the URLs above must never be rewritten.
+automatically_update_urls_on_dev = false
