@@ -15,6 +15,7 @@ const file = (domain: string) => resolve(DIR, `${domain.replace(/[^a-z0-9.-]/gi,
 
 /** Connecting needs ENCRYPTION_KEY; Shopify also needs the app's client id and secret. */
 export const connectionsReady = () => encryptionKeyValid();
+/** The Shopify app's keys (Dev Dashboard → MS SCORE), read at request time from the web app's environment. */
 export function shopifyApp(): ShopifyApp | null {
   const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
