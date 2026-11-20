@@ -6,6 +6,7 @@ import {
   addPrompt, editPrompt, generatePrompts, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
+import { customerAudits } from '@/lib/customer-data';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from '@/lib/keywords';
 import { providerConfig } from '@/lib/providers-config';
 import { hit } from '@/lib/rate-limit';
@@ -87,8 +88,10 @@ export async function researchKeywordsAction(rawDomain: string): Promise<Keyword
   if (!(await allowed(customer, `keywords-research:${domain}`, 1))) return { error: 'Keyword research runs once a day. Please try again tomorrow.' };
   const c = await dfs();
   if (!c) return { error: 'Keyword research is not available right now.' };
-  const [competitors, gsc] = await Promise.all([researchCompetitors(domain), gscQueries(domain)]);
-  const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc });
+  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
+  // The site's own pages (titles and H1s) keep the list about what this website really covers.
+  const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
+  const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
   const cl = kept ? await clusterKeywords(c.api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
   await saveKeywordWorkspace(cl?.workspace ?? r.workspace);

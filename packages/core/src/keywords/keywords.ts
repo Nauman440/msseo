@@ -1,7 +1,7 @@
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, normDomain } from '../competitors/competitors';
 import { csvCell } from '../report/csv';
 import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale } from '../providers/dataforseo-keywords';
-import { brandStems, cleanKeywords, dedupeKey, normTerm, removalReason, topicWords } from './clean';
+import { brandStems, cleanKeywords, siteVocabulary, dedupeKey, normTerm, removalReason, topicWords } from './clean';
 import { namesPlace } from './cluster';
 import type { BusinessType, KeywordRecord, KeywordSeeds, KeywordSource, KeywordStatus, KeywordWorkspace } from './types';
 
@@ -116,7 +116,7 @@ const SOURCE_RANK: Record<KeywordSource, number> = { manual: 0, import: 0, gsc: 
 export async function researchKeywords(
   client: KeywordClient,
   ws: KeywordWorkspace,
-  opts: { competitors?: string[]; competitorNames?: string[]; gsc?: GscQuery[]; now?: Date; reuseDays?: number } = {},
+  opts: { competitors?: string[]; competitorNames?: string[]; gsc?: GscQuery[]; now?: Date; reuseDays?: number; /** Titles and H1s of the site's audited pages (relevance). */ pageTitles?: string[] } = {},
 ): Promise<{ workspace: KeywordWorkspace; cost: number; errors: string[]; added: number; calls: number; reused: number }> {
   const nowDate = opts.now ?? new Date();
   const now = nowDate.toISOString();
@@ -256,7 +256,8 @@ export async function researchKeywords(
   // A keyword with no data from Google: 0 searches recorded ("customer language", kept).
   const asked = new Set(needMetrics);
   const filled = [...keep.values()].map((k) => (k.volume === null && asked.has(k.term) && !metricsFailed ? { ...k, volume: 0 } : k));
-  const cleaned = cleanKeywords({ ...ws, keywords: sortKeywords(filled) }, opts.competitorNames ?? opts.competitors ?? []);
+  const siteWords = opts.pageTitles?.length ? siteVocabulary(opts.pageTitles) : ws.siteWords;
+  const cleaned = cleanKeywords({ ...ws, siteWords, keywords: sortKeywords(filled) }, opts.competitorNames ?? opts.competitors ?? []);
   return { workspace: { ...cleaned, lastRunAt: now, fetched: { scope, at: fetched } }, cost, errors, added: Math.max(0, keep.size - before), calls, reused };
 }
 

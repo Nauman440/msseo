@@ -158,7 +158,9 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       }
       gsc.push(...seen.values());
       const kc = createKeywordClient(env.dataforseo);
-      const r = await researchKeywords(kc, keywords, { competitors: rivals.map((c) => c.domain), competitorNames: [...rivals.map((c) => c.domain), ...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors], gsc, now });
+      const audited = await latestPages(domain);
+      const pageTitles = (audited?.report.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
+      const r = await researchKeywords(kc, keywords, { competitors: rivals.map((c) => c.domain), competitorNames: [...rivals.map((c) => c.domain), ...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors], gsc, now, pageTitles });
       reported += r.cost;
       const cl = await clusterKeywords(kc, r.workspace, { now });
       reported += cl.cost;

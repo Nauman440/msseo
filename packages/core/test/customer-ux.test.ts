@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  autoPlan, emptyActions, emptyKeywordWorkspace, LOW_VOLUME, queryKeywords, seedsFromPages, seedsFromPagesHeuristic, splitServicePlace,
+  autoPlan, emptyActions, emptyKeywordWorkspace, LOW_VOLUME, qualityPass, queryKeywords, seedsFromPages, seedsFromPagesHeuristic, siteVocabulary, splitServicePlace,
   type KeywordRecord, type ReportModel, type ReportPage,
 } from '../src';
 
@@ -58,5 +58,49 @@ describe('the action plan fills itself', () => {
     expect(plan!.actions).toHaveLength(14);
     expect(new Set(plan!.actions.map((a) => a.bucket))).toEqual(new Set(['d30', 'd60', 'd90']));
     expect(autoPlan(plan!, report, null, { newId: () => 'x' })).toBeNull();
+  });
+});
+
+describe('keyword quality (relevance, hard keywords, zero-volume)', () => {
+  const kw = (term: string, o: Partial<KeywordRecord> = {}) =>
+    ({ term, volume: 500, trend: null, trendFrom: null, difficulty: 20, cpc: 2, intent: 'commercial', position: null, url: null, gscClicks: null, gscImpressions: null, sources: ['suggestion'], status: 'kept', removeReason: null, statusLocked: false, serpUrls: null, clusterId: null, addedAt: '', ...o }) as KeywordRecord;
+  const seeds = { services: ['AC repair', 'furnace repair'], locations: ['Dallas'], brands: [], extra: [] };
+
+  it('keeps only keywords about this website: its research inputs and, once audited, its own pages', () => {
+    const list = [kw('ac repair dallas'), kw('heat pump repair'), kw('ac compressor parts wholesale'), kw('pool repair'), kw('my own phrase', { sources: ['manual'] })];
+    const out = qualityPass(list, { seeds, siteWords: siteVocabulary(['AC Repair in Dallas', 'Heat Pump Service', 'About Cool Co']) });
+    const by = Object.fromEntries(out.map((k) => [k.term, k.status === 'kept' ? 'kept' : k.removeReason]));
+    expect(by).toEqual({
+      'ac repair dallas': 'kept', // a whole service
+      'heat pump repair': 'kept', // "repair" is not enough on its own, but "pump" is on the site and in no service: both checks
+      'ac compressor parts wholesale': 'kept', // "ac" is in the inputs and on the pages
+      'pool repair': 'Not about this website',
+      'my own phrase': 'kept', // typed in by hand
+    });
+  });
+
+  it('keeps few hard keywords: those you already rank for, then the most searched (10%, at least 5)', () => {
+    const list = [
+      ...Array.from({ length: 8 }, (_, i) => kw(`ac repair ${i}`, { difficulty: 75, volume: 1000 - i })),
+      kw('ac repair ranked', { difficulty: 80, volume: 10, position: 12 }),
+      ...Array.from({ length: 20 }, (_, i) => kw(`furnace repair ${i}`, { difficulty: 20 })),
+    ];
+    const out = qualityPass(list, { seeds });
+    const hard = out.filter((k) => k.removeReason?.startsWith('Too hard'));
+    expect(hard.map((k) => k.term)).toEqual(['ac repair 5', 'ac repair 6', 'ac repair 7']);
+    expect(hard[0]!.removeReason).toBe('Too hard to rank for now (difficulty 75)');
+    expect(out.find((k) => k.term === 'ac repair ranked')!.status).toBe('kept');
+  });
+
+  it('keeps a few zero-volume searches, only those naming a whole service', () => {
+    const list = [
+      ...Array.from({ length: 12 }, (_, i) => kw(`ac repair dallas option ${i}`, { volume: 0 })),
+      kw('cheap fix for my unit', { volume: 0, sources: ['autocomplete'] }),
+      ...Array.from({ length: 20 }, (_, i) => kw(`furnace repair ${i}`)),
+    ];
+    const out = qualityPass(list, { seeds });
+    // 12 name a whole service: 10 kept, 2 cut; the off-topic one is gone before the cap.
+    expect(out.filter((k) => k.removeReason === 'Too few searches')).toHaveLength(2);
+    expect(out.find((k) => k.term === 'cheap fix for my unit')!.removeReason).toBe('Not about this website');
   });
 });

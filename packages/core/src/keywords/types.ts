@@ -101,4 +101,6 @@ export type KeywordWorkspace = {
   questions?: { text: string; keyword: string }[];
   /** When each paid source was last fetched ("ranked:site.com", "ideas:ac repair"), for one country/language. */
   fetched?: { scope: string; at: Record<string, string> };
+  /** Distinctive words of this website's audited pages (titles and H1s): keywords must be about what the site covers. */
+  siteWords?: string[];
 };

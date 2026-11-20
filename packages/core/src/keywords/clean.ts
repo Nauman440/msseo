@@ -115,6 +115,68 @@ function offTopic(k: KeywordRecord, topic: Set<string>, seeds: { services: strin
   return !dedupeKey(k.term).split(' ').some((w) => topic.has(w));
 }
 
+/** Words that say what a website is about: its page titles and H1s, without filler or brand-neutral words. */
+export function siteVocabulary(texts: string[]): string[] {
+  const words = new Map<string, number>();
+  for (const t of texts) for (const w of new Set(dedupeKey(t).split(' '))) if (w.length > 2 && !GENERIC.has(w) && !STOP.has(w) && !/^\d+$/.test(w)) words.set(w, (words.get(w) ?? 0) + 1);
+  return [...words.keys()].slice(0, 400);
+}
+
+/** Difficulty from which a keyword counts as hard to rank for (0–100). */
+export const HARD_KD = 60;
+/** Hard keywords kept: at most this share of the kept list (never fewer than HARD_MIN). */
+const HARD_SHARE = 0.1;
+const HARD_MIN = 5;
+/** Searches with no recorded volume kept: at most this share of the list (never fewer than ZERO_MIN). */
+const ZERO_SHARE = 0.05;
+const ZERO_MIN = 10;
+/**
+ * Never thinned out: kept or removed by hand, typed in, imported, from Search Console, or built from the
+ * site's own research inputs (its services and places).
+ */
+const trusted = (k: KeywordRecord) => k.statusLocked || k.sources.some((s) => s === 'manual' || s === 'import' || s === 'gsc' || s === 'seed');
+
+/**
+ * The quality pass over the whole list (after the one-keyword rules):
+ *  - relevance: a keyword the tools found must share a word with this website's research inputs and,
+ *    once the site has been audited, with its own pages (or contain a whole service);
+ *  - hard keywords (difficulty 60+) only where the site already ranks in the top 30, or the few most
+ *    searched ones (10% of the list, at least 5): the rest wait until the site is stronger;
+ *  - searches with no recorded volume only when they name a whole service, and only a few (5%, at least 10).
+ */
+export function qualityPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'seeds' | 'siteWords'>): KeywordRecord[] {
+  const topic = topicWords(ws.seeds);
+  const site = new Set(ws.siteWords ?? []);
+  const words = (t: string) => dedupeKey(t).split(' ');
+  const relevant = (k: KeywordRecord) => {
+    if (coversSeed(k.term, ws.seeds)) return true;
+    const w = words(k.term);
+    const inputs = !topic.size || w.some((x) => topic.has(x));
+    const pages = !site.size || w.some((x) => site.has(x));
+    return inputs && pages;
+  };
+  const out = list.map((k) => (k.status !== 'kept' || trusted(k) || relevant(k) ? k : { ...k, status: 'removed' as const, removeReason: 'Not about this website', clusterId: null }));
+  const kept = () => out.filter((k) => k.status === 'kept');
+
+  const hardCap = Math.max(HARD_MIN, Math.floor(kept().length * HARD_SHARE));
+  const hard = kept()
+    .filter((k) => !trusted(k) && (k.difficulty ?? 0) >= HARD_KD && !(k.position !== null && k.position <= 30))
+    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
+  const tooHard = new Set(hard.slice(hardCap).map((k) => k.term));
+
+  const zeroCap = Math.max(ZERO_MIN, Math.floor(kept().length * ZERO_SHARE));
+  const zero = kept().filter((k) => !trusted(k) && !(k.volume && k.volume > 0) && k.position === null);
+  const zeroKeep = new Set(zero.filter((k) => coversSeed(k.term, ws.seeds)).sort((a, b) => a.term.length - b.term.length).slice(0, zeroCap).map((k) => k.term));
+
+  return out.map((k) =>
+    tooHard.has(k.term)
+      ? { ...k, status: 'removed' as const, removeReason: `Too hard to rank for now (difficulty ${k.difficulty})`, clusterId: null }
+      : zero.includes(k) && !zeroKeep.has(k.term)
+        ? { ...k, status: 'removed' as const, removeReason: 'Too few searches', clusterId: null }
+        : k,
+  );
+}
+
 /** Applies the rules, then merges near-duplicates into the most searched spelling. */
 export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = []): KeywordWorkspace {
   const ctx = { locations: ws.seeds.locations, brands: ws.seeds.brands, competitorStems: brandStems(competitorNames), country: ws.country };
@@ -136,10 +198,11 @@ export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = 
       (generated ? 'No one searches this' : null);
     return reason ? { ...k, status: 'removed', removeReason: reason, clusterId: null } : { ...k, status: 'kept', removeReason: null };
   });
+  const checked = qualityPass(ruled, ws);
   const groups = new Map<string, KeywordRecord[]>();
-  for (const k of ruled) if (k.status === 'kept') groups.set(dedupeKey(k.term), [...(groups.get(dedupeKey(k.term)) ?? []), k]);
+  for (const k of checked) if (k.status === 'kept') groups.set(dedupeKey(k.term), [...(groups.get(dedupeKey(k.term)) ?? []), k]);
   // Google counts close variants as one search: the same volume and the same 12-month trend.
-  for (const k of ruled) if (k.status === 'kept' && (k.volume ?? 0) >= 100 && k.trend?.length) groups.set(`=${k.volume}|${k.trend.join(',')}`, [...(groups.get(`=${k.volume}|${k.trend.join(',')}`) ?? []), k]);
+  for (const k of checked) if (k.status === 'kept' && (k.volume ?? 0) >= 100 && k.trend?.length) groups.set(`=${k.volume}|${k.trend.join(',')}`, [...(groups.get(`=${k.volume}|${k.trend.join(',')}`) ?? []), k]);
   const dupOf = new Map<string, string>();
   const preferred = (k: KeywordRecord) => (k.statusLocked ? 4 : 0) + (k.position !== null ? 2 : 0) + (k.sources.some((s) => s === 'seed' || s === 'gsc' || s === 'manual' || s === 'import') ? 1 : 0);
   for (const list of groups.values()) {
@@ -151,6 +214,6 @@ export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = 
   }
   return {
     ...ws,
-    keywords: ruled.map((k) => (dupOf.has(k.term) ? { ...k, status: 'removed', removeReason: `Same search as "${dupOf.get(k.term)}"`, clusterId: null } : k)),
+    keywords: checked.map((k) => (dupOf.has(k.term) ? { ...k, status: 'removed', removeReason: `Same search as "${dupOf.get(k.term)}"`, clusterId: null } : k)),
   };
 }
