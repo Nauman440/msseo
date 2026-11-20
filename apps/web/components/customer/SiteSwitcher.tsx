@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Website switcher at the top of every customer page: the chosen site's data everywhere. The choice is
@@ -14,12 +14,25 @@ export function SiteSwitcher({ sites, fallback, canAdd }: { sites: string[]; fal
   const path = usePathname();
   const params = useSearchParams();
   const fromUrl = params.get('site');
-  const current = (fromUrl && sites.includes(fromUrl) ? fromUrl : null) ?? (fallback && sites.includes(fallback) ? fallback : null) ?? sites[0] ?? null;
+  const valid = (d: string | null) => (d && sites.includes(d) ? d : null);
+  // The layout (and so `fallback`) is not re-rendered on client navigation, so the remembered website is
+  // read again from the cookie after each navigation: the switcher always names the site the page shows.
+  const [remembered, setRemembered] = useState<string | null>(valid(fallback));
+  const current = valid(fromUrl) ?? remembered ?? sites[0] ?? null;
   const box = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
-    if (current) document.cookie = `${SITE_COOKIE}=${encodeURIComponent(current)}; path=/; max-age=31536000; samesite=lax`;
-  }, [current]);
+    const site = valid(fromUrl);
+    if (site) {
+      // Only a website named in the address is remembered; never one guessed from an old cookie.
+      document.cookie = `${SITE_COOKIE}=${encodeURIComponent(site)}; path=/; max-age=31536000; samesite=lax`;
+      setRemembered(site);
+      return;
+    }
+    const m = document.cookie.match(new RegExp(`(?:^|; )${SITE_COOKIE}=([^;]*)`));
+    setRemembered(valid(m ? decodeURIComponent(m[1]!) : null) ?? valid(fallback));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromUrl, path]);
 
   if (!current) return null;
   // A page about one audit or account-wide page: switching goes to the same section's start.

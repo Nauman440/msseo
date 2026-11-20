@@ -23,7 +23,7 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, a
   // In the order of the journey. Weekly plan and Rankings are built from Search Console, so they also wait for Google.
   const tabs: { key: SiteTab | 'settings'; label: string; href?: string; google?: boolean }[] = [
     { key: 'overview', label: 'Overview', href: `/my?${q}` },
-    { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}` : undefined },
+    { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}?${q}` : undefined },
     { key: 'connections', label: 'Connections', href: `/my/connections?${q}` },
     { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
     { key: 'keywords', label: 'Keywords', href: `/my/keywords?${q}` },

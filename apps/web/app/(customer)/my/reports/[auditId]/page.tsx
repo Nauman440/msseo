@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { AuditProgress } from '@/components/report/AuditProgress';
 import { ReportBanner } from '@/components/report/Banner';
 import { DownloadPdfButton } from '@/components/report/DownloadPdfButton';
@@ -17,10 +17,10 @@ import { requireCustomer } from '@/lib/session';
 export const metadata: Metadata = { title: 'Your SEO report' };
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ auditId: string }> };
+type Props = { params: Promise<{ auditId: string }>; searchParams: Promise<{ site?: string }> };
 
 /** A customer's report (client language), or its progress while it runs (step 8). */
-export default async function CustomerReportPage({ params }: Props) {
+export default async function CustomerReportPage({ params, searchParams }: Props) {
   await requireCustomer();
   const auditId = (await params).auditId;
   if (!(await canViewAudit(auditId))) notFound();
@@ -34,6 +34,8 @@ export default async function CustomerReportPage({ params }: Props) {
   }
 
   const report = view.report;
+  // The address names the report's own website, so the switcher (and the remembered website) follow it.
+  if ((await searchParams).site !== report.project.domain) redirect(`/my/reports/${auditId}?site=${encodeURIComponent(report.project.domain)}`);
   const [competitors, actions] = await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain)]);
   return (
     <>
