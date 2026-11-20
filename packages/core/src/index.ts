@@ -25,7 +25,7 @@ export * from './competitors/competitors';
 export { createCompetitorClient, type CompetitorClient, type MonthPoint } from './providers/dataforseo-competitors';
 export * from './keywords/types';
 export * from './keywords/keywords';
-export { brandStems, cleanKeywords, dedupeKey, HARD_KD, normTerm, qualityPass, removalReason, siteVocabulary } from './keywords/clean';
+export { brandStems, cleanKeywords, dedupeKey, HARD_KD, KEYWORD_QUALITY_VERSION, normTerm, qualityPass, removalReason, siteVocabulary } from './keywords/clean';
 export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, updateCluster } from './keywords/cluster';
 export { addPrompt, editPrompt, generatePrompts, isTracked, MAX_PROMPTS, mergePrompts, PROMPT_RANGE, setTrackedPrompts, templatePrompts } from './keywords/prompts';
 export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';

@@ -2,11 +2,9 @@ import type { Metadata } from 'next';
 import { KEYWORD_VIEWS, type KeywordView } from '@/components/keywords/KeywordTabs';
 import { KeywordWorkspaceView } from '@/components/keywords/KeywordWorkspaceView';
 import { TOPIC_ORDERS, type TopicOrder } from '@/components/keywords/labels';
-import { Preparing } from '@/components/customer/Preparing';
 import { SiteFrame } from '@/components/customer/SiteFrame';
-import { autoKeywords } from '@/lib/auto-sections';
 import { loadCustomerSite } from '@/lib/customer-site';
-import { getKeywordWorkspace } from '@/lib/keywords';
+import { freshKeywords } from '@/lib/keywords';
 import { freshMapping } from '@/lib/mapping';
 
 export const metadata: Metadata = { title: 'Your keywords' };
@@ -18,12 +16,12 @@ type Props = { searchParams: Promise<{ site?: string; view?: string; sort?: stri
 export default async function CustomerKeywordsPage({ searchParams }: Props) {
   const { site, view, sort, topics, from, topic, show, all } = await searchParams;
   const s = await loadCustomerSite(site);
-  const preparing = await autoKeywords(s.domain, s.account, Boolean(s.latestId));
-  const [ws, mapping] = await Promise.all([getKeywordWorkspace(s.domain), freshMapping(s.domain)]);
+  // Clean the list first, then the page plan follows the cleaned topics.
+  const ws = await freshKeywords(s.domain);
+  const mapping = await freshMapping(s.domain);
   return (
     
       <SiteFrame s={s} tab="keywords">
-      {preparing && <Preparing what="your keywords, topics and page plan" />}
       <KeywordWorkspaceView
         ws={ws}
         audience="customer"

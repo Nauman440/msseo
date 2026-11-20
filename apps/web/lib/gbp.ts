@@ -4,7 +4,7 @@ import {
   type GbpCallToAction, type GbpLocation, type GbpPost, type GbpReview, type ProfileFacts,
 } from '@seo/core';
 import { decryptSecret, encryptionKeyValid, encryptSecret } from '@seo/core/server';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getKeywordWorkspace, logUsage } from './keywords';
 import { getLocal } from './local';
 import { providerConfig } from './providers-config';
@@ -104,7 +104,7 @@ async function facts(domain: string): Promise<ProfileFacts> {
   const [local, kw, accounts] = await Promise.all([getLocal(domain), getKeywordWorkspace(domain), listAccounts()]);
   const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
   return {
-    name: local?.profile?.title ?? account?.businessName ?? domain,
+    name: local?.profile?.title ?? siteProfile(account, domain).businessName,
     phone: local?.profile?.phone ?? account?.phone ?? null,
     places: kw.seeds.locations.slice(0, 5),
     services: kw.seeds.services.slice(0, 8),

@@ -1,7 +1,7 @@
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, normDomain } from '../competitors/competitors';
 import { csvCell } from '../report/csv';
 import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale } from '../providers/dataforseo-keywords';
-import { brandStems, cleanKeywords, siteVocabulary, dedupeKey, normTerm, removalReason, topicWords } from './clean';
+import { brandStems, cleanKeywords, KEYWORD_QUALITY_VERSION, siteVocabulary, dedupeKey, normTerm, removalReason, topicWords } from './clean';
 import { namesPlace } from './cluster';
 import type { BusinessType, KeywordRecord, KeywordSeeds, KeywordSource, KeywordStatus, KeywordWorkspace } from './types';
 
@@ -257,7 +257,7 @@ export async function researchKeywords(
   const asked = new Set(needMetrics);
   const filled = [...keep.values()].map((k) => (k.volume === null && asked.has(k.term) && !metricsFailed ? { ...k, volume: 0 } : k));
   const siteWords = opts.pageTitles?.length ? siteVocabulary(opts.pageTitles) : ws.siteWords;
-  const cleaned = cleanKeywords({ ...ws, siteWords, keywords: sortKeywords(filled) }, opts.competitorNames ?? opts.competitors ?? []);
+  const cleaned = { ...cleanKeywords({ ...ws, siteWords, keywords: sortKeywords(filled) }, opts.competitorNames ?? opts.competitors ?? []), qualityVersion: KEYWORD_QUALITY_VERSION };
   return { workspace: { ...cleaned, lastRunAt: now, fetched: { scope, at: fetched } }, cost, errors, added: Math.max(0, keep.size - before), calls, reused };
 }
 

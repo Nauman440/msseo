@@ -46,7 +46,8 @@ export async function runWeeklyAiTracking(now = new Date(), log?: (m: Record<str
       const last = ws.history[ws.history.length - 1]?.date;
       if (last && now.getTime() - Date.parse(last) < 6 * 86_400_000) continue;
       if ((await autopilotSpentThisMonth(now)) + questions.length * PER_QUESTION_USD > settings['autopilot.monthlyCap']) return { ran, capped: true };
-      const brands: Brand[] = [{ domain, name: a.businessName || null, you: true }, ...analysisTargets(competitors).map((c) => ({ domain: c.domain, name: c.name, you: false }))];
+      const primary = Boolean(a.website && hostOf(a.website) === domain);
+      const brands: Brand[] = [{ domain, name: primary ? a.businessName || null : null, you: true }, ...analysisTargets(competitors).map((c) => ({ domain: c.domain, name: c.name, you: false }))];
       const before = await dataforseoBalance(env.dataforseo);
       try {
         const t = await trackQuestions(questions, brands, { country: competitors.country, language: competitors.language }, COUNTRY_ISO[competitors.country], {

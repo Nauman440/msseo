@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ANALYSIS_ESTIMATE_USD, analysisDeps, analysisTargets, dataforseoBalance, normDomain, runCompetitorAnalysis, type CompetitorAnalysis } from '@seo/core';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { getWorkspace } from './competitors';
 import { getKeywordWorkspace, logUsage } from './keywords';
@@ -78,7 +78,7 @@ export async function runAnalysis(rawDomain: string, by: 'team' | 'customer'): P
   let calls = 0;
   const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
   const analysis = await runCompetitorAnalysis(
-    { competitors, keywords, mapping, businessName: account?.businessName ?? null },
+    { competitors, keywords, mapping, businessName: siteProfile(account, domain).businessName },
     analysisDeps(env, { country: competitors.country, language: competitors.language }, (e) => void (e.provider === 'dataforseo' && calls++)),
   );
   const after = before === null ? null : await dataforseoBalance(env.dataforseo);

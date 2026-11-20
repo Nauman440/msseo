@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  autoPlan, autoShortlist, emptyActions, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  autoPlan, autoShortlist, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
   discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
@@ -39,6 +39,45 @@ const hostOf = (url: string) => {
  */
 export type AutopilotSite = { userId: string; domain: string; primary: boolean; rederive?: boolean; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
+type AccountRow = { userId: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+
+/**
+ * One website of an account. The sign-up answers (business name, services, areas, competitors) belong
+ * to the sign-up website only; any other website gets its own (read from its pages by the run).
+ */
+function siteOf(a: AccountRow, domain: string): AutopilotSite {
+  const primary = Boolean(a.website && hostOf(a.website) === domain);
+  const fromAddress = domain.split('.')[0]!.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return {
+    userId: a.userId, domain, primary, country: a.country, language: a.language,
+    businessName: primary ? a.businessName || fromAddress : fromAddress,
+    services: primary ? a.services : [], areas: primary ? a.areas : [], competitors: primary ? a.competitors : [],
+  };
+}
+
+/**
+ * A website whose competitors and keywords were built from another website's sign-up answers: start it
+ * again from its own pages. Keeps what a person added by hand (keywords typed in or imported, questions
+ * written or edited, competitors added by hand) and the audit's own findings in the action plan.
+ */
+export async function resetBorrowedData(domain: string, site: Pick<AutopilotSite, 'country' | 'language'>): Promise<void> {
+  const loc = locale({ country: site.country, language: site.language } as AutopilotSite);
+  const kw = await getKeywordWorkspace(domain).catch(() => null);
+  const fresh = emptyKeywordWorkspace(domain, loc);
+  await saveKeywordWorkspace({
+    ...fresh,
+    keywords: (kw?.keywords ?? []).filter((k) => k.sources.some((x) => x === 'manual' || x === 'import')).map((k) => ({ ...k, clusterId: null })),
+    prompts: (kw?.prompts ?? []).filter((p) => p.custom),
+  });
+  const comp = await getCompetitorWorkspace(domain).catch(() => null);
+  await saveCompetitorWorkspace({ ...emptyWorkspace(domain, loc), competitors: (comp?.competitors ?? []).filter((c) => c.sources.includes('manual')) });
+  await saveMappingWorkspace(emptyMapping(domain));
+  const actions = await getActionWorkspace(domain).catch(() => null);
+  if (actions) await saveActionWorkspace({ ...actions, actions: actions.actions.filter((a) => a.source.kind !== 'mapping' || a.status === 'done' || a.status === 'verified') });
+  await prisma.competitorAnalysis.deleteMany({ where: { domain } }).catch(() => undefined);
+  await prisma.siteDocument.deleteMany({ where: { domain, kind: { in: ['local', 'aeo'] } } }).catch(() => undefined);
+}
+
 /** Customers' websites due a run: trial or active, onboarding finished, not run in the last 30 days. */
 export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite[]> {
   const accounts = await prisma.customerAccount.findMany({
@@ -53,7 +92,7 @@ export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite
       if (!domain) continue;
       const kw = await getKeywordWorkspace(domain).catch(() => null);
       const last = kw?.autopilot?.lastRunAt ? Date.parse(kw.autopilot.lastRunAt) : 0;
-      if (last < cutoff) out.push({ userId: a.userId, domain, primary: Boolean(a.website && hostOf(a.website) === domain), businessName: a.businessName, country: a.country, language: a.language, services: a.services, areas: a.areas, competitors: a.competitors });
+      if (last < cutoff) out.push(siteOf(a, domain));
     }
   }
   return out;
@@ -256,13 +295,14 @@ export async function runDueAutopilot(now = new Date(), onSite?: (r: AutopilotRe
  */
 export async function runAutopilotNow(userId: string, domain: string, opts: { rederive?: boolean } = {}, now = new Date()): Promise<AutopilotResult | null> {
   const settings = await getSettings();
-  if (!settings['autopilot.enabled']) return null;
-  if ((await autopilotSpentThisMonth(now)) + RUN_ESTIMATE_USD > settings['autopilot.monthlyCap']) return null;
   const a = await prisma.customerAccount.findUnique({
     where: { userId },
     select: { userId: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
   });
   if (!a || ![a.website, ...a.extraWebsites].some((w) => w && hostOf(w) === domain)) return null;
   const primary = Boolean(a.website && hostOf(a.website) === domain);
-  return runAutopilotSite({ userId, domain, primary, rederive: Boolean(opts.rederive) && !primary, businessName: a.businessName, country: a.country, language: a.language, services: a.services, areas: a.areas, competitors: a.competitors }, now);
+  const site = { ...siteOf(a, domain), rederive: Boolean(opts.rederive) && !primary };
+  if (site.rederive) await resetBorrowedData(domain, site);
+  if (!settings['autopilot.enabled'] || (await autopilotSpentThisMonth(now)) + RUN_ESTIMATE_USD > settings['autopilot.monthlyCap']) return null;
+  return runAutopilotSite(site, now);
 }

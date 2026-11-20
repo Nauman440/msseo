@@ -1,6 +1,6 @@
 import 'server-only';
 import { completePending, createLocalClient, dataforseoBalance, fetchLivePage, LOCAL_ESTIMATE_USD, normDomain, runLocalAudit, type LocalAudit } from '@seo/core';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getBacklinks } from './backlinks';
 import { getWorkspace } from './competitors';
 import { customerAudits } from './customer-data';
@@ -46,7 +46,7 @@ export async function runLocal(rawDomain: string, by: 'team' | 'customer'): Prom
     const audit = await runLocalAudit(
       {
         domain,
-        businessName: account?.businessName || null,
+        businessName: siteProfile(account, domain).businessName,
         locale: { country: competitors.country, language: competitors.language },
         searches,
         places: keywords.seeds.locations,

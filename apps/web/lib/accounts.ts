@@ -158,3 +158,20 @@ export async function listAccounts(): Promise<AccountWithUser[]> {
     }),
   );
 }
+
+/**
+ * What the sign-up answers say about one website. They belong to the sign-up website only: a website
+ * added later gets its own name (from its address) and no borrowed services, areas or competitors,
+ * so it never researches or searches for the first website's business.
+ */
+export function siteProfile(account: Pick<Account, 'website' | 'businessName' | 'services' | 'areas' | 'competitors'> | null | undefined, domain: string) {
+  const primary = Boolean(account?.website && domainOf(account.website) === domain);
+  const fromAddress = domain.split('.')[0]!.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return {
+    primary,
+    businessName: primary ? account?.businessName || fromAddress : fromAddress,
+    services: primary ? account?.services ?? [] : [],
+    areas: primary ? account?.areas ?? [] : [],
+    competitors: primary ? account?.competitors ?? [] : [],
+  };
+}

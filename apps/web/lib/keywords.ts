@@ -2,8 +2,8 @@ import 'server-only';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { COMPETITOR_COUNTRIES, emptyKeywordWorkspace, gscSearchAnalytics, matchGscProperties, normDomain, type GscQuery, type KeywordWorkspace } from '@seo/core';
-import { accountSites, domainOf, listAccounts, type Account } from './accounts';
+import { cleanKeywords, clusterKeywords, COMPETITOR_COUNTRIES, emptyKeywordWorkspace, gscSearchAnalytics, KEYWORD_QUALITY_VERSION, matchGscProperties, normDomain, siteVocabulary, type GscQuery, type KeywordClient, type KeywordWorkspace } from '@seo/core';
+import { accountSites, domainOf, listAccounts, type Account, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { getSavedWorkspace } from './competitors';
 
@@ -68,7 +68,7 @@ export async function researchCompetitors(domain: string): Promise<{ domains: st
   const account = await accountFor(domain);
   // Giants (over a million visits a month) rank for everything; their keyword lists drown a small site's.
   const usable = ranked.filter((c) => (c.shortlist !== 'none' || c.type === 'direct') && (c.etv ?? 0) <= GIANT_ETV);
-  const domains = [...new Set([...usable.map((c) => c.domain), ...(account?.competitors ?? []).map(normDomain)])].filter((d) => d.includes('.'));
+  const domains = [...new Set([...usable.map((c) => c.domain), ...siteProfile(account, domain).competitors.map(normDomain)])].filter((d) => d.includes('.'));
   const names = [...domains, ...ranked.filter((c) => c.shortlist !== 'none' || c.type === 'direct').map((c) => c.domain), ...ranked.map((c) => c.name ?? '').filter(Boolean)];
   return { domains: domains.slice(0, 3), names };
 }
@@ -138,4 +138,25 @@ export async function logUsage(provider: 'dataforseo' | 'openai', units: number,
   if (!usingDatabase() || !units) return;
   const { prisma } = await import('@seo/db');
   await prisma.apiUsage.create({ data: { provider, endpoint: provider === 'openai' ? 'tokens' : 'calls', units, costUsd } }).catch(() => undefined);
+}
+
+/**
+ * Lists cleaned with older rules are cleaned again the first time they are opened (free): relevance to
+ * this website (its inputs and its own pages), few hard keywords, few zero-volume ones. Topics are then
+ * regrouped from the Google results already saved (no new calls), so their numbers match the list.
+ */
+export async function freshKeywords(rawDomain: string): Promise<KeywordWorkspace> {
+  const domain = normDomain(rawDomain);
+  const ws = await getKeywordWorkspace(domain);
+  if (!ws.keywords.length || ws.qualityVersion === KEYWORD_QUALITY_VERSION) return ws;
+  const [{ customerAudits }, rivals] = await Promise.all([import('./customer-data'), researchCompetitors(domain)]);
+  const audits = await customerAudits(`https://${domain}/`);
+  const titles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
+  const siteWords = titles.length ? siteVocabulary(titles) : ws.siteWords;
+  const cleaned = cleanKeywords({ ...ws, siteWords }, rivals.names);
+  // maxSerps 0: only results already saved are used, so the client is never called.
+  const regrouped = cleaned.clusters.length ? (await clusterKeywords({} as KeywordClient, cleaned, { maxSerps: 0 })).workspace : cleaned;
+  const next = { ...regrouped, qualityVersion: KEYWORD_QUALITY_VERSION };
+  await saveKeywordWorkspace(next);
+  return next;
 }

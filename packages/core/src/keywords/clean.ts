@@ -122,6 +122,9 @@ export function siteVocabulary(texts: string[]): string[] {
   return [...words.keys()].slice(0, 400);
 }
 
+/** Bumped when the cleaning rules change: lists cleaned with an older version are cleaned again (free). */
+export const KEYWORD_QUALITY_VERSION = 1;
+
 /** Difficulty from which a keyword counts as hard to rank for (0–100). */
 export const HARD_KD = 60;
 /** Hard keywords kept: at most this share of the kept list (never fewer than HARD_MIN). */

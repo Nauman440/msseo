@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { autoPlan, WEEKLY_MONITOR_ESTIMATE_USD, type ActionWorkspace } from '@seo/core';
+import { autoPlan, defaultSearches, WEEKLY_MONITOR_ESTIMATE_USD, type ActionWorkspace } from '@seo/core';
 import { domainOf, type Account } from './accounts';
 import { getActions, planContext, saveActions } from './actions';
 import { getAeo, runAeo } from './aeo';
@@ -72,21 +72,22 @@ export async function autoMonitor(domain: string): Promise<boolean> {
  * and for a second website whose research inputs are a copy of the first website's onboarding answers
  * (it then reads its own services and places from its pages and researches again). Needs a database.
  */
-export async function autoKeywords(domain: string, account: Pick<Account, 'userId' | 'website' | 'services'>, hasAudit: boolean): Promise<boolean> {
-  if (!hasAudit || !usingDatabase()) return false;
-  const kw = await getKeywordWorkspace(domain);
+export async function autoKeywords(domain: string, account: Pick<Account, 'userId' | 'website' | 'services' | 'areas'>, hasAudit: boolean): Promise<boolean> {
+  if (!usingDatabase()) return false;
   const primary = Boolean(account.website && domainOf(account.website) === domain);
+  const [kw, comp] = await Promise.all([getKeywordWorkspace(domain), getSavedWorkspace(domain)]);
+  // Built from the sign-up website's answers: its services as research inputs, or most of its searches.
   const same = (x: string[], y: string[]) => x.length > 0 && x.length === y.length && x.every((v, i) => v.toLowerCase() === y[i]!.toLowerCase());
-  const copied = !primary && kw.keywords.length > 0 && same(kw.seeds.services, account.services);
-  if (kw.keywords.length && !copied) return false;
-  return prepare(
-    `autopilot:${domain}`,
-    async () => {
-      const { runAutopilotNow } = await import('@seo/db');
-      await runAutopilotNow(account.userId, domain, { rederive: copied });
-    },
-    copied ? 7 * DAY : 6 * 60 * 60_000,
-  );
+  const borrowed = new Set(defaultSearches(account.services, account.areas).map((q) => q.toLowerCase()));
+  const searchesBorrowed = Boolean(comp?.searches.length) && borrowed.size > 0 && comp!.searches.filter((q) => borrowed.has(q.toLowerCase())).length * 2 >= comp!.searches.length;
+  const copied = !primary && ((kw.keywords.length > 0 && same(kw.seeds.services, account.services)) || searchesBorrowed);
+  const now = async (rederive: boolean) => {
+    const { runAutopilotNow } = await import('@seo/db');
+    await runAutopilotNow(account.userId, domain, { rederive });
+  };
+  if (copied) return prepare(`repair:${domain}`, () => now(true), 7 * DAY);
+  if (kw.keywords.length || !hasAudit) return false;
+  return prepare(`autopilot:${domain}`, () => now(false), 6 * 60 * 60_000);
 }
 
 /** 12.x for customers: every finding and page-plan topic is in the 6-month plan without clicking. */

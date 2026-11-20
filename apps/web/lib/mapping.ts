@@ -6,7 +6,7 @@ import {
   buildMapping, emptyMapping, fetchPageCheck, pageRivalMap, gapCount, keywordMap, needsCheck, normDomain, normTerm, normUrl, pageBrief, pageFixes, pageKeywordMap, topicKeywords, updateMappingRow,
   type MappingWorkspace,
 } from '@seo/core';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { customerAudits } from './customer-data';
 import { getKeywordWorkspace, gscQueryPages } from './keywords';
@@ -53,7 +53,7 @@ const titleCase = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 /** The business name for drafts: the customer's business name, else the domain in words. */
 export async function brandFor(domain: string): Promise<string> {
   const account = (await listAccounts()).find((a) => accountSites(a).some((w) => domainOf(w) === domain));
-  return account?.businessName || titleCase(domain.split('.')[0]!.replace(/-/g, ' '));
+  return siteProfile(account, domain).businessName || titleCase(domain.split('.')[0]!.replace(/-/g, ' '));
 }
 
 /** Everything 5.1–5.11 needs, then the rebuilt plan (hand edits kept). Free: no paid API calls. */
@@ -70,7 +70,7 @@ export async function rebuildMapping(rawDomain: string): Promise<{ ws: MappingWo
   const pages = audits.latest?.pages;
   if (!pages?.length) return { ws: previous, problem: 'no-audit' };
   const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
-  const brand = account?.businessName || titleCase(domain.split('.')[0]!.replace(/-/g, ' '));
+  const brand = siteProfile(account, domain).businessName || titleCase(domain.split('.')[0]!.replace(/-/g, ' '));
   const latestId = audits.rows.find((r) => r.status === 'completed')?.id ?? null;
   const ws = buildMapping({
     domain,
@@ -190,7 +190,7 @@ export async function freshMapping(rawDomain: string): Promise<MappingWorkspace>
   const latestId = audits.rows.find((r) => r.status === 'completed')?.id ?? null;
   if (!keywords.clusters.length || !audits.latest?.pages?.length) return ws;
   const built = ws.builtAt ? Date.parse(ws.builtAt) : 0;
-  const keywordsAt = Math.max(keywords.lastRunAt ? Date.parse(keywords.lastRunAt) : 0, keywords.autopilot?.lastRunAt ? Date.parse(keywords.autopilot.lastRunAt) : 0);
+  const keywordsAt = Math.max(keywords.lastRunAt ? Date.parse(keywords.lastRunAt) : 0, keywords.autopilot?.lastRunAt ? Date.parse(keywords.autopilot.lastRunAt) : 0, keywords.clusteredAt ? Date.parse(keywords.clusteredAt) : 0);
   const stale = !ws.rows.length || (latestId !== null && ws.auditId !== latestId) || keywordsAt > built;
   if (!stale) return ws;
   return (await rebuildMapping(domain).catch(() => ({ ws }))).ws;

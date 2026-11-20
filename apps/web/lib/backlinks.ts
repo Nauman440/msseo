@@ -3,7 +3,7 @@ import {
   analysisTargets, BACKLINK_ESTIMATE_USD, brokenLinkedUrls, createBacklinksClient, dataforseoBalance, DfsAccessError, emptyBacklinks, normDomain, runBacklinkAudit,
   type BacklinkWorkspace,
 } from '@seo/core';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getWorkspace, saveWorkspace } from './competitors';
 import { customerAudits } from './customer-data';
 import { getKeywordWorkspace } from './keywords';
@@ -47,7 +47,7 @@ export async function runBacklinks(rawDomain: string, by: 'team' | 'customer'): 
       {
         domain,
         competitors: direct,
-        brand: account?.businessName || null,
+        brand: siteProfile(account, domain).businessName,
         keywords: [...keywords.clusters.slice(0, 20).map((c) => c.head), ...keywords.seeds.services],
         places: keywords.seeds.locations,
         countryTld: TLD[competitors.country] ?? null,

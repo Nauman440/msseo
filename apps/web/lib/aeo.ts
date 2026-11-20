@@ -3,7 +3,7 @@ import {
   AEO_ESTIMATE_USD, analysisTargets, COUNTRY_ISO, createAiClient, createAnalysisClient, createOpenAiClient, dataforseoBalance, emptyAeo, fetchPageContents, fetchRobotsTxt, historyPoint, normDomain, runAeoAudit,
   type AeoWorkspace, type Brand,
 } from '@seo/core';
-import { accountSites, domainOf, listAccounts } from './accounts';
+import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getBacklinks } from './backlinks';
 import { getWorkspace } from './competitors';
 import { customerAudits } from './customer-data';
@@ -34,7 +34,7 @@ export async function runAeo(rawDomain: string, by: 'team' | 'customer'): Promis
     if (!(await underCap(AEO_ESTIMATE_USD))) return { problem: 'cap' };
   }
   const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
-  const name = account?.businessName || local?.profile?.title || null;
+  const name = local?.profile?.title || siteProfile(account, domain).businessName;
   const brands: Brand[] = [{ domain, name, you: true }, ...analysisTargets(competitors).map((c) => ({ domain: c.domain, name: c.name, you: false }))];
   const questions = keywords.prompts.filter((p) => p.tracked !== false).map((p) => p.text);
   const locale = { country: competitors.country, language: competitors.language };

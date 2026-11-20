@@ -6,7 +6,7 @@ import { KEYWORD_VIEWS, type KeywordView } from '@/components/keywords/KeywordTa
 import { KeywordWorkspaceView } from '@/components/keywords/KeywordWorkspaceView';
 import { TOPIC_ORDERS, type TopicOrder } from '@/components/keywords/labels';
 import { Container, SectionHeader } from '@/components/landing/primitives';
-import { getKeywordWorkspace } from '@/lib/keywords';
+import { freshKeywords } from '@/lib/keywords';
 import { freshMapping } from '@/lib/mapping';
 import { requireUser } from '@/lib/session';
 
@@ -24,7 +24,9 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
   const { view, sort, topics, from, topic, show, all } = await searchParams;
-  const [ws, mapping] = await Promise.all([getKeywordWorkspace(domain), freshMapping(domain)]);
+  // Clean the list first, then the page plan follows the cleaned topics.
+  const ws = await freshKeywords(domain);
+  const mapping = await freshMapping(domain);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">

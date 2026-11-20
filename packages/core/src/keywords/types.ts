@@ -103,4 +103,6 @@ export type KeywordWorkspace = {
   fetched?: { scope: string; at: Record<string, string> };
   /** Distinctive words of this website's audited pages (titles and H1s): keywords must be about what the site covers. */
   siteWords?: string[];
+  /** Version of the quality rules the list was last cleaned with (`KEYWORD_QUALITY_VERSION`). */
+  qualityVersion?: number;
 };
