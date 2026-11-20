@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { PlanTable } from '@/components/customer/Connected';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { SiteFrame } from '@/components/customer/SiteFrame';
 import { siteGoogleData } from '@/lib/customer-google';
 import { loadCustomerSite } from '@/lib/customer-site';
 
@@ -17,8 +17,8 @@ export default async function PlanPage({ searchParams }: Props) {
   if (!s.connected || !s.google.site) redirect(`/my/connections?site=${encodeURIComponent(s.domain)}`);
   const data = await siteGoogleData(s.user.id, s.domain, s.google.site, s.latest);
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="plan" connected latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="plan">
       <section aria-labelledby="plan" className="flex flex-col gap-4 rounded-[18px] border border-border bg-surface p-6">
         <div>
           <h2 id="plan" className="font-display text-xl font-bold">This week&apos;s plan</h2>
@@ -29,6 +29,6 @@ export default async function PlanPage({ searchParams }: Props) {
         {data.errors.length > 0 && <p role="alert" className="text-sm text-fail-text">Search Console could not be read just now ({data.errors[0]}).</p>}
         <PlanTable rows={data.plan} />
       </section>
-    </>
+    </SiteFrame>
   );
 }

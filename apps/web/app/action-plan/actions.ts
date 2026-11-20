@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { actionKey, addActions, normDomain, suggestions, updateAction, type ActionPatch, type ActionStatus, type Approval, type Bucket } from '@seo/core';
+import { ACTION_BUCKETS, actionKey, addActions, normDomain, suggestions, updateAction, type ActionPatch, type ActionStatus, type Approval, type Bucket } from '@seo/core';
 import { getActions, planContext, saveActions } from '@/lib/actions';
 import { competitorAccess } from '@/lib/competitors';
 
@@ -11,7 +11,7 @@ export type ActionState = { error?: string; ok?: string };
 
 const STATUSES: ActionStatus[] = ['todo', 'in_progress', 'done', 'dismissed'];
 const APPROVALS: Approval[] = ['none', 'team_lead', 'client'];
-const BUCKETS: Bucket[] = ['d30', 'd60', 'd90'];
+const BUCKETS: Bucket[] = ACTION_BUCKETS;
 
 const pathsFor = (domain: string) => {
   revalidatePath(`/action-plan/${domain}`);

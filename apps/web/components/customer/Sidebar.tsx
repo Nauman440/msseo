@@ -32,7 +32,6 @@ export function NavIcon({ name, active = false, className }: { name: keyof typeo
 type Item = { label: string; icon: keyof typeof PATHS; href?: string; match?: RegExp };
 const MAIN: Item[] = [
   { label: 'Overview', icon: 'overview', href: '/my', match: /^\/my(\/(plan|rankings|connections|connect|keywords|pages|actions|competitors|content|ai-search|backlinks|local|tracking|monitor))?$/ },
-  { label: 'Sites', icon: 'sites', href: '/my/sites', match: /^\/my\/sites/ },
   { label: 'Approvals', icon: 'approvals', href: '/my/approvals', match: /^\/my\/approvals/ },
   { label: 'Changes', icon: 'changes' },
   { label: 'Alerts', icon: 'alerts', href: '/my/alerts', match: /^\/my\/alerts/ },

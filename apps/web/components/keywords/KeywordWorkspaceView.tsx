@@ -1,4 +1,4 @@
-import { keywordStats, queryKeywords, type KeywordFrom, type KeywordWorkspace } from '@seo/core';
+import { keywordStats, LOW_VOLUME, queryKeywords, type KeywordFrom, type KeywordWorkspace } from '@seo/core';
 import { MappingSection, type MappingParams } from '@/components/mapping/MappingSection';
 import { cn } from '@/lib/tones';
 import { ClusterBoard } from './ClusterBoard';
@@ -8,6 +8,7 @@ import { KeywordTabs, viewHref, type KeywordView } from './KeywordTabs';
 import type { TopicOrder } from './labels';
 import { QuestionsView } from './QuestionsView';
 import { TopTopics } from './TopTopics';
+import { Term } from '@/components/ui/Term';
 
 /**
  * Module 4 workspace in the keyword design (design-reference/Keywords tab *.zip): sub-tabs
@@ -42,11 +43,11 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
   const ready = kept.length > 0;
   const view = state.view;
   const tiles = [
-    { label: 'Keywords', value: stats.kept, hint: 'Kept after cleaning' },
-    { label: 'Topics', value: stats.clusters, hint: 'One page each' },
-    { label: 'On page 1', value: kept.filter((k) => k.position !== null && k.position <= 10).length, hint: 'Positions 1 to 10' },
-    { label: 'Quick wins', value: kept.filter((k) => k.position !== null && k.position >= 4 && k.position <= 20).length, hint: 'Positions 4 to 20', highlight: true },
-    { label: 'Not showing yet', value: kept.filter((k) => k.position === null).length, hint: 'Need a page or more content' },
+    { label: 'Keywords', term: 'keyword' as const, value: stats.kept, hint: 'Kept after cleaning' },
+    { label: 'Topics', term: 'topic' as const, value: stats.clusters, hint: 'One page each' },
+    { label: 'On page 1', term: 'position' as const, value: kept.filter((k) => k.position !== null && k.position <= 10).length, hint: 'Positions 1 to 10' },
+    { label: 'Quick wins', term: 'quickWin' as const, value: kept.filter((k) => k.position !== null && k.position >= 4 && k.position <= 20).length, hint: 'Positions 4 to 20', highlight: true },
+    { label: 'Not showing yet', term: 'notShowing' as const, value: kept.filter((k) => k.position === null).length, hint: 'Need a page or more content' },
   ];
 
   return (
@@ -71,7 +72,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {tiles.map((t) => (
                 <div key={t.label} className={cn('rounded-[14px] border px-[18px] py-4', t.highlight ? 'border-primary-tint bg-primary-wash' : 'border-border bg-surface')}>
-                  <dt className={EYEBROW}>{t.label}</dt>
+                  <dt className={EYEBROW}><Term k={t.term}>{t.label}</Term></dt>
                   <dd className="mt-1 font-display text-[30px] font-extrabold tabular">{t.value.toLocaleString('en-US')}</dd>
                   <dd className="mt-0.5 text-[12px] text-ink-2">{t.hint}</dd>
                 </div>
@@ -105,7 +106,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             domain={ws.domain}
             business={ws.businessType ?? 'services'}
             topics={ws.clusters.map((c) => ({ id: c.id, name: c.name }))}
-            initial={queryKeywords(ws, { from: state.from })}
+            initial={queryKeywords(ws, { from: state.from, minVolume: LOW_VOLUME })}
             initialFrom={state.from ?? ''}
           />
           <section aria-labelledby="add-keywords" className="flex flex-col gap-3.5 rounded-card border border-border bg-surface p-[22px]">

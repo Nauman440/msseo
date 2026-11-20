@@ -7,7 +7,7 @@ import { KeywordWorkspaceView } from '@/components/keywords/KeywordWorkspaceView
 import { TOPIC_ORDERS, type TopicOrder } from '@/components/keywords/labels';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { getKeywordWorkspace } from '@/lib/keywords';
-import { getMapping } from '@/lib/mapping';
+import { freshMapping } from '@/lib/mapping';
 import { requireUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
   const { view, sort, topics, from, topic, show, all } = await searchParams;
-  const [ws, mapping] = await Promise.all([getKeywordWorkspace(domain), getMapping(domain)]);
+  const [ws, mapping] = await Promise.all([getKeywordWorkspace(domain), freshMapping(domain)]);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">

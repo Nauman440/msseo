@@ -2,12 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ActionForm } from '@/components/forms/ActionForm';
-import { TagInput } from '@/components/signup/TagInput';
 import { PlanSettings } from '@/components/customer/PlanSettings';
-import { accountSites, getAccountByUserId } from '@/lib/accounts';
+import { accountSites, domainOf, getAccountByUserId } from '@/lib/accounts';
 import { requireCustomer } from '@/lib/session';
 import { SUPPORT_EMAIL } from '@/lib/site';
-import { changeCustomerPasswordAction, saveBusinessAction, saveDetailsAction } from './actions';
+import { changeCustomerPasswordAction, saveDetailsAction } from './actions';
 
 export const metadata: Metadata = { title: 'Account settings' };
 export const dynamic = 'force-dynamic';
@@ -15,8 +14,6 @@ export const dynamic = 'force-dynamic';
 const INPUT = 'min-h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30';
 const LABEL = 'flex flex-col gap-1.5 text-sm font-semibold';
 const PANEL = 'rounded-panel border border-border bg-surface p-6';
-const COUNTRIES = ['Pakistan', 'United States', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Canada', 'Australia', 'India', 'Qatar', 'Germany'];
-const LANGUAGES = ['English', 'Urdu', 'Arabic', 'Spanish', 'French', 'Other'];
 
 /** Customer account settings: plan (switch, cancel, restart), details, business answers, password. */
 export default async function CustomerAccountPage() {
@@ -57,32 +54,20 @@ export default async function CustomerAccountPage() {
       </section>
 
       <section className={PANEL} aria-labelledby="business">
-        <h2 id="business" className="mb-4 font-display text-lg font-bold">Your business</h2>
-        <ActionForm action={saveBusinessAction} submit="Save business details">
-          <label className={LABEL}>
-            Country
-            <input name="country" list="account-countries" required autoComplete="country-name" defaultValue={account.country ?? ''} className={INPUT} />
-            <datalist id="account-countries">
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </label>
-          <TagInput name="areas" label="Cities and areas you serve" hint="Type a place and press Enter." placeholder="For example: Islamabad" initial={account.areas} optional />
-          <label className="flex cursor-pointer items-center gap-3 text-sm font-semibold">
-            <input type="checkbox" name="otherCountries" defaultChecked={account.otherCountries} className="size-4 accent-primary" />I also serve customers in other countries
-          </label>
-          <label className={LABEL}>
-            Your website is in
-            <select name="language" defaultValue={account.language ?? 'English'} className={INPUT}>
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </label>
-          <TagInput name="services" label="Your services" hint="What you sell. Type one and press Enter." placeholder="For example: AC repair" initial={account.services} />
-          <TagInput name="competitors" label="Competitors you know about" hint="Their websites or names." placeholder="For example: rival.com" initial={account.competitors} optional />
-        </ActionForm>
+        <h2 id="business" className="mb-2 font-display text-lg font-bold">Your business</h2>
+        <p className="mb-4 text-sm text-ink-2">
+          Each website has its own services, places, country and language, under Keywords → Research inputs. That is what we research and plan from.
+        </p>
+        <ul className="flex flex-col gap-2">
+          {accountSites(account).map(domainOf).map((d) => (
+            <li key={d} className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-border px-4 py-3">
+              <span className="font-semibold">{d}</span>
+              <Link href={`/my/keywords?site=${encodeURIComponent(d)}&view=inputs`} className="inline-flex min-h-10 items-center text-sm font-semibold text-primary-heading underline">
+                Research inputs
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className={PANEL} aria-labelledby="password">

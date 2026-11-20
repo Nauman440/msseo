@@ -7,44 +7,40 @@ export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlink
 
 const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4';
 
-export function SiteHeader({ domain, tab, connected, latestId, pages, running, multiSite, autopilotAt = null }: {
+export function SiteHeader({ domain, tab, connected, latestId, pages, running, autopilotAt = null, locks = {} }: {
   domain: string;
   tab: SiteTab;
   connected: boolean;
   latestId: string | null;
   pages: number | null;
   running: boolean;
-  multiSite: boolean;
   /** Last automatic update of competitors and keywords (design chip "Autopilot on"). */
   autopilotAt?: string | null;
+  /** Tabs whose journey step is not open yet, with the step that opens them. */
+  locks?: Partial<Record<SiteTab, { n: number; title: string }>>;
 }) {
   const q = `site=${encodeURIComponent(domain)}`;
-  // Weekly plan and Rankings are built from Search Console, so they wait for Google.
-  const tabs: { key: SiteTab | 'settings'; label: string; href?: string; locked?: boolean; soon?: boolean }[] = [
+  // In the order of the journey. Weekly plan and Rankings are built from Search Console, so they also wait for Google.
+  const tabs: { key: SiteTab | 'settings'; label: string; href?: string; google?: boolean }[] = [
     { key: 'overview', label: 'Overview', href: `/my?${q}` },
     { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}` : undefined },
+    { key: 'connections', label: 'Connections', href: `/my/connections?${q}` },
+    { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
     { key: 'keywords', label: 'Keywords', href: `/my/keywords?${q}` },
     { key: 'actions', label: 'Action plan', href: `/my/actions?${q}` },
-    { key: 'plan', label: 'Weekly plan', href: `/my/plan?${q}`, locked: !connected },
-    { key: 'rankings', label: 'Rankings', href: `/my/rankings?${q}`, locked: !connected },
     { key: 'content', label: 'Content', href: `/my/content?${q}` },
-    { key: 'ai-search', label: 'AI search', href: `/my/ai-search?${q}` },
-    { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
-    { key: 'backlinks', label: 'Backlinks', href: `/my/backlinks?${q}` },
     { key: 'local', label: 'Local', href: `/my/local?${q}` },
-    { key: 'monitor', label: 'Monitoring', href: `/my/monitor?${q}` },
+    { key: 'backlinks', label: 'Backlinks', href: `/my/backlinks?${q}` },
+    { key: 'ai-search', label: 'AI search', href: `/my/ai-search?${q}` },
     { key: 'tracking', label: 'Tracking', href: `/my/tracking?${q}` },
+    { key: 'monitor', label: 'Monitoring', href: `/my/monitor?${q}` },
+    { key: 'plan', label: 'Weekly plan', href: `/my/plan?${q}`, google: true },
+    { key: 'rankings', label: 'Rankings', href: `/my/rankings?${q}`, google: true },
     { key: 'reports', label: 'Reports', href: `/my/reports?${q}` },
-    { key: 'connections', label: 'Connections', href: `/my/connections?${q}` },
     { key: 'settings', label: 'Settings', href: '/my/account' },
   ];
   return (
     <div className="flex flex-col gap-4">
-      {multiSite && (
-        <Link href="/my/sites" className="text-sm text-ink-2 hover:text-ink">
-          ← All sites
-        </Link>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-night font-display text-2xl font-extrabold text-primary-tint">
@@ -77,24 +73,28 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, m
         {tabs.map((t) => {
           const active = t.key === tab;
           const base = 'inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm';
-          if (!t.href || t.soon) {
+          if (!t.href) {
             return (
-              <span key={t.key} className={cn(base, 'cursor-default font-medium text-ink-3')} title="Coming soon">
+              <span key={t.key} className={cn(base, 'cursor-default font-medium text-ink-3')} title="Available after the first audit">
                 {t.label}
-                {t.soon && <span className="rounded-full bg-sunken px-1.5 text-[11px] font-bold">Soon</span>}
               </span>
             );
           }
+          const step = t.key !== 'settings' ? locks[t.key] : undefined;
+          const googleLocked = t.google && !connected;
+          const locked = Boolean(step) || googleLocked;
+          const why = step ? `Opens after step ${step.n}: ${step.title}` : googleLocked ? 'Opens when Google is connected' : undefined;
           return (
             <Link
               key={t.key}
-              href={t.locked ? `/my/connections?${q}` : t.href}
+              href={googleLocked && !step ? `/my/connections?${q}` : t.href}
               aria-current={active ? 'page' : undefined}
-              className={cn(base, active ? 'bg-night font-bold text-white' : t.locked ? 'font-medium text-ink-3 hover:bg-sunken' : 'font-medium text-ink hover:bg-sunken')}
+              title={why}
+              className={cn(base, active ? 'bg-night font-bold text-white' : locked ? 'font-medium text-ink-3 hover:bg-sunken' : 'font-medium text-ink hover:bg-sunken')}
             >
               {t.label}
-              {t.locked && (
-                <svg width="14" height="14" viewBox="0 0 24 24" role="img" aria-label="Locked until Google is connected" className="shrink-0">
+              {locked && (
+                <svg width="14" height="14" viewBox="0 0 24 24" role="img" aria-label={why} className="shrink-0">
                   <path d={LOCK} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}

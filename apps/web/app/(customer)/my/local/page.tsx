@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { Preparing } from '@/components/customer/Preparing';
+import { SiteFrame } from '@/components/customer/SiteFrame';
+import { autoLocal } from '@/lib/auto-sections';
 import { LocalView } from '@/components/local/LocalView';
 import { ProfilePanel } from '@/components/local/ProfilePanel';
 import { profilePanelData } from '@/lib/gbp';
@@ -16,11 +18,13 @@ type Props = { searchParams: Promise<{ site?: string; gbpError?: string }> };
 export default async function CustomerLocalPage({ searchParams }: Props) {
   const { site, gbpError } = await searchParams;
   const s = await loadCustomerSite(site);
+  const preparing = await autoLocal(s.domain);
   const [a, panel] = await Promise.all([getLocal(s.domain), profilePanelData(s.domain, gbpError?.slice(0, 300) ?? null)]);
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="local" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="local">
+      {preparing && <Preparing what="your local SEO check" />}
       <LocalView a={a} domain={s.domain} audience="customer" nextRun={nextMonthlyRun(a?.runAt)} profilePanel={<ProfilePanel d={panel} />} />
-    </>
+    </SiteFrame>
   );
 }

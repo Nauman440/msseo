@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { diffReports } from '@seo/core';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { SiteFrame } from '@/components/customer/SiteFrame';
 import { ChangesSinceLast } from '@/components/project/ChangesSinceLast';
 import { ScoreTrend } from '@/components/project/ScoreTrend';
 import { Card } from '@/components/ui/Card';
@@ -24,8 +24,8 @@ export default async function ReportsPage({ searchParams }: Props) {
     .filter((r) => r.status === 'completed' && r.score !== null)
     .map((r) => ({ date: r.createdAt.slice(0, 10), score: r.score!, href: `/my/reports/${r.id}` }));
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="reports" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="reports">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title="Score over time">
           <ScoreTrend points={trend} />
@@ -56,6 +56,6 @@ export default async function ReportsPage({ searchParams }: Props) {
           <p className="text-sm text-ink-2">No audits yet.</p>
         )}
       </section>
-    </>
+    </SiteFrame>
   );
 }

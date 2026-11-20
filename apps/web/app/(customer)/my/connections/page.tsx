@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { disconnectGoogleAction } from '../connect/actions';
 import { ConnectGoogleCard } from '@/components/customer/ConnectGoogle';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { SiteFrame } from '@/components/customer/SiteFrame';
 import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard';
 import { connectionsReady, getConnection, shopifyApp, viewOf } from '@/lib/connections';
 import { loadCustomerSite } from '@/lib/customer-site';
@@ -20,8 +20,8 @@ export default async function ConnectionsPage({ searchParams }: Props) {
   const conn = await getConnection(s.domain);
   const g = s.google;
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="connections" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="connections">
       {error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{error}</p>}
       {connected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm font-semibold text-pass-text">{connected === 'shopify' ? 'Your Shopify store' : 'Your WordPress site'} is connected.</p>}
       {disconnected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm text-ink-2">Google is disconnected. Your past reports are kept.</p>}
@@ -54,7 +54,8 @@ export default async function ConnectionsPage({ searchParams }: Props) {
         <ConnectGoogleCard domain={s.domain} google={g} />
       )}
 
+      <div id="website" className="scroll-mt-6" />
       <SiteConnectionCard domain={s.domain} connection={viewOf(conn)} back={`/my/connections?site=${encodeURIComponent(s.domain)}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="customer" />
-    </>
+    </SiteFrame>
   );
 }

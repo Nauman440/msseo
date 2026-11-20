@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { AeoView } from '@/components/aeo/AeoView';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { Preparing } from '@/components/customer/Preparing';
+import { SiteFrame } from '@/components/customer/SiteFrame';
+import { autoAeo } from '@/lib/auto-sections';
 import { AEO_CUSTOMER_DAYS, getAeo } from '@/lib/aeo';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { nextMonthlyRun } from '@/lib/site-docs';
@@ -14,11 +16,13 @@ type Props = { searchParams: Promise<{ site?: string }> };
 export default async function CustomerAeoPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
+  const preparing = await autoAeo(s.domain);
   const ws = await getAeo(s.domain);
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="ai-search" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="ai-search">
+      {preparing && <Preparing what="your AI search check" />}
       <AeoView ws={ws} audience="customer" nextRun={nextMonthlyRun(ws.audit?.runAt, AEO_CUSTOMER_DAYS)} questionsHref={`/my/keywords?site=${encodeURIComponent(s.domain)}&view=questions`} />
-    </>
+    </SiteFrame>
   );
 }

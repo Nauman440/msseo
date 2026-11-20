@@ -4,6 +4,8 @@ import { CompetitorLinkDetails } from './CompetitorLinks';
 import { RunBacklinks } from './forms';
 import { GapAndMentions, LostAndBroken, Outreach } from './Opportunities';
 import { AnchorSection, QualitySection, TopLinkedPages, VersusCompetitors } from './Sections';
+import { Term } from '@/components/ui/Term';
+import { TILE_TERMS } from '@/lib/glossary';
 
 /** Module 8 · Backlink audit page body, the same for the team and customers. */
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -45,7 +47,7 @@ export function BacklinksView({ ws, audience, nextRun }: { ws: BacklinkWorkspace
             {tiles.map((t) => (
               <li key={t.label} className={cn('rounded-[14px] border px-4 py-3.5', t.bad ? 'border-high-line bg-warn-bg' : 'border-border bg-surface')}>
                 <p className={cn('font-display text-[24px] font-extrabold tabular', t.bad && 'text-high-strong')}>{t.value}</p>
-                <p className="text-sm font-bold">{t.label}</p>
+                <p className="text-sm font-bold">{TILE_TERMS[t.label] ? <Term k={TILE_TERMS[t.label]!}>{t.label}</Term> : t.label}</p>
                 <p className="text-[12px] text-ink-2">{t.hint}</p>
               </li>
             ))}

@@ -32,14 +32,16 @@ export async function getKeywordWorkspace(rawDomain: string): Promise<KeywordWor
       // no saved workspace yet
     }
   }
-  // First visit: seeds from the customer's onboarding (services, areas), or from Module 3 settings.
+  // First visit: the sign-up website starts from the onboarding answers (services, areas). Any other
+  // website starts empty; autopilot fills its research inputs from its own pages.
   const account = await accountFor(domain);
+  const primary = Boolean(account?.website && domainOf(account.website) === domain);
   const competitors = await getSavedWorkspace(domain);
   const country = (COMPETITOR_COUNTRIES as readonly string[]).find((c) => c.toLowerCase() === (account?.country ?? '').trim().toLowerCase()) ?? competitors?.country;
   return emptyKeywordWorkspace(domain, {
     country,
     language: account ? LANG[account.language ?? ''] ?? 'en' : competitors?.language,
-    seeds: { services: account?.services ?? [], locations: account?.areas ?? [] },
+    seeds: primary ? { services: account?.services ?? [], locations: account?.areas ?? [] } : { services: [], locations: [] },
   });
 }
 

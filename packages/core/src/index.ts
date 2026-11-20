@@ -58,3 +58,4 @@ export * from './local/profile-link';
 export * from './providers/gbp';
 export * from './local/gbp-drafts';
 export * from './content/alt-text';
+export * from './keywords/site-seeds';

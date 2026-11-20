@@ -179,3 +179,19 @@ export async function refreshChecks(rawDomain: string, clusterIds: string[]): Pr
   for (const [id, check] of checks) if (check) next = updateMappingRow(next, id, { pageCheck: check });
   await saveMapping(next);
 }
+
+/**
+ * Click-free page mapping: rebuilt by itself (free) whenever there is no plan yet, a newer audit has
+ * finished, or keyword research ran after the plan was built. Hand-made choices survive a rebuild.
+ */
+export async function freshMapping(rawDomain: string): Promise<MappingWorkspace> {
+  const domain = normDomain(rawDomain);
+  const [ws, keywords, audits] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`)]);
+  const latestId = audits.rows.find((r) => r.status === 'completed')?.id ?? null;
+  if (!keywords.clusters.length || !audits.latest?.pages?.length) return ws;
+  const built = ws.builtAt ? Date.parse(ws.builtAt) : 0;
+  const keywordsAt = Math.max(keywords.lastRunAt ? Date.parse(keywords.lastRunAt) : 0, keywords.autopilot?.lastRunAt ? Date.parse(keywords.autopilot.lastRunAt) : 0);
+  const stale = !ws.rows.length || (latestId !== null && ws.auditId !== latestId) || keywordsAt > built;
+  if (!stale) return ws;
+  return (await rebuildMapping(domain).catch(() => ({ ws }))).ws;
+}

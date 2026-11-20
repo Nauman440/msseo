@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { SidebarBody } from '@/components/customer/Sidebar';
+import { SITE_COOKIE, SiteSwitcher } from '@/components/customer/SiteSwitcher';
 import { Logo } from '@/components/ui/Logo';
-import { accountSites, getAccountByUserId, PLANS } from '@/lib/accounts';
+import { accountSites, domainOf, getAccountByUserId, PLANS } from '@/lib/accounts';
 import { requireCustomer } from '@/lib/session';
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -17,6 +20,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const trialLeft = account ? Math.ceil((Date.parse(account.trialEndsAt) - Date.now()) / 86_400_000) : 0;
   const status = account ? (account.status === 'trial' ? 'Free trial' : account.status === 'active' ? `${plan!.name} plan` : 'Cancelled') : '';
   const canAddSite = Boolean(account && plan && accountSites(account).length < plan.websites);
+  const siteCookie = (await cookies()).get(SITE_COOKIE)?.value ?? null;
   const sidebar = <SidebarBody name={user.name} plan={status} canAddSite={canAddSite} />;
 
   return (
@@ -46,6 +50,11 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       </header>
       <main id="main" className="min-w-0 flex-1">
         <div className="mx-auto flex max-w-[1120px] flex-col gap-[22px] px-4 py-7 sm:px-9">
+          {account && accountSites(account).length > 0 && (
+            <Suspense fallback={null}>
+              <SiteSwitcher sites={accountSites(account).map(domainOf)} fallback={siteCookie ? decodeURIComponent(siteCookie) : null} canAdd={canAddSite} />
+            </Suspense>
+          )}
           {account?.status === 'trial' && (
             <div className="flex flex-wrap items-center justify-between gap-3.5 rounded-[14px] border border-primary-tint bg-primary-chip px-[18px] py-3.5 print:hidden">
               <p className="text-sm leading-normal text-[#7C2D12]">

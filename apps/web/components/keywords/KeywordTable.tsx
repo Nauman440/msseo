@@ -6,6 +6,7 @@ import { setKeywordStatusAction } from '@/app/keywords/actions';
 import { INPUT } from '@/components/competitors/forms';
 import { cn } from '@/lib/tones';
 import { CHIP, difficultyBar, INTENT_CHIP, intentLabel, positionChip } from './labels';
+import { Term } from '@/components/ui/Term';
 
 const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
   { key: 'term', label: 'Keyword' },
@@ -15,8 +16,8 @@ const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
   { key: 'position', label: 'Your position' },
 ];
 const PAGE = 100;
-type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; topic: string; from: string; sort: KeywordSort; desc: boolean };
-const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', topic: '', from: '', sort: 'volume', desc: true };
+type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; topic: string; from: string; sort: KeywordSort; desc: boolean; low: boolean };
+const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', topic: '', from: '', sort: 'volume', desc: true, low: false };
 const TH = 'whitespace-nowrap px-2.5 py-2.5 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-ink-2';
 const TD = 'border-t border-border px-2.5 py-3 align-middle';
 const BUTTON = 'inline-flex min-h-10 items-center rounded-control border border-border-strong bg-surface px-5 text-[15px] font-semibold hover:border-ink-3 disabled:opacity-50';
@@ -37,7 +38,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
     async (f: Filters, from: number) => {
       const id = ++request.current;
       setLoading(true);
-      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, topic: f.topic, from: f.from, sort: f.sort, desc: f.desc ? '1' : '0', offset: String(from) });
+      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, topic: f.topic, from: f.from, sort: f.sort, desc: f.desc ? '1' : '0', low: f.low ? '1' : '0', offset: String(from) });
       try {
         const res = await fetch(`/api/keywords/${domain}?${qs}`, { cache: 'no-store' });
         if (!res.ok || id !== request.current) return;
@@ -115,6 +116,10 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
             <option value="ideas">{business === 'shop' ? 'Your products' : 'Your services'}</option>
           </select>
         </label>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 self-end text-[13px] font-semibold text-ink-2">
+          <input type="checkbox" checked={filters.low} onChange={(e) => set({ low: e.target.checked })} className="size-4 accent-primary" />
+          Show searches with fewer than 10 a month
+        </label>
         <a href={`/api/keywords/${domain}/csv`} className={`${BUTTON} min-h-11 justify-center`}>Download CSV</a>
       </div>
 
@@ -125,6 +130,14 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
           </h2>
           <p className="text-[13px] text-ink-2 tabular" role="status">{loading ? 'Loading…' : shown}</p>
         </div>
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-2">
+          <span>What the columns mean:</span>
+          <Term k="volume">Searches / mo</Term>
+          <Term k="difficulty">Difficulty</Term>
+          <Term k="position">Your position</Term>
+          <Term k="intent">Intent</Term>
+          <Term k="topic">Topic</Term>
+        </p>
         <div className="relative overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>

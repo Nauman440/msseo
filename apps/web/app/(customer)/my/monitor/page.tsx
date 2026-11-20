@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { Preparing } from '@/components/customer/Preparing';
+import { SiteFrame } from '@/components/customer/SiteFrame';
+import { autoMonitor } from '@/lib/auto-sections';
 import { MonitorView } from '@/components/monitor/MonitorView';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { getMonitor } from '@/lib/monitor';
@@ -13,12 +15,14 @@ type Props = { searchParams: Promise<{ site?: string }> };
 export default async function CustomerMonitorPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
+  const preparing = await autoMonitor(s.domain);
   const ws = await getMonitor(s.domain);
   const q = `site=${encodeURIComponent(s.domain)}`;
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="monitor" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="monitor">
+      {preparing && <Preparing what="your first weekly snapshot" />}
       <MonitorView ws={ws} audience="customer" customerSite reportHref={(m) => `/my/reports/monthly?${q}&month=${m}`} />
-    </>
+    </SiteFrame>
   );
 }

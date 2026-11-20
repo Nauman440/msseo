@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { BusinessType, KeywordCluster, KeywordRecord } from '@seo/core';
+import { LOW_VOLUME, typedByHand, type BusinessType, type KeywordCluster, type KeywordRecord } from '@seo/core';
 import { cn } from '@/lib/tones';
 import { ClusterScores } from './forms';
 import { CHIP, INTENT_CHIP, intentLabel, MONTH, PAGE_TYPE, type TopicOrder } from './labels';
@@ -28,7 +28,7 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
   limit?: number;
 }) {
   const members = new Map<string, string[]>();
-  for (const k of [...keywords].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))) if (k.clusterId && k.status === 'kept') members.set(k.clusterId, [...(members.get(k.clusterId) ?? []), k.term]);
+  for (const k of [...keywords].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))) if (k.clusterId && k.status === 'kept' && ((k.volume ?? 0) >= LOW_VOLUME || typedByHand(k))) members.set(k.clusterId, [...(members.get(k.clusterId) ?? []), k.term]);
   const sorted = sortTopics(clusters, order);
   const shown = showAll ? sorted : sorted.slice(0, limit);
   return (

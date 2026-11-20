@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { BacklinksView } from '@/components/backlinks/BacklinksView';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { Preparing } from '@/components/customer/Preparing';
+import { SiteFrame } from '@/components/customer/SiteFrame';
+import { autoBacklinks } from '@/lib/auto-sections';
 import { getBacklinks } from '@/lib/backlinks';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { nextMonthlyRun } from '@/lib/site-docs';
@@ -14,11 +16,13 @@ type Props = { searchParams: Promise<{ site?: string }> };
 export default async function CustomerBacklinksPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
+  const preparing = await autoBacklinks(s.domain);
   const ws = await getBacklinks(s.domain);
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="backlinks" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="backlinks">
+      {preparing && <Preparing what="your backlink check" />}
       <BacklinksView ws={ws} audience="customer" nextRun={nextMonthlyRun(ws.audit?.runAt)} />
-    </>
+    </SiteFrame>
   );
 }

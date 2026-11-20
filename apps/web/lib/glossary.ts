@@ -1,0 +1,45 @@
+/** Plain-English meanings of the SEO words used on the pages, for people with no SEO background. */
+export const GLOSSARY = {
+  keyword: 'A search people type into Google, like "ac repair near me".',
+  volume: 'About how many times a month people in your country type this search into Google.',
+  topic: 'A group of searches that mean the same thing. One page on your site should answer each topic.',
+  intent: 'What the person searching wants: to hire or buy now, to compare options, or just to learn something.',
+  difficulty: 'How hard it is to reach Google’s first page for this search, from 0 (easy) to 100 (very hard).',
+  position: 'Where your website shows in Google’s results for this search. #1 is the top; page 1 is positions 1–10.',
+  quickWin: 'A search where you are already on positions 4–20: small improvements can move you onto the top of page 1.',
+  notShowing: 'Searches your customers make where your website does not appear in Google’s top 100 yet.',
+  priority: 'How much a topic is worth doing first: value to your business × chance to rank, from 1 to 25.',
+  value: 'How likely people making this search are to become customers, from 1 to 5.',
+  chance: 'How realistic it is to rank for this topic soon, from 1 to 5 (based on difficulty and where you are now).',
+  pageMapping: 'Which page on your site should win each topic, or which new page to create, so two pages never compete.',
+  competitorGap: 'Searches your competitors show up for and you do not.',
+  directCompetitor: 'A business like yours, in your area, that shows up for the same searches.',
+  aspirational: 'A bigger, stronger site in your field: something to learn from, not to beat this month.',
+  mapPack: 'The 3 businesses Google shows on a map at the top of local searches.',
+  shareOfVoice: 'Out of all the businesses ChatGPT, Perplexity and Google’s AI name for your questions, how often they name you.',
+  backlink: 'A link from another website to yours. Links from good, related sites help Google trust you.',
+  linkingSites: 'How many different websites link to yours (many links from one site count once).',
+  siteStrength: 'A score from 0 to 100 for how strong your website is, based on the links pointing to it.',
+  spam: 'Links from low-quality or spammy sites. Too many can hurt; Google mostly ignores them.',
+  anchorText: 'The clickable words of a link pointing to you, like "AC repair in Dallas" or "click here".',
+  keyEvent: 'An action on your site that counts as a lead in Google Analytics: a call, a form sent, a booking.',
+  citations: 'Listings of your business on directories like Yelp or BBB, with your name, address and phone.',
+  nap: 'Your business Name, Address and Phone. They should be exactly the same everywhere online.',
+  indexed: 'Pages Google has saved and can show in search results.',
+  schema: 'Hidden labels on a page that tell Google facts about your business (name, phone, reviews, services).',
+  altText: 'A short description of an image, read out to blind visitors and used by Google to understand the picture.',
+  decay: 'A page that is getting fewer visits from Google than it used to.',
+  actionPlan: 'Every fix for your website, most important first, spread over six months.',
+} as const;
+export type GlossaryKey = keyof typeof GLOSSARY;
+
+/** Tile labels that get an explanation (backlinks, local, AI search, content). */
+export const TILE_TERMS: Record<string, GlossaryKey> = {
+  'Linking websites': 'linkingSites',
+  Backlinks: 'backlink',
+  'Site strength': 'siteStrength',
+  'Spammy links': 'spam',
+  'In the map pack': 'mapPack',
+  'Listed on directories': 'citations',
+  'Share of voice': 'shareOfVoice',
+};

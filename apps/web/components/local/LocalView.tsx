@@ -3,6 +3,8 @@ import { cn } from '@/lib/tones';
 import { MapGrid } from './MapGrid';
 import { RivalsTable } from './RivalsTable';
 import { RunLocal } from './RunLocal';
+import { Term } from '@/components/ui/Term';
+import { TILE_TERMS } from '@/lib/glossary';
 
 /** Module 9 · Local SEO audit page body, the same for the team and customers. */
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -51,7 +53,7 @@ export function LocalView({ a, domain, audience, nextRun, profilePanel }: { a: L
             {tiles.map((t) => (
               <li key={t.label} className={cn('rounded-[14px] border px-4 py-3.5', t.bad ? 'border-high-line bg-warn-bg' : 'border-border bg-surface')}>
                 <p className={cn('font-display text-[22px] font-extrabold tabular', t.bad && 'text-high-strong')}>{t.value}</p>
-                <p className="text-sm font-bold">{t.label}</p>
+                <p className="text-sm font-bold">{TILE_TERMS[t.label] ? <Term k={TILE_TERMS[t.label]!}>{t.label}</Term> : t.label}</p>
               </li>
             ))}
           </ul>

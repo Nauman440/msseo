@@ -10,7 +10,9 @@ import type { Ice, ReportIssue, ReportModel, Severity } from '../types';
  */
 export type ActionStatus = 'todo' | 'in_progress' | 'done' | 'verified' | 'dismissed';
 export type Approval = 'none' | 'team_lead' | 'client';
-export type Bucket = 'd30' | 'd60' | 'd90';
+/** Roadmap months: d30 = month 1 (days 1–30) … d180 = month 6. Plans before 2026-11-20 only used the first three. */
+export type Bucket = 'd30' | 'd60' | 'd90' | 'd120' | 'd150' | 'd180';
+export const ACTION_BUCKETS: Bucket[] = ['d30', 'd60', 'd90', 'd120', 'd150', 'd180'];
 export type ActionSource = { kind: 'audit'; ruleId: string } | { kind: 'mapping'; clusterId: string };
 
 export type BeforeState = {
@@ -157,19 +159,39 @@ export function beforeState(s: Suggestion, report: ReportModel | null | undefine
   };
 }
 
-/** 12.7 Buckets: the 10 highest-priority open actions in the first 30 days, then 60, then 90; hard work moves one bucket later. */
+/**
+ * 12.7 A six-month plan: open actions by priority, spread evenly over months 1–6 (at least 5 a month,
+ * so a short list stays in the first months); hard work (effort 4–5) moves one month later.
+ */
 export function assignBuckets(actions: ActionItem[]): ActionItem[] {
   const open = actions.filter((a) => a.status !== 'dismissed' && !a.bucketLocked).sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt));
+  const perMonth = Math.max(5, Math.ceil(open.length / ACTION_BUCKETS.length));
+  const last = ACTION_BUCKETS.length - 1;
   const bucket = new Map<string, Bucket>();
   open.forEach((a, i) => {
-    let n = i < 10 ? 0 : i < 20 ? 1 : 2;
-    if (a.effort >= 4 && n < 2) n++;
-    bucket.set(a.id, (['d30', 'd60', 'd90'] as const)[n]!);
+    let n = Math.min(last, Math.floor(i / perMonth));
+    if (a.effort >= 4 && n < last) n++;
+    bucket.set(a.id, ACTION_BUCKETS[n]!);
   });
   return actions.map((a) => (bucket.has(a.id) ? { ...a, bucket: bucket.get(a.id)! } : a));
 }
 
-const BUCKET_DAYS: Record<Bucket, number> = { d30: 30, d60: 60, d90: 90 };
+const BUCKET_DAYS: Record<Bucket, number> = { d30: 30, d60: 60, d90: 90, d120: 120, d150: 150, d180: 180 };
+
+/**
+ * 12.1–12.7 for customers: every finding of the latest audit and every page-plan topic becomes an
+ * action at once, spread over six months. Returns null when nothing is new.
+ */
+export function autoPlan(
+  ws: ActionWorkspace,
+  report: ReportModel | null,
+  mapping: MappingWorkspace | null,
+  ctx: { gsc?: { url: string; clicks: number; impressions: number }[] | null; newId: () => string; now?: Date },
+): ActionWorkspace | null {
+  const picks = suggestions(ws, report, mapping);
+  if (!picks.length) return null;
+  return addActions(ws, picks, { ...ctx, report });
+}
 
 /** 12.1–12.2 Adds suggestions as actions (approval by the client for new pages and merges, else none). */
 export function addActions(
@@ -327,7 +349,7 @@ export function actionSummary(ws: ActionWorkspace) {
     done: live.filter((a) => a.status === 'done' || a.status === 'verified').length,
     verified: live.filter((a) => a.status === 'verified').length,
     waitingApproval: live.filter((a) => needsApproval(a)).length,
-    byBucket: { d30: live.filter((a) => a.bucket === 'd30').length, d60: live.filter((a) => a.bucket === 'd60').length, d90: live.filter((a) => a.bucket === 'd90').length },
+    byBucket: Object.fromEntries(ACTION_BUCKETS.map((b) => [b, live.filter((a) => a.bucket === b).length])) as Record<Bucket, number>,
   };
 }
 

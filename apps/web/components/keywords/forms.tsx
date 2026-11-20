@@ -8,6 +8,7 @@ import {
 } from '@/app/keywords/actions';
 import { INPUT, Message, Submit } from '@/components/competitors/forms';
 import { TagInput } from '@/components/signup/TagInput';
+import { Term } from '@/components/ui/Term';
 
 const KINDS: { value: BusinessType; label: string; hint: string }[] = [
   { value: 'services', label: 'Services', hint: 'Visits, repairs or bookings in an area' },
@@ -150,7 +151,7 @@ export function ClusterScores({ domain, id, name, businessValue, rankingChance }
   const [, action] = useActionState<KeywordState, FormData>(updateClusterAction.bind(null, domain, id), {});
   const select = (field: 'businessValue' | 'rankingChance', label: string, value: number) => (
     <label className="flex min-w-[100px] flex-col gap-1 text-[12px] font-bold text-ink-2">
-      {label}
+      <Term k={field === 'businessValue' ? 'value' : 'chance'}>{label}</Term>
       <select name={field} defaultValue={value} aria-label={`${label} for ${name}`} onChange={() => form.current?.requestSubmit()} className={`${INPUT} text-sm text-ink`}>
         {SCALE.map((n) => (
           <option key={n} value={n}>{n}</option>

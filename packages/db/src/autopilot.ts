@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
-  autoShortlist, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  autoPlan, autoShortlist, emptyActions, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
   discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
+import { getActionWorkspace, saveActionWorkspace } from './actions';
 import { prisma } from './client';
 import { getCompetitorWorkspace, saveCompetitorWorkspace } from './competitors';
 import { customerGoogleReady, customerGoogleToken, getCustomerGoogle } from './customer-google';
@@ -30,7 +32,12 @@ const hostOf = (url: string) => {
   }
 };
 
-export type AutopilotSite = { userId: string; domain: string; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+/**
+ * `primary`: the website from sign-up, whose onboarding answers (services, areas) are its research inputs.
+ * `rederive`: read this (non-primary) website's services and places from its pages again, replacing inputs
+ * that were copied from the first website.
+ */
+export type AutopilotSite = { userId: string; domain: string; primary: boolean; rederive?: boolean; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
 /** Customers' websites due a run: trial or active, onboarding finished, not run in the last 30 days. */
 export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite[]> {
@@ -46,7 +53,7 @@ export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite
       if (!domain) continue;
       const kw = await getKeywordWorkspace(domain).catch(() => null);
       const last = kw?.autopilot?.lastRunAt ? Date.parse(kw.autopilot.lastRunAt) : 0;
-      if (last < cutoff) out.push({ userId: a.userId, domain, businessName: a.businessName, country: a.country, language: a.language, services: a.services, areas: a.areas, competitors: a.competitors });
+      if (last < cutoff) out.push({ userId: a.userId, domain, primary: Boolean(a.website && hostOf(a.website) === domain), businessName: a.businessName, country: a.country, language: a.language, services: a.services, areas: a.areas, competitors: a.competitors });
     }
   }
   return out;
@@ -97,9 +104,27 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
   let error: string | null = null;
   const loc = locale(site);
 
-  // 1–2. Competitors (searches from the onboarding services × areas), then the auto-shortlist.
-  let competitors = (await getCompetitorWorkspace(domain).catch(() => null)) ?? emptyWorkspace(domain, { ...loc, searches: defaultSearches(site.services, site.areas) });
-  if (!competitors.searches.length) competitors = { ...competitors, searches: defaultSearches(site.services, site.areas) };
+  // Research inputs: the website's own (Keywords → Research inputs) first; the sign-up website falls back
+  // to its onboarding answers; any other website reads its services and places from its own pages, so a
+  // second website never starts with the first one's keywords.
+  const saved = await getKeywordWorkspace(domain).catch(() => null);
+  let seeds = { services: site.services, areas: site.areas };
+  let businessType: 'services' | 'shop' | undefined;
+  if (saved?.seeds.services.length && !site.rederive) seeds = { services: saved.seeds.services, areas: saved.seeds.locations };
+  else if (!site.primary) {
+    const latest = await latestPages(domain);
+    if (!latest?.report.pages?.length) return { domain, steps: [], costUsd: 0, error: null, skipped: 'Waiting for the first audit of this website' };
+    const derived = await seedsFromPages(latest.report.pages, env.openai ? createOpenAiClient(env.openai) : null, site.businessName);
+    tokens += derived.tokens;
+    seeds = { services: derived.services, areas: derived.locations };
+    businessType = derived.businessType;
+    steps.push(`research inputs from the site: ${derived.services.length} services`);
+  }
+
+  // 1–2. Competitors (searches from the services × areas), then the auto-shortlist.
+  let competitors = (await getCompetitorWorkspace(domain).catch(() => null)) ?? emptyWorkspace(domain, { ...loc, searches: defaultSearches(seeds.services, seeds.areas) });
+  if (site.rederive && seeds.services.length) competitors = { ...competitors, searches: defaultSearches(seeds.services, seeds.areas) };
+  if (!competitors.searches.length) competitors = { ...competitors, searches: defaultSearches(seeds.services, seeds.areas) };
   try {
     if (competitors.searches.length) {
       const r = await discoverCompetitors(createCompetitorClient(env.dataforseo), competitors);
@@ -113,8 +138,12 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
   }
 
   // 3–4. Keyword research (with the shortlisted rivals' keyword gap and Search Console), then topics.
-  let keywords: KeywordWorkspace = (await getKeywordWorkspace(domain).catch(() => null)) ?? emptyKeywordWorkspace(domain, { ...loc, seeds: { services: site.services, locations: site.areas } });
-  if (!keywords.seeds.services.length && site.services.length) keywords = { ...keywords, seeds: { ...keywords.seeds, services: site.services.slice(0, 12), locations: keywords.seeds.locations.length ? keywords.seeds.locations : site.areas.slice(0, 10) } };
+  let keywords: KeywordWorkspace = saved
+    ? site.rederive && seeds.services.length
+      ? { ...saved, businessType: businessType ?? saved.businessType, seeds: { ...saved.seeds, services: seeds.services, locations: seeds.areas } }
+      : saved
+    : emptyKeywordWorkspace(domain, { ...loc, businessType, seeds: { services: seeds.services, locations: seeds.areas } });
+  if (!keywords.seeds.services.length && seeds.services.length) keywords = { ...keywords, seeds: { ...keywords.seeds, services: seeds.services.slice(0, 12), locations: keywords.seeds.locations.length ? keywords.seeds.locations : seeds.areas.slice(0, 10) } };
   try {
     if (keywords.seeds.services.length) {
       const rivals = competitors.competitors.filter((c) => c.shortlist === 'direct' && (c.etv ?? 0) <= GIANT_ETV).slice(0, 3);
@@ -153,6 +182,13 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
         });
         await saveMappingWorkspace(plan);
         steps.push(`page plan: ${plan.rows.length} topics`);
+        // 7. The six-month action plan: every finding and page-plan topic not in it yet (free).
+        const actions = (await getActionWorkspace(domain).catch(() => null)) ?? emptyActions(domain);
+        const next = autoPlan(actions, latest.report, plan, { gsc: null, newId: randomUUID, now });
+        if (next) {
+          await saveActionWorkspace(next);
+          steps.push(`action plan: ${next.actions.length - actions.actions.length} added`);
+        }
       }
     }
   } catch (err) {
@@ -210,4 +246,21 @@ export async function runDueAutopilot(now = new Date(), onSite?: (r: AutopilotRe
     onSite?.(r);
   }
   return { ran, capped: false, spent, cap };
+}
+
+/**
+ * Runs one customer website now, whatever its last run (a page opened with no keywords yet, or a
+ * second website whose inputs were copied from the first). Same on/off switch and monthly cap.
+ */
+export async function runAutopilotNow(userId: string, domain: string, opts: { rederive?: boolean } = {}, now = new Date()): Promise<AutopilotResult | null> {
+  const settings = await getSettings();
+  if (!settings['autopilot.enabled']) return null;
+  if ((await autopilotSpentThisMonth(now)) + RUN_ESTIMATE_USD > settings['autopilot.monthlyCap']) return null;
+  const a = await prisma.customerAccount.findUnique({
+    where: { userId },
+    select: { userId: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
+  });
+  if (!a || ![a.website, ...a.extraWebsites].some((w) => w && hostOf(w) === domain)) return null;
+  const primary = Boolean(a.website && hostOf(a.website) === domain);
+  return runAutopilotSite({ userId, domain, primary, rederive: Boolean(opts.rederive) && !primary, businessName: a.businessName, country: a.country, language: a.language, services: a.services, areas: a.areas, competitors: a.competitors }, now);
 }

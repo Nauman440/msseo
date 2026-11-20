@@ -1,4 +1,4 @@
-import { normDomain, queryKeywords, type KeywordFrom, type KeywordSort } from '@seo/core';
+import { LOW_VOLUME, normDomain, queryKeywords, type KeywordFrom, type KeywordSort } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
 import { getKeywordWorkspace } from '@/lib/keywords';
 
@@ -26,6 +26,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ domain: 
     sort: sort && SORTS.includes(sort) ? sort : 'volume',
     desc: sp.get('desc') !== '0',
     offset: Number(sp.get('offset')) || 0,
+    // Searches fewer than 10 people make a month are hidden unless "show them" is ticked (low=1).
+    minVolume: sp.get('low') === '1' ? undefined : LOW_VOLUME,
   });
   return Response.json(result, { headers: { 'cache-control': 'no-store' } });
 }

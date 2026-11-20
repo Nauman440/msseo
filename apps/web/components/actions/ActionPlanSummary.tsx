@@ -4,7 +4,7 @@ import { Roadmap } from './Roadmap';
 
 /**
  * Report and PDF section (Module 12.3 + 12.7): the top 10 open actions in plain language and the
- * 30/60/90-day roadmap. No md:/lg: classes (PDF print width).
+ * 6-month roadmap. No md:/lg: classes (PDF print width).
  */
 export function ActionPlanSummary({ ws, now, href }: { ws: ActionWorkspace; now?: Date; href?: string }) {
   const top = openActions(ws).slice(0, 10);
@@ -23,7 +23,7 @@ export function ActionPlanSummary({ ws, now, href }: { ws: ActionWorkspace; now?
           </ol>
         </Card>
       )}
-      <Card title="30/60/90-day roadmap" eyebrow="Action plan" className="pdf-avoid">
+      <Card title="6-month roadmap" eyebrow="Action plan" className="pdf-avoid">
         <Roadmap ws={ws} now={now} />
       </Card>
     </div>

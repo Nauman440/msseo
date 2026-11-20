@@ -150,7 +150,7 @@ test('the free report is public, offers the trial, and team audits stay private'
 
 test('a visitor signs up from the free report and lands on their own dashboard', async ({ page, request }) => {
   // Walks through every customer tab (Modules 3–13), so it needs more than the default 30 s.
-  test.setTimeout(120_000);
+  test.setTimeout(150_000);
   const id = '00000000-0000-4000-8000-00000000f4ee'; // the free audit seeded in the previous test
   await page.goto(`/free/${id}`);
   await page.getByRole('link', { name: 'Start 7-day free trial' }).first().click();
@@ -255,6 +255,22 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my\/sites$/);
   await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
 
+  // The journey: steps open one by one; the two connection steps can be skipped for now.
+  await page.goto('/my');
+  await expect(page.getByRole('heading', { name: 'Your SEO steps' })).toBeVisible();
+  const siteTabs = page.getByRole('navigation', { name: 'Site sections' });
+  await expect(siteTabs.getByRole('link', { name: /^Competitors/ })).toHaveAttribute('title', /Opens after step 2/);
+  await page.goto('/my/competitors');
+  await expect(page.getByText('Step 2 first')).toBeVisible();
+  await page.goto('/my');
+  await expect(page.getByText('Now · step 2')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Skip for now' }).click();
+  await expect(page.getByText('Now · step 3')).toBeVisible();
+  await page.getByRole('button', { name: 'Skip for now' }).click();
+  await expect(page.getByText('Now · step 3')).toHaveCount(0);
+  await expect(siteTabs.getByRole('link', { name: 'Competitors', exact: true })).not.toHaveAttribute('title', /Opens after/);
+
   // Module 3 for customers: searches come from onboarding; add, shortlist, persist.
   await page.goto('/my');
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Competitors' }).click();
@@ -316,7 +332,7 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('button', { name: 'Remove emergency ac repair' })).toBeVisible();
   await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
   await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();
-  await page.getByLabel('Show').selectOption('removed');
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('removed');
   await expect(page.getByRole('button', { name: 'Keep emergency ac repair' })).toBeVisible();
   await expect(page.getByText('Removed by hand')).toBeVisible();
   const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
@@ -354,11 +370,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
 
   // Module 12 for customers: the audit's findings become an action plan with a roadmap.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Action plan' }).click();
-  await expect(page.getByRole('heading', { name: 'Your action plan', level: 2 })).toBeVisible();
-  await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: /Create actions from the top \d+ issues/ }).click();
+  // The audit's findings are already a 6-month plan: nothing to click.
   await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '30/60/90-day roadmap' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '6-month roadmap' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await page.locator('select[name="status"]').first().selectOption('done');
   await expect(page.getByText('Marked done. We will check the results after 7, 14 and 28 days.')).toBeVisible();
   const plan = await page.request.get('/api/action-plan/summitairhvac.com/csv');

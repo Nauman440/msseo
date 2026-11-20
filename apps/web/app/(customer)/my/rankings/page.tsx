@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { SiteHeader } from '@/components/customer/SiteHeader';
+import { SiteFrame } from '@/components/customer/SiteFrame';
 import { siteGoogleData } from '@/lib/customer-google';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { cn } from '@/lib/tones';
@@ -19,8 +19,8 @@ export default async function RankingsPage({ searchParams }: Props) {
   const data = await siteGoogleData(s.user.id, s.domain, s.google.site, s.latest);
   const onPage1 = data.searches.filter((r) => r.position <= 10).length;
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="rankings" connected latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="rankings">
       <section aria-labelledby="rankings" className="flex flex-col gap-4 rounded-[18px] border border-border bg-surface p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -61,6 +61,6 @@ export default async function RankingsPage({ searchParams }: Props) {
           <p className="text-sm text-ink-2">No searches yet. New websites can take a few weeks to show up in Search Console.</p>
         )}
       </section>
-    </>
+    </SiteFrame>
   );
 }

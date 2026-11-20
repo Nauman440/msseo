@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { suggestions } from '@seo/core';
 import { ActionPlanView } from '@/components/actions/ActionPlanView';
-import { SiteHeader } from '@/components/customer/SiteHeader';
-import { getActions, planContext } from '@/lib/actions';
+import { SiteFrame } from '@/components/customer/SiteFrame';
+import { autoActionPlan } from '@/lib/auto-sections';
+import { planContext } from '@/lib/actions';
 import { getConnection, viewOf } from '@/lib/connections';
 import { loadCustomerSite } from '@/lib/customer-site';
 
@@ -15,10 +16,10 @@ type Props = { searchParams: Promise<{ site?: string }> };
 export default async function CustomerActionsPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
-  const [ws, ctx, conn] = await Promise.all([getActions(s.domain), planContext(s.domain), getConnection(s.domain)]);
+  const [ws, ctx, conn] = await Promise.all([autoActionPlan(s.domain), planContext(s.domain), getConnection(s.domain)]);
   return (
-    <>
-      <SiteHeader domain={s.domain} tab="actions" connected={s.connected} latestId={s.latestId} pages={s.latest?.pagesCrawled ?? null} running={s.running} multiSite={s.sites.length > 1} autopilotAt={s.autopilotAt} />
+    
+      <SiteFrame s={s} tab="actions">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-[24px] font-bold">Your action plan</h2>
@@ -31,6 +32,6 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
         )}
       </div>
       <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="customer" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} />
-    </>
+    </SiteFrame>
   );
 }

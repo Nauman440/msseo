@@ -1,20 +1,21 @@
-import type { ActionItem, ActionWorkspace, Bucket } from '@seo/core';
+import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace, type Bucket } from '@seo/core';
 import { cn, SEVERITY_TONE, TONE_FILL } from '@/lib/tones';
 import { BUCKET_LABEL } from './labels';
 
-const BUCKETS: Bucket[] = ['d30', 'd60', 'd90'];
+const BUCKETS = ACTION_BUCKETS;
+const SPAN = BUCKETS.length * 30;
 const DAY = 86_400_000;
 const shortDate = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /**
- * 12.7 The 30/60/90-day roadmap: a drawn 90-day timeline (start, today, the three months) with the
- * actions of each month underneath. Used on screen and in the client PDF (no md:/lg: classes).
+ * 12.7 The six-month roadmap: a drawn timeline (start, today, months 1–6) with the actions of each
+ * month underneath. Used on screen and in the client PDF (no md:/lg: classes).
  */
 export function Roadmap({ ws, max = 8, now = new Date() }: { ws: ActionWorkspace; max?: number; now?: Date }) {
   const live = ws.actions.filter((a) => a.status !== 'dismissed');
   if (!live.length) return null;
   const start = Math.min(...live.map((a) => Date.parse(a.createdAt)));
-  const today = Math.max(0, Math.min(90, (now.getTime() - start) / DAY));
+  const today = Math.max(0, Math.min(SPAN, (now.getTime() - start) / DAY));
   const byBucket = (b: Bucket) => live.filter((a) => a.bucket === b).sort((x, y) => Number(isDone(x)) - Number(isDone(y)) || y.priority - x.priority);
   return (
     <div className="flex flex-col gap-4">
@@ -30,20 +31,17 @@ export function Roadmap({ ws, max = 8, now = new Date() }: { ws: ActionWorkspace
             );
           })}
         </div>
-        {today > 0 && today < 90 && (
-          <div className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${(today / 90) * 100}%` }}>
+        {today > 0 && today < SPAN && (
+          <div className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${(today / SPAN) * 100}%` }}>
             <span className="rounded-full bg-night px-2 py-0.5 text-[11px] font-bold text-white">Today</span>
             <span className="h-5 w-0.5 bg-night" />
           </div>
         )}
         <div className="mt-1.5 flex justify-between text-[11px] font-semibold text-ink-3 tabular">
-          <span>{shortDate(start)}</span>
-          <span>{shortDate(start + 30 * DAY)}</span>
-          <span>{shortDate(start + 60 * DAY)}</span>
-          <span>{shortDate(start + 90 * DAY)}</span>
+          {[0, 2, 4, 6].map((m) => <span key={m}>{shortDate(start + m * 30 * DAY)}</span>)}
         </div>
       </div>
-      <ol className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {BUCKETS.map((b) => {
           const items = byBucket(b);
           return (

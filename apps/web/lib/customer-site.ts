@@ -1,4 +1,5 @@
 import 'server-only';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ReportModel } from '@seo/core';
 import { accountSites, domainOf, getAccountByUserId, type Account } from './accounts';
@@ -32,7 +33,9 @@ export async function loadCustomerSite(site?: string): Promise<CustomerSite> {
   if (!account) redirect('/signup');
   if (account.onboardingStep < FINISHED) redirect(stepPath(account.onboardingStep));
   const sites = accountSites(account);
-  const website = sites.find((w) => domainOf(w) === site) ?? sites[0];
+  // No ?site=: the website picked last in the switcher (cookie), else the first one.
+  const remembered = decodeURIComponent((await cookies()).get('my_site')?.value ?? '');
+  const website = sites.find((w) => domainOf(w) === site) ?? sites.find((w) => domainOf(w) === remembered) ?? sites[0];
   if (!website) redirect('/my/sites');
   const domain = domainOf(website);
   const [audits, google, keywords] = await Promise.all([customerAudits(website), googleStatus(user.id, domain), getKeywordWorkspace(domain)]);

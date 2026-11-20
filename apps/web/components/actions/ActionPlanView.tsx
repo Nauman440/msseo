@@ -29,7 +29,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         <h2 className="font-display text-xl font-bold">No actions yet</h2>
         <p className="max-w-2xl text-[15px] text-ink-2">
           {hasAudit
-            ? 'Turn the most important findings from your audit and page plan into a to-do list, with a 30/60/90-day roadmap. After each fix, results are checked at 7, 14 and 28 days.'
+            ? 'Turn the most important findings from your audit and page plan into a to-do list, with a 6-month roadmap. After each fix, results are checked at 7, 14 and 28 days.'
             : 'Run an audit first: the plan is built from its findings and the page plan.'}
         </p>
         {suggested.length > 0 && <AddActions domain={domain} label={`Create actions from the top ${Math.min(10, suggested.length)} issues`} />}
@@ -84,7 +84,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
             <p className="text-sm text-ink-2">Everything in the plan is done.</p>
           )}
         </Card>
-        <Card title="30/60/90-day roadmap">
+        <Card title="6-month roadmap">
           <Roadmap ws={ws} />
         </Card>
       </div>

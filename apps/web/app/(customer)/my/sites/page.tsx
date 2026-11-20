@@ -57,7 +57,7 @@ export default async function SitesPage() {
         </ul>
       </nav>
       {sites.length < limit ? (
-        <section className="rounded-[18px] border border-border bg-surface p-6">
+        <section id="add" className="scroll-mt-6 rounded-[18px] border border-border bg-surface p-6">
           <AddWebsiteForm left={limit - sites.length} />
         </section>
       ) : (

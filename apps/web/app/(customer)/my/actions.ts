@@ -9,6 +9,7 @@ import { ConfigError, startAudit } from '@/lib/audit-runner';
 import { hit } from '@/lib/rate-limit';
 import { requireCustomer } from '@/lib/session';
 import { startAutopilot } from '@/lib/autopilot';
+import { skipStep } from '@/lib/journey';
 
 export type RunState = { error?: string };
 
@@ -60,4 +61,14 @@ export async function removeWebsiteAction(site: string): Promise<void> {
   await updateAccount(user.id, { extraWebsites: account.extraWebsites.filter((w) => domainOf(w) !== domainOf(site)) });
   revalidatePath('/my');
   redirect('/my/sites');
+}
+
+/** Journey: skip "Connect Google" or "Connect your website" for now (they can still be connected later). */
+export async function skipJourneyStepAction(site: string, step: 'google' | 'website'): Promise<void> {
+  const user = await requireCustomer();
+  const account = await getAccountByUserId(user.id);
+  const domain = account ? accountSites(account).map(domainOf).find((d) => d === site) : undefined;
+  if (!domain || (step !== 'google' && step !== 'website')) return;
+  await skipStep(domain, step);
+  revalidatePath('/my', 'layout');
 }

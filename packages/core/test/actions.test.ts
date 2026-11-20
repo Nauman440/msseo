@@ -54,15 +54,19 @@ describe('suggestions and adding actions', () => {
 describe('roadmap buckets', () => {
   const mk = (i: number, extra: Partial<ActionItem> = {}): ActionItem =>
     ({ id: `b${i}`, priority: 30 - i, effort: 2, status: 'todo', bucket: 'd30', bucketLocked: false, createdAt: NOW.toISOString(), ...extra }) as ActionItem;
-  it('puts the top 10 in days 1–30, the next 10 in 31–60, the rest in 61–90; hard work moves later; a hand-picked month stays', () => {
+  it('spreads the plan over six months by priority (at least 5 a month); hard work moves later; a hand-picked month stays', () => {
     const list = Array.from({ length: 25 }, (_, i) => mk(i));
     list[1] = mk(1, { effort: 4 });
     list[24] = mk(24, { bucket: 'd30', bucketLocked: true });
     const out = assignBuckets(list);
     expect(out[0]!.bucket).toBe('d30');
     expect(out[1]!.bucket).toBe('d60');
-    expect(out[12]!.bucket).toBe('d60');
-    expect(out[22]!.bucket).toBe('d90');
+    expect(out[12]!.bucket).toBe('d90');
+    expect(out[22]!.bucket).toBe('d150');
+    // 60 actions: 10 a month over all six months.
+    const big = assignBuckets(Array.from({ length: 60 }, (_, i) => mk(i)));
+    expect(big.map((a) => a.bucket).filter((b, i, all) => all.indexOf(b) === i)).toEqual(['d30', 'd60', 'd90', 'd120', 'd150', 'd180']);
+    expect(big.filter((a) => a.bucket === 'd180')).toHaveLength(10);
     expect(out[24]!.bucket).toBe('d30');
   });
 });
