@@ -1,7 +1,9 @@
-import { normUrl, type KeywordRecord } from '@seo/core';
+import { blogIdeas, normUrl, type KeywordRecord } from '@seo/core';
 import { viewHref } from '@/components/keywords/KeywordTabs';
 import { customerAudits } from '@/lib/customer-data';
+import { getKeywordWorkspace } from '@/lib/keywords';
 import { fixCounts, getMapping, loadPageMap } from '@/lib/mapping';
+import { BlogIdeas } from './BlogIdeas';
 import { providerConfig } from '@/lib/providers-config';
 import { BriefView } from './BriefView';
 import { MAPPING_FILTERS, type MappingFilter } from './labels';
@@ -51,21 +53,24 @@ export async function MappingSection({ domain, base, audience, keywords, params 
     }
   }
 
-  const ws = await getMapping(domain);
+  const [ws, kw] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain)]);
   const fixes = await fixCounts(ws);
   const filter = MAPPING_FILTERS.includes(params.show as MappingFilter) ? (params.show as MappingFilter) : null;
   return (
-    <MappingOverview
-      ws={ws}
-      keywords={keywords}
-      fixes={fixes}
-      pages={[...reportPages.map((p) => p.url), ...(ws.sitemapOnly ?? [])]}
-      reportPages={reportPages}
-      audience={audience}
-      aiAvailable={Boolean(providerConfig().env?.openai)}
-      href={href}
-      filter={filter}
-      showAll={params.all === '1'}
-    />
+    <div className="flex flex-col gap-[22px]">
+      <MappingOverview
+        ws={ws}
+        keywords={keywords}
+        fixes={fixes}
+        pages={[...reportPages.map((p) => p.url), ...(ws.sitemapOnly ?? [])]}
+        reportPages={reportPages}
+        audience={audience}
+        aiAvailable={Boolean(providerConfig().env?.openai)}
+        href={href}
+        filter={filter}
+        showAll={params.all === '1'}
+      />
+      <BlogIdeas domain={domain} ideas={blogIdeas(kw, ws)} />
+    </div>
   );
 }

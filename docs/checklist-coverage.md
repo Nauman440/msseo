@@ -86,6 +86,8 @@ Every subpoint 2.1.1–2.9.5 is a rule. Judgement points use AI on key pages (2.
 | 4.7.1, 4.7.2 30–50 AI questions, grouped | Done | |
 | 4.7.3 Saved for weekly tracking | Done | Ticked questions are asked every Monday (Module 10) |
 
+Also (2026-11-20, the team's keyword research flow): traffic potential per topic, blog post ideas with briefs, one downloadable research sheet (.xlsx), competing pages settled automatically, and autopilot for the team's client sites as well as customers'.
+
 ## Module 5 · Keyword to page mapping — Done
 
 All 13 points, in Keywords → Page mapping (decisions row 2026-11-18). Automate line: auto-fill from crawl and keywords, AI title/meta drafts and page briefs: **Done**.

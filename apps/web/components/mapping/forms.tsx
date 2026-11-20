@@ -46,7 +46,8 @@ export function MappingRunButtons({ domain, hasRows, aiAvailable, csvHref }: { d
 }
 
 /** 5.4 "Which page should be the main one?" Radio per page, what happens to the other page, confirm. */
-export function ConflictForm({ domain, row, left, positions }: { domain: string; row: MappingRow; left: ReactNode; positions: Record<string, number | null> }) {
+/** inline: inside a settled topic ("Change"), without the topic side, arrow and chip. */
+export function ConflictForm({ domain, row, left, positions, inline = false }: { domain: string; row: MappingRow; left: ReactNode; positions: Record<string, number | null>; inline?: boolean }) {
   const [state, action] = useActionState<MappingState, FormData>(settleConflictAction.bind(null, domain, row.clusterId), {});
   const options = [row.url!, ...row.conflicts.map((c) => c.url)];
   const [main, setMain] = useState(row.url!);
@@ -54,8 +55,8 @@ export function ConflictForm({ domain, row, left, positions }: { domain: string;
   return (
     <form action={action} className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-4">
-        {left}
-        <Arrow />
+        {!inline && left}
+        {!inline && <Arrow />}
         <fieldset className="flex min-w-[min(260px,100%)] flex-[1.2] flex-col gap-2">
           <legend className="mb-2 text-[12.5px] font-bold">Which page should be the main one?</legend>
           {options.map((u, i) => {
@@ -84,7 +85,7 @@ export function ConflictForm({ domain, row, left, positions }: { domain: string;
             </select>
           </label>
         </fieldset>
-        <span className={`${CHIP} bg-high-bg text-high-strong`}>Two pages compete</span>
+        {!inline && <span className={`${CHIP} bg-high-bg text-high-strong`}>Two pages compete</span>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border pt-3">
         <p className="max-w-[520px] text-[13px] leading-snug text-ink-2">Google splits clicks between both pages. Merging or redirecting always needs your approval.</p>

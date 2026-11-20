@@ -62,11 +62,13 @@ describe('page plan: matching pages to topics', () => {
     ];
     const input = { domain: 'myhvac.com', clusters: [cluster('ac', 'ac repair')], keywords: [kw('ac repair', 'ac')], pages: [page('/ac-repair/'), page('/blog/ac-tips/', { pageType: 'blog_post' })], gsc, brand: 'MyHVAC', now: NOW };
     let ws = buildMapping(input);
-    expect(mappingSummary(ws)).toMatchObject({ conflicts: 1, mapped: 0, needsYou: 1 });
+    // Settled automatically: the page with the most clicks stays the main page, the other gets another keyword.
+    expect(ws.rows[0]).toMatchObject({ url: 'https://myhvac.com/ac-repair/', conflictSettled: true, conflictAuto: true, conflictPlan: 'differentiate', action: 'optimise' });
+    expect(mappingSummary(ws)).toMatchObject({ conflicts: 0, mapped: 1, needsYou: 0 });
     expect(ws.pageQueries?.['myhvac.com/ac-repair']?.[0]).toMatchObject({ query: 'ac repair', clicks: 30 });
 
     const diff = updateMappingRow(ws, 'ac', { settle: 'differentiate' });
-    expect(diff.rows[0]).toMatchObject({ conflictSettled: true, conflictPlan: 'differentiate', action: 'optimise', urlLocked: true });
+    expect(diff.rows[0]).toMatchObject({ conflictSettled: true, conflictAuto: false, conflictPlan: 'differentiate', action: 'optimise', urlLocked: true });
     // Settled stays settled after a rebuild.
     expect(buildMapping({ ...input, previous: diff }).rows[0]).toMatchObject({ conflictSettled: true, conflictPlan: 'differentiate' });
 

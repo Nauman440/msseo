@@ -26,7 +26,7 @@ export { createCompetitorClient, type CompetitorClient, type MonthPoint } from '
 export * from './keywords/types';
 export * from './keywords/keywords';
 export { brandStems, cleanKeywords, dedupeKey, HARD_KD, KEYWORD_QUALITY_VERSION, normTerm, qualityPass, removalReason, siteVocabulary } from './keywords/clean';
-export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, updateCluster } from './keywords/cluster';
+export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, trafficPotential, updateCluster } from './keywords/cluster';
 export { addPrompt, editPrompt, generatePrompts, isTracked, MAX_PROMPTS, mergePrompts, PROMPT_RANGE, setTrackedPrompts, templatePrompts } from './keywords/prompts';
 export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
 export { createOpenAiClient, type OpenAiClient } from './providers/openai';
@@ -34,6 +34,9 @@ export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } fr
 export * from './mapping/mapping';
 export { draftableRows, writeDrafts } from './mapping/drafts';
 export * from './mapping/page-map';
+export * from './mapping/blog-ideas';
+export { keywordResearchSheets } from './keywords/sheet';
+export { toXlsx, zipStore, type Sheet, type SheetCell } from './report/xlsx';
 export * from './actions/actions';
 export * from './analysis/analysis';
 export { analysisDeps, sitemapCount, sitemapUrlList } from './analysis/deps';

@@ -50,6 +50,12 @@ export type KeywordCluster = {
   /** The kind of page Google ranks for the head keyword (SERP check), or a guess from intent. */
   pageType: ClusterPageType;
   volume: number;
+  /**
+   * Traffic potential: estimated monthly visits of the page ranking #1 for the head keyword, across the
+   * topic's keywords (search volume × expected click rate at that page's position in each saved result).
+   * null when the head keyword has no saved Google result yet.
+   */
+  trafficPotential?: number | null;
   /** 1–5. Business value (intent + CPC) and chance to rank (difficulty + current position). */
   businessValue: number;
   rankingChance: number;

@@ -51,7 +51,7 @@ describe('keyword to page mapping', () => {
     expect(ws.rows.map((r) => r.clusterId)).toEqual(['ac-repair-dallas', 'heat-pump-installation', 'furnace-repair', 'hvac-near-me']);
     // Search Console clicks pick the page; a second page with ≥ 20% of the clicks is a conflict that a person settles (no automatic merge).
     expect(by['ac-repair-dallas']).toMatchObject({
-      url: 'https://myhvac.com/services/ac-repair/', action: 'optimise', match: 'high', conflictSettled: false, currentPosition: 7, targetPosition: 3, reason: 'Gets 30 clicks from Google for these searches',
+      url: 'https://myhvac.com/services/ac-repair/', action: 'optimise', match: 'high', conflictSettled: true, conflictAuto: true, currentPosition: 7, targetPosition: 3, reason: 'Gets 30 clicks from Google for these searches',
       conflicts: [{ url: 'https://myhvac.com/ac-repair-old/', share: 0.25 }], secondaryKeywords: ['dallas ac repair company'],
     });
     // Title match, but a thin page (< 300 words): expand.

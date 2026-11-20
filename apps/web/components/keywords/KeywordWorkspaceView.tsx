@@ -62,7 +62,14 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
               {ready ? summary(ws, stats.kept) : ws.seeds.services.length ? 'Ready to research: press “Research keywords”.' : 'Add your services first under Research inputs.'}
             </p>
           </div>
-          <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
+          <div className="flex flex-wrap items-center gap-2">
+            {ready && (
+              <a href={`/api/keywords/${ws.domain}/sheet`} download className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-4 text-sm font-semibold hover:border-ink-3">
+                Download research sheet (.xlsx)
+              </a>
+            )}
+            <KeywordRunButtons domain={ws.domain} hasKeywords={stats.kept > 0} hasClusters={stats.clusters > 0} audience={audience} />
+          </div>
         </div>
       )}
 

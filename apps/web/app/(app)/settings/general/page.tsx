@@ -135,7 +135,7 @@ export default async function GeneralSettingsPage() {
 
           <fieldset className="mt-6 border-t border-border pt-5">
             <legend className="sr-only">Autopilot</legend>
-            <p className="mb-3 font-display text-base font-bold">Autopilot for customers</p>
+            <p className="mb-3 font-display text-base font-bold">Autopilot</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <label className="flex cursor-pointer items-start gap-3 sm:col-span-3">
                 <input type="checkbox" name="autopilot.enabled" defaultChecked={s['autopilot.enabled']} className="mt-1 size-4 accent-primary" />
@@ -147,10 +147,20 @@ export default async function GeneralSettingsPage() {
                   </span>
                 </span>
               </label>
+              <label className="flex cursor-pointer items-start gap-3 sm:col-span-3">
+                <input type="checkbox" name="autopilot.teamSites" defaultChecked={s['autopilot.teamSites']} className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="block text-sm font-semibold">Also run it for the team’s client sites</span>
+                  <span className={HINT}>
+                    Every site the team audited in the last 120 days (not visitors’ free audits), once a month, after customers’ sites. Same steps and costs, counted in the
+                    cap below. Research inputs come from the site’s Keywords → Research inputs, else from its own pages.
+                  </span>
+                </span>
+              </label>
               <label className={LABEL}>
                 Monthly cap (USD)
                 <input name="autopilot.monthlyCap" type="number" min={0} max={1000} step={1} defaultValue={s['autopilot.monthlyCap']} className={`${INPUT} tabular`} />
-                <span className={HINT}>Covers autopilot and the competitor analyses customers start themselves (about $0.55 each). Autopilot pauses and customer analyses wait until next month when reached; the team is emailed once. Team runs are not limited.</span>
+                <span className={HINT}>Covers autopilot and the competitor analyses customers start themselves (about $0.55 each). Autopilot pauses and customer analyses wait until next month when reached; the team is emailed once. Runs the team starts by hand are not limited.</span>
               </label>
               {spent !== null && (
                 <p className="text-sm sm:col-span-2 sm:self-end">

@@ -7,7 +7,7 @@ import {
 import { getActionWorkspace, saveActionWorkspace } from './actions';
 import { prisma } from './client';
 import { getCompetitorWorkspace, saveCompetitorWorkspace } from './competitors';
-import { customerGoogleReady, customerGoogleToken, getCustomerGoogle } from './customer-google';
+import { searchConsoleFor } from './google-access';
 import { getKeywordWorkspace, saveKeywordWorkspace } from './keywords';
 import { getMappingWorkspace, saveMappingWorkspace } from './mapping';
 import { getSettings } from './settings';
@@ -37,7 +37,8 @@ const hostOf = (url: string) => {
  * `rederive`: read this (non-primary) website's services and places from its pages again, replacing inputs
  * that were copied from the first website.
  */
-export type AutopilotSite = { userId: string; domain: string; primary: boolean; rederive?: boolean; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+/** `team`: one of the team's client sites (no customer account; userId is empty). */
+export type AutopilotSite = { userId: string; domain: string; primary: boolean; team?: boolean; rederive?: boolean; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
 type AccountRow = { userId: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
@@ -78,8 +79,34 @@ export async function resetBorrowedData(domain: string, site: Pick<AutopilotSite
   await prisma.siteDocument.deleteMany({ where: { domain, kind: { in: ['local', 'aeo'] } } }).catch(() => undefined);
 }
 
-/** Customers' websites due a run: trial or active, onboarding finished, not run in the last 30 days. */
-export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite[]> {
+/** Team client sites: audited by the team in the last 120 days, and not a customer's website. */
+export const TEAM_SITE_DAYS = 120;
+
+async function dueTeamSites(now: Date, customerDomains: Set<string>, cutoff: number): Promise<AutopilotSite[]> {
+  const projects = await prisma.project.findMany({
+    where: { audits: { some: { source: 'team', status: 'completed', createdAt: { gte: new Date(now.getTime() - TEAM_SITE_DAYS * 86_400_000) } } } },
+    select: { domain: true, businessName: true, services: true, serviceArea: true },
+  });
+  const out: AutopilotSite[] = [];
+  for (const p of projects) {
+    const domain = normDomain(p.domain);
+    if (!domain || customerDomains.has(domain)) continue;
+    const kw = await getKeywordWorkspace(domain).catch(() => null);
+    const last = kw?.autopilot?.lastRunAt ? Date.parse(kw.autopilot.lastRunAt) : 0;
+    if (last >= cutoff) continue;
+    const areas = Array.isArray(p.serviceArea) ? p.serviceArea.filter((x): x is string => typeof x === 'string') : [];
+    const fromAddress = domain.split('.')[0]!.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    // Services set on the project count as its research inputs; otherwise the run reads them from the site's pages.
+    out.push({ userId: '', domain, team: true, primary: p.services.length > 0, businessName: p.businessName || fromAddress, country: kw?.country ?? null, language: null, services: p.services, areas, competitors: [] });
+  }
+  return out;
+}
+
+/**
+ * Websites due a run (not run in the last 30 days): customers' first (trial or active, onboarding
+ * finished), then, when `includeTeam`, the team's client sites.
+ */
+export async function dueAutopilotSites(now = new Date(), includeTeam = false): Promise<AutopilotSite[]> {
   const accounts = await prisma.customerAccount.findMany({
     where: { onboardingStep: { gte: 6 }, user: { active: true }, OR: [{ status: 'active' }, { status: 'trial', trialEndsAt: { gt: now } }] },
     select: { userId: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
@@ -94,6 +121,10 @@ export async function dueAutopilotSites(now = new Date()): Promise<AutopilotSite
       const last = kw?.autopilot?.lastRunAt ? Date.parse(kw.autopilot.lastRunAt) : 0;
       if (last < cutoff) out.push(siteOf(a, domain));
     }
+  }
+  if (includeTeam) {
+    const customerDomains = new Set(accounts.flatMap((a) => [a.website, ...a.extraWebsites]).filter((w): w is string => Boolean(w)).map(hostOf));
+    out.push(...(await dueTeamSites(now, customerDomains, cutoff).catch(() => [])));
   }
   return out;
 }
@@ -119,13 +150,12 @@ async function latestPages(domain: string): Promise<{ id: string; report: Report
   return a?.report ? { id: a.id, report: a.report as unknown as ReportModel } : null;
 }
 
-async function customerGsc(userId: string, domain: string) {
-  if (!customerGoogleReady()) return [];
-  const conn = await getCustomerGoogle(userId).catch(() => null);
-  const property = conn?.sites[domain]?.gscProperty;
-  if (!property) return [];
+/** Search Console rows (search × page, 90 days): the customer's own connection first, else the team's agency one. */
+async function siteGsc(domain: string) {
+  const access = await searchConsoleFor(domain).catch(() => null);
+  if (!access) return [];
   const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
-  const rows = await gscSearchAnalytics(await customerGoogleToken(userId), property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
+  const rows = await gscSearchAnalytics(access.token, access.property, { startDate: day(93), endDate: day(3), dimensions: ['query', 'page'], maxRows: 5000 });
   return rows.flatMap((r) => (r.keys[0] && r.keys[1] ? [{ query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position }] : []));
 }
 
@@ -186,7 +216,7 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
   try {
     if (keywords.seeds.services.length) {
       const rivals = competitors.competitors.filter((c) => c.shortlist === 'direct' && (c.etv ?? 0) <= GIANT_ETV).slice(0, 3);
-      const gscRows = await customerGsc(site.userId, domain).catch(() => []);
+      const gscRows = await siteGsc(domain).catch(() => []);
       const gsc: GscQuery[] = [];
       const seen = new Map<string, GscQuery>();
       for (const r of gscRows) {
@@ -279,7 +309,7 @@ export async function runDueAutopilot(now = new Date(), onSite?: (r: AutopilotRe
   let spent = await autopilotSpentThisMonth(now);
   if (!settings['autopilot.enabled']) return { ran: [], capped: false, spent, cap };
   const ran: AutopilotResult[] = [];
-  for (const site of await dueAutopilotSites(now)) {
+  for (const site of await dueAutopilotSites(now, settings['autopilot.teamSites'])) {
     if (spent + RUN_ESTIMATE_USD > cap) return { ran, capped: true, spent, cap };
     const r = await runAutopilotSite(site, now);
     spent += r.costUsd;

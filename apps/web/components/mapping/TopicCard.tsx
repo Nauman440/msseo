@@ -94,7 +94,15 @@ export function TopicCard({ domain, row, supporting, fixes, pages, pageHref, pos
               <span className="block text-[12px] text-ink-2">{matchWhy(row)}</span>
             </span>
           </div>
-          {row.conflictSettled && <p className="text-[12px] text-ink-2">Main page confirmed{row.conflictPlan === 'merge' ? ': the other page will be merged' : ': the other page gets a different keyword'}</p>}
+          {row.conflictSettled && !row.conflictAuto && <p className="text-[12px] text-ink-2">Main page confirmed{row.conflictPlan === 'merge' ? ': the other page will be merged' : ': the other page gets a different keyword'}</p>}
+          {row.conflictAuto && (
+            <details className="text-[12px] text-ink-2">
+              <summary className="cursor-pointer">Two pages competed: this one gets the most clicks, so it stays the main page and the other page gets a different keyword. <span className="font-semibold text-primary-heading underline">Change</span></summary>
+              <div className="mt-2">
+                <ConflictForm domain={domain} row={row} left={null} positions={positions} inline />
+              </div>
+            </details>
+          )}
           {shared && <p className="text-[12px] font-semibold text-amber-text">{row.reason.split('. ').pop()}</p>}
         </div>
         <span className={`${CHIP} bg-teal-chip text-teal-text`}>{row.action === 'leave' ? 'In the top 3' : 'Mapped'}</span>

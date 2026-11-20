@@ -45,7 +45,7 @@ export function TopTopics({ clusters, now = new Date() }: { clusters: KeywordClu
                 <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-night text-sm font-extrabold text-white tabular">{i + 1}</span>
                 <div className="min-w-0">
                   <h3 className="break-words text-[17px] font-bold">{c.name}</h3>
-                  <p className="mt-0.5 text-[13px] text-ink-2 tabular">{c.volume.toLocaleString('en-US')} searches a month</p>
+                  <p className="mt-0.5 text-[13px] text-ink-2 tabular">{c.volume.toLocaleString('en-US')} searches a month{c.trafficPotential ? ` · ~${c.trafficPotential.toLocaleString('en-US')} visits a month for #1` : ''}</p>
                 </div>
               </div>
               <p className="text-sm font-semibold">{s.line}</p>

@@ -65,6 +65,8 @@ export type MappingRow = {
   /** 5.4 The main page was confirmed by a person, and what happens to the other pages. */
   conflictSettled?: boolean;
   conflictPlan?: ConflictPlan | null;
+  /** Settled by the tool (the page with the most clicks stays the main page; the others get another keyword). A person can change it. */
+  conflictAuto?: boolean;
   drafts: Drafts | null;
   /** Hand edits of the drafted fixes other than title, H1 and meta (section, FAQ, intro…). */
   edits?: Partial<Record<string, string>>;
@@ -318,9 +320,13 @@ export function buildMapping(input: {
         .map((x) => ({ url: x.url, share: totalClicks > 0 ? x.clicks / totalClicks : totalImpr > 0 ? x.impressions / totalImpr : 0 }))
         .filter((x) => x.share >= 0.2)
         .map((x) => ({ ...x, share: Math.round(x.share * 100) / 100 }));
-      // A settled conflict stays settled while the main page is the same.
-      const settled = Boolean(old?.conflictSettled && old.url === url && conflicts.length);
-      const conflictPlan: ConflictPlan | null = settled ? old?.conflictPlan ?? 'differentiate' : null;
+      // A conflict settled by a person stays settled while the main page is the same. Any other conflict is
+      // settled automatically: the page with the most clicks (or impressions) stays the main page and the
+      // other pages are given another keyword, never merged without a person.
+      const byHand = Boolean(old?.conflictSettled && !old.conflictAuto && old.url === url && conflicts.length);
+      const settled = conflicts.length > 0;
+      const conflictAuto = settled && !byHand;
+      const conflictPlan: ConflictPlan | null = byHand ? old?.conflictPlan ?? 'differentiate' : settled ? 'differentiate' : null;
       const currentPosition = e && e.impressions ? Math.round((e.posSum / e.impressions) * 10) / 10 : (ranked.find((r) => key && r.url && normUrl(r.url) === key)?.position ?? null);
       const typeMismatch = Boolean(page?.pageType && c.pageType && !['directory', 'home'].includes(c.pageType) && page.pageType !== c.pageType && !(c.pageType === 'service_location' && ['service', 'location'].includes(page.pageType)));
 
@@ -370,6 +376,7 @@ export function buildMapping(input: {
         conflicts,
         conflictSettled: settled,
         conflictPlan,
+        conflictAuto,
         drafts: old?.drafts ?? templateDrafts(c.head, input.brand, input.place ?? null),
         edits: old?.edits ?? {},
         pageCheck: samePage ? old.pageCheck ?? null : null,
@@ -445,6 +452,7 @@ export function updateMappingRow(ws: MappingWorkspace, clusterId: string, patch:
       }
       if (patch.settle) {
         next.conflictSettled = true;
+        next.conflictAuto = false;
         next.conflictPlan = patch.settle;
         next.urlLocked = true;
         if (patch.settle === 'merge') Object.assign(next, { action: 'merge', actionLocked: true });

@@ -108,6 +108,7 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'ai.maxTokens': form.get('ai.maxTokens'),
     'autopilot.enabled': form.get('autopilot.enabled') === 'on',
     'autopilot.monthlyCap': form.get('autopilot.monthlyCap'),
+    'autopilot.teamSites': form.get('autopilot.teamSites') === 'on',
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const { saveSettings } = await import('@seo/db');

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LOW_VOLUME, typedByHand, type BusinessType, type KeywordCluster, type KeywordRecord } from '@seo/core';
+import { Term } from '@/components/ui/Term';
 import { cn } from '@/lib/tones';
 import { ClusterScores } from './forms';
 import { CHIP, INTENT_CHIP, intentLabel, MONTH, PAGE_TYPE, type TopicOrder } from './labels';
@@ -59,6 +60,7 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
               </div>
               <p className="text-[13px] text-ink-2 tabular">
                 {c.volume.toLocaleString('en-US')} searches a month · {c.size} keyword{c.size === 1 ? '' : 's'}
+                {c.trafficPotential ? <> · <Term k="trafficPotential">~{c.trafficPotential.toLocaleString('en-US')} visits a month for #1</Term></> : null}
                 {c.bestPosition !== null && c.bestPosition <= 100 ? ` · you rank #${c.bestPosition}` : ''}
               </p>
               <ul className="flex flex-wrap gap-1.5">

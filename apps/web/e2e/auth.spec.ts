@@ -338,6 +338,12 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
   expect(csv.headers()['content-type']).toContain('text/csv');
   expect(await csv.text()).toContain('emergency ac repair,removed,Removed by hand');
+  // The final keyword research sheet: an .xlsx (zip) the customer can download for their own site only.
+  const sheet = await page.request.get('/api/keywords/summitairhvac.com/sheet');
+  expect(sheet.headers()['content-type']).toContain('spreadsheetml');
+  expect((await sheet.body()).subarray(0, 2).toString()).toBe('PK');
+  expect((await page.request.get('/api/keywords/rival-hvac.com/sheet')).status()).toBe(404);
+  expect((await page.request.get('/api/keywords/summitairhvac.com/blog-brief?id=none')).status()).toBe(404);
   // Questions for AI: add one by hand, then choose which ones are tracked.
   await sections.getByRole('link', { name: /^Questions for AI/ }).click();
   await expect(page.getByRole('heading', { name: 'Questions people ask AI assistants' })).toBeVisible();
@@ -434,7 +440,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Not checked yet')).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Check AI search' }).click();
-  await expect(page.getByText(/answers checked|Tick questions under|did not finish/)).toBeVisible({ timeout: 60_000 });
+  // The page may already have prepared the check by itself (then the button answers with the weekly limit).
+  await expect(page.getByText(/answers checked|Tick questions under|did not finish|questions are ticked under|run this once a week/).first()).toBeVisible({ timeout: 60_000 });
   await page.goto('/ai-search/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');

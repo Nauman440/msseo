@@ -24,6 +24,8 @@ export const settingsSchema = z
     /** Autopilot (customers): competitors → keywords → topics → page plan → AI questions, monthly per website, under a monthly cap in USD. */
     'autopilot.enabled': z.coerce.boolean().default(true),
     'autopilot.monthlyCap': z.coerce.number().min(0, 'At least 0').max(1000, 'At most 1,000').default(20),
+    /** Also run autopilot monthly for the team's client sites (audited by the team in the last 120 days), under the same cap. */
+    'autopilot.teamSites': z.coerce.boolean().default(true),
   })
   .refine((s) => s['crawl.defaultLimit'] <= s['crawl.maxLimit'], { message: 'The default page limit cannot be above the maximum', path: ['crawl.defaultLimit'] });
 

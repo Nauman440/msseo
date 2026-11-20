@@ -8,6 +8,7 @@ export const GLOSSARY = {
   position: 'Where your website shows in Google’s results for this search. #1 is the top; page 1 is positions 1–10.',
   quickWin: 'A search where you are already on positions 4–20: small improvements can move you onto the top of page 1.',
   notShowing: 'Searches your customers make where your website does not appear in Google’s top 100 yet.',
+  trafficPotential: 'About how many visits a month the #1 page for this topic gets from Google, across all its searches. An estimate of what winning the topic is worth.',
   priority: 'How much a topic is worth doing first: value to your business × chance to rank, from 1 to 25.',
   value: 'How likely people making this search are to become customers, from 1 to 5.',
   chance: 'How realistic it is to rank for this topic soon, from 1 to 5 (based on difficulty and where you are now).',

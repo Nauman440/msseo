@@ -1,6 +1,7 @@
 import { KNOWN_CITIES } from '../audit/templates';
 import { DIRECTORIES } from '../competitors/competitors';
 import type { KeywordClient, KeywordIntent, Locale } from '../providers/dataforseo-keywords';
+import { expectedCtr } from '../scoring/ctr-curve';
 import { dedupeKey, normTerm } from './clean';
 import type { ClusterPageType, KeywordCluster, KeywordRecord, KeywordWorkspace } from './types';
 
@@ -118,6 +119,32 @@ export function defaultScores(members: KeywordRecord[], head: KeywordRecord, bes
   return { businessValue, rankingChance: clamp(chance) };
 }
 
+/** Without its own saved result, a close variant is counted as if the #1 page ranked about 3rd for it. */
+const VARIANT_POSITION = 3;
+
+/**
+ * Traffic potential (estimate, no extra cost): the page ranking #1 for the head keyword usually ranks for
+ * the topic's other keywords too. Sum of volume × expected click rate at that page's position in each
+ * keyword's saved top 10 (absent = 0); keywords without a saved result count at position 3.
+ */
+export function trafficPotential(head: KeywordRecord, members: KeywordRecord[]): number | null {
+  const top = head.serpUrls?.[0];
+  if (!top) return null;
+  const want = normUrl(top);
+  let total = 0;
+  for (const m of members) {
+    const vol = m.volume ?? 0;
+    if (!vol) continue;
+    if (!m.serpUrls?.length) {
+      total += vol * expectedCtr(VARIANT_POSITION);
+      continue;
+    }
+    const i = m.serpUrls.findIndex((u) => normUrl(u) === want);
+    if (i >= 0) total += vol * expectedCtr(i + 1);
+  }
+  return Math.round(total);
+}
+
 /** Builds (or rebuilds) one cluster's numbers from its keywords; hand-set scores are kept. */
 export function summarise(head: KeywordRecord, members: KeywordRecord[], pageType: ClusterPageType, prev: KeywordCluster | undefined, now: Date, locations: string[] = []): KeywordCluster {
   const ranked = members.filter((m) => m.position !== null).sort((a, b) => a.position! - b.position!);
@@ -135,6 +162,7 @@ export function summarise(head: KeywordRecord, members: KeywordRecord[], pageTyp
     intent,
     pageType,
     volume: members.reduce((s, m) => s + (m.volume ?? 0), 0),
+    trafficPotential: trafficPotential(head, members),
     ...scores,
     scoresLocked: prev?.scoresLocked ?? false,
     priority: scores.businessValue * scores.rankingChance,
