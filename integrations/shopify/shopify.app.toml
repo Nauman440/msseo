@@ -26,6 +26,5 @@ redirect_urls = [
 ]
 
 [build]
-include_config_on_deploy = true
 # MS SCORE is never run with `shopify app dev`, so the URLs above must never be rewritten.
 automatically_update_urls_on_dev = false
