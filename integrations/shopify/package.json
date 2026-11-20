@@ -1,0 +1,5 @@
+{
+  "name": "msscore-shopify-app",
+  "private": true,
+  "description": "Settings for the MS SCORE Shopify app, managed with the Shopify CLI (not part of the pnpm workspace)."
+}
