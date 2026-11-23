@@ -1,4 +1,5 @@
 import { KNOWN_CITIES } from '../audit/templates';
+import { focusPass } from './focus';
 import type { KeywordRecord, KeywordWorkspace } from './types';
 
 /**
@@ -80,7 +81,7 @@ const SYNONYMS: { triggers: string[]; words: string[] }[] = [
 ];
 /** Big shops and marketplaces: "bed linen dunelm" is someone looking for that shop, not for you. */
 const RETAILERS = /\b(amazon|ebay|etsy|walmart|costco|ikea|argos|tesco|asda|sainsbury'?s?|morrisons|aldi|lidl|dunelm|john lewis|marks (and |& )?spencers?|m&s|primark|matalan|h&m|zara home|b&m|home bargains|wilko|debenhams|tk maxx|homesense|laura ashley|dorma|catherine lansfield|wayfair|home depot|lowe'?s|bed bath (and|&) beyond|kohl'?s|macy'?s|temu|aliexpress|shein|m and s|habitat|pottery barn|brooklyn bedding|the white company|cotton traders|at next|from next|next home|next (bed|bedding|duvet|curtains)\w*|^next$|next$)\b/;
-const GENERIC = new Set(['repair', 'service', 'company', 'best', 'cost', 'price', 'installation', 'install', 'replacement', 'emergency', 'local', 'contractor', 'me']);
+export const GENERIC = new Set(['repair', 'service', 'company', 'best', 'cost', 'price', 'installation', 'install', 'replacement', 'emergency', 'local', 'contractor', 'me']);
 
 /** The words that make a search about this business (services, brands, extra topics, plus synonyms). */
 export function topicWords(seeds: { services: string[]; brands: string[]; extra: string[] }): Set<string> {
@@ -90,7 +91,7 @@ export function topicWords(seeds: { services: string[]; brands: string[]; extra:
 }
 
 /** Same word, or both in a synonym group the seed word switches on. */
-const sameWord = (seedWord: string, word: string) => seedWord === word || SYNONYMS.some((g) => g.triggers.includes(seedWord) && g.words.includes(word));
+export const sameWord = (seedWord: string, word: string) => seedWord === word || SYNONYMS.some((g) => g.triggers.includes(seedWord) && g.words.includes(word));
 
 /** Every distinctive word of one service/topic/brand appears in the keyword ("egyptian cotton duvet cover" ⊇ "duvet covers"). */
 export function coversSeed(term: string, seeds: { services: string[]; brands: string[]; extra: string[] }): boolean {
@@ -123,7 +124,7 @@ export function siteVocabulary(texts: string[]): string[] {
 }
 
 /** Bumped when the cleaning rules change: lists cleaned with an older version are cleaned again (free). */
-export const KEYWORD_QUALITY_VERSION = 2;
+export const KEYWORD_QUALITY_VERSION = 3;
 
 /** Difficulty from which a keyword counts as hard to rank for (0–100). */
 export const HARD_KD = 60;
@@ -180,7 +181,7 @@ export function qualityPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 's
   );
 }
 
-/** Applies the rules, then merges near-duplicates into the most searched spelling. */
+/** Applies the rules, merges near-duplicates into the most searched spelling, then keeps the focus list (focus.ts). */
 export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = []): KeywordWorkspace {
   const ctx = { locations: ws.seeds.locations, brands: ws.seeds.brands, competitorStems: brandStems(competitorNames), country: ws.country };
   const topic = topicWords(ws.seeds);
@@ -215,8 +216,6 @@ export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = 
     const [best, ...rest] = [...live].sort((a, b) => preferred(b) - preferred(a) || (b.volume ?? -1) - (a.volume ?? -1) || a.term.length - b.term.length);
     for (const k of rest) if (!k.statusLocked) dupOf.set(k.term, best!.term);
   }
-  return {
-    ...ws,
-    keywords: checked.map((k) => (dupOf.has(k.term) ? { ...k, status: 'removed', removeReason: `Same search as "${dupOf.get(k.term)}"`, clusterId: null } : k)),
-  };
+  const deduped: KeywordRecord[] = checked.map((k) => (dupOf.has(k.term) ? { ...k, status: 'removed', removeReason: `Same search as "${dupOf.get(k.term)}"`, clusterId: null } : k));
+  return { ...ws, keywords: focusPass(deduped, ws) };
 }
