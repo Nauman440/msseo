@@ -14,7 +14,7 @@ import { TopTopics } from './TopTopics';
 /**
  * Keywords (Module 4) and the page plan (Module 5), written for someone who knows nothing about SEO.
  * Keywords reads top to bottom: what autopilot did, what it is based on (editable), four numbers,
- * where to start, every topic (folded for customers), and every keyword folded away. The same for the team and customers;
+ * where to start, then (team only) every topic, every keyword folded away, then (team only) the AI questions. The same for the team and customers;
  * the team also gets the scoring controls and the research tools.
  */
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
@@ -97,8 +97,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
 
           <TopTopics clusters={ws.clusters} />
 
-          {/* The team works on the topic scores here. Customers already see the best topics under "Start here",
-              so the full list is folded away for them. */}
+          {/* Team only: the topic scores. Customers see the best topics under "Start here"; autopilot handles the rest. */}
           {ws.clusters.length > 0 && audience === 'team' && (
             <ClusterBoard
               domain={ws.domain}
@@ -111,29 +110,6 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
               editable
             />
           )}
-          {ws.clusters.length > 0 && audience === 'customer' && (
-            <details id="all-topics-fold" open={state.allTopics || state.order !== 'priority'} className={FOLD}>
-              <summary className={FOLD_SUMMARY}>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-[17px] font-bold">See all {ws.clusters.length} {ws.clusters.length === 1 ? 'topic' : 'topics'}</span>
-                  <span className="text-[13.5px] text-ink-2">Every group of searches we found, in the order autopilot works on them.</span>
-                </span>
-                <Chevron />
-              </summary>
-              <div className="border-t border-border p-[22px]">
-                <ClusterBoard
-                  domain={ws.domain}
-                  clusters={ws.clusters}
-                  keywords={ws.keywords}
-                  order={state.order}
-                  showAll
-                  allHref={viewHref(base, 'keywords')}
-                  business={ws.businessType}
-                />
-              </div>
-            </details>
-          )}
-
           <details id="all-keywords" open={state.open === 'all' || Boolean(state.from)} className={FOLD}>
             <summary className={FOLD_SUMMARY}>
               <span className="flex min-w-0 flex-col gap-0.5">
@@ -161,6 +137,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             </div>
           </details>
 
+          {/* Team only: autopilot writes and tracks the AI questions for customers. */}
+          {audience === 'team' && (
           <details id="questions" open={state.open === 'questions'} className={cn(FOLD, 'scroll-mt-24')}>
             <summary className={FOLD_SUMMARY}>
               <span className="flex min-w-0 flex-col gap-0.5">
@@ -173,6 +151,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
               <QuestionsView ws={ws} />
             </div>
           </details>
+          )}
         </>
       )}
     </div>

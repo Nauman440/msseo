@@ -213,7 +213,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Connecting Google is not switched on yet', { exact: false }).first()).toBeVisible(); // no Google client in e2e
   await expect(page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: /Weekly plan/ })).toHaveAttribute('href', /\/my\/connections\?site=summitairhvac\.com/);
   await page.getByRole('link', { name: /See all \d+ issues/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/my/reports/${id}$`));
+  // The reports page adds the website it belongs to (?site=).
+  await expect(page).toHaveURL(new RegExp(`/my/reports/${id}(\\?site=[^&]+)?$`));
   await expect(page.getByRole('link', { name: 'Download .md' })).toBeVisible();
   // Locked tabs lead to Connections; the Google sign-in says it is not available on this server.
   await page.goto('/my/plan');
@@ -346,16 +347,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   expect((await page.request.get('/api/keywords/rival-hvac.com/sheet')).status()).toBe(404);
   expect((await page.request.get('/api/keywords/summitairhvac.com/blog-brief?id=none')).status()).toBe(404);
   // Questions for AI: add one by hand, then choose which ones are tracked.
-  // Folded at the bottom of Keywords; the old address opens it.
+  // Customers do not see the AI questions or the full topic list: autopilot handles them.
   await page.goto('/my/keywords?view=questions');
-  await expect(page.getByRole('heading', { name: 'Questions people ask AI assistants' })).toBeVisible();
-  await page.waitForLoadState('networkidle');
-  await page.getByLabel('Add a question your customers ask').fill('Who can fix my AC today in Plano?');
-  await page.getByRole('button', { name: 'Add question' }).click();
-  await expect(page.getByText('Question added.')).toBeVisible();
-  await page.getByLabel('Track: Who can fix my AC today in Plano?').uncheck();
-  await page.getByRole('button', { name: 'Track 0 questions' }).click();
-  await expect(page.getByText('0 questions tracked.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Questions people ask AI assistants' })).toHaveCount(0);
+  await expect(page.getByText(/^See all \d+ topics?$/)).toHaveCount(0);
   // Other sites' keywords stay private.
   expect((await page.request.get('/api/keywords/rival-hvac.com/csv')).status()).toBe(404);
   await page.goto('/keywords/summitairhvac.com');

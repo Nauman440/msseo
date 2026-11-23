@@ -22,7 +22,7 @@ export default async function CustomerAeoPage({ searchParams }: Props) {
     
       <SiteFrame s={s} tab="ai-search">
       {preparing && <Preparing what="your AI search check" />}
-      <AeoView ws={ws} audience="customer" nextRun={nextMonthlyRun(ws.audit?.runAt, AEO_CUSTOMER_DAYS)} questionsHref={`/my/keywords?site=${encodeURIComponent(s.domain)}&open=questions#questions`} />
+      <AeoView ws={ws} audience="customer" nextRun={nextMonthlyRun(ws.audit?.runAt, AEO_CUSTOMER_DAYS)} questionsHref={null} />
     </SiteFrame>
   );
 }

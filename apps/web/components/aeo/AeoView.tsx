@@ -10,7 +10,7 @@ import { TILE_TERMS } from '@/lib/glossary';
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 
-export function AeoView({ ws, audience, nextRun, questionsHref }: { ws: AeoWorkspace; audience: 'team' | 'customer'; nextRun: Date | null; questionsHref: string }) {
+export function AeoView({ ws, audience, nextRun, questionsHref }: { ws: AeoWorkspace; audience: 'team' | 'customer'; nextRun: Date | null; /** null: autopilot picks the questions (customers). */ questionsHref: string | null }) {
   const a = ws.audit;
   const you = a?.share.all.find((s) => s.you);
   const asked = a ? new Set(a.answers.map((x) => x.prompt)).size : 0;
@@ -29,7 +29,12 @@ export function AeoView({ ws, audience, nextRun, questionsHref }: { ws: AeoWorks
           <p className={EYEBROW}>{a ? `Last check · ${day(a.runAt)}${audience === 'team' ? ` · $${a.costUsd.toFixed(2)}` : ''}` : 'Not checked yet'}</p>
           <p className="text-[15px] font-semibold">Do ChatGPT, Perplexity and Google’s AI answers name your business, and can AI read your site?</p>
           <p className="text-[13px] text-ink-2">
-            Uses the questions ticked under <a href={questionsHref} className="font-semibold text-primary-heading underline">Keywords → Questions people ask AI</a> (up to 10). {audience === 'customer' ? 'Checked again every Monday.' : 'About $0.30–0.50 per run; customer sites are checked again every Monday.'}
+            {questionsHref ? (
+              <>Uses the questions ticked under <a href={questionsHref} className="font-semibold text-primary-heading underline">Keywords → Questions people ask AI</a> (up to 10). </>
+            ) : (
+              'Uses up to 10 questions your customers might ask, written by autopilot from your keywords. '
+            )}
+            {audience === 'customer' ? 'Checked again every Monday.' : 'About $0.30–0.50 per run; customer sites are checked again every Monday.'}
           </p>
         </div>
         <RunAeo domain={ws.domain} again={Boolean(a)} disabledReason={nextRun ? `Next check available on ${nextRun.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}.` : null} />
