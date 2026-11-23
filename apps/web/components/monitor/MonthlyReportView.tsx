@@ -1,4 +1,4 @@
-import type { MonthlyReport } from '@seo/core';
+import type { MonthlyReport, Snapshot } from '@seo/core';
 import { CARD, TD, TH } from '@/components/backlinks/Sections';
 import { cn } from '@/lib/tones';
 import { PrintButton } from './forms';
@@ -8,7 +8,7 @@ import { AlertList, ChangeTiles } from './parts';
 const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const pos = (p: number | null) => (p === null ? '>10' : `#${p}`);
 
-function Moves({ title, rows, good }: { title: string; rows: MonthlyReport['winners']; good: boolean }) {
+export function Moves({ title, rows, good }: { title: string; rows: MonthlyReport['winners']; good: boolean }) {
   if (!rows.length) return null;
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -29,16 +29,51 @@ function Moves({ title, rows, good }: { title: string; rows: MonthlyReport['winn
   );
 }
 
-export function MonthlyReportView({ r }: { r: MonthlyReport }) {
+const shortDay = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const num = (v: number | null, digits = 0) => (v === null ? '–' : v.toLocaleString('en-US', { maximumFractionDigits: digits }));
+const WEEK_COLS: { label: string; v: (s: Snapshot) => string }[] = [
+  { label: 'Score', v: (s) => num(s.score) },
+  { label: 'Clicks (28 days)', v: (s) => num(s.clicks28) },
+  { label: 'Avg position', v: (s) => num(s.position28, 1) },
+  { label: 'Leads (28 days)', v: (s) => num(s.leads28) },
+  { label: 'On page 1', v: (s) => `${s.top10} of ${s.tracked}` },
+  { label: 'Reviews', v: (s) => num(s.reviews) },
+];
+
+/** The combined report's week-by-week table: one row per weekly snapshot of the month. */
+function WeekByWeek({ weeks }: { weeks: Snapshot[] }) {
+  if (weeks.length < 2) return null;
+  return (
+    <section aria-labelledby="m-weeks" className={cn(CARD, 'pdf-avoid')}>
+      <h2 id="m-weeks" className="font-display text-xl font-bold">Week by week</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr><th className={TH}>Week of</th>{WEEK_COLS.map((c) => <th key={c.label} className={cn(TH, 'text-right')}>{c.label}</th>)}</tr></thead>
+          <tbody>
+            {weeks.map((w) => (
+              <tr key={w.date}>
+                <td className={cn(TD, 'font-semibold')}>{shortDay(w.date)}</td>
+                {WEEK_COLS.map((c) => <td key={c.label} className={cn(TD, 'text-right tabular')}>{c.v(w)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/** toolbar: what sits next to the title (screen: PDF download; print: nothing). readOnly: no alert buttons. */
+export function MonthlyReportView({ r, toolbar = <PrintButton />, readOnly = false }: { r: MonthlyReport; toolbar?: React.ReactNode; readOnly?: boolean }) {
   return (
     <article className="flex flex-col gap-[22px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-primary-heading">Monthly report</p>
+          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-primary-heading">Monthly report · whole month</p>
           <h1 className="font-display text-3xl font-extrabold">{monthName(r.month)}</h1>
           <p className="text-ink-2">{r.domain}</p>
         </div>
-        <PrintButton />
+        {toolbar}
       </div>
       {!r.to ? (
         <p className="rounded-[14px] border border-border bg-surface px-[18px] py-3.5 text-sm text-ink-2">No snapshot was taken in this month yet.</p>
@@ -49,6 +84,7 @@ export function MonthlyReportView({ r }: { r: MonthlyReport }) {
           <ChangeTiles changes={r.changes} against={r.from ? 'before' : ''} />
         </section>
       )}
+      <WeekByWeek weeks={r.weeks ?? []} />
       {(r.winners.length > 0 || r.losers.length > 0) && (
         <section aria-labelledby="m-ranks" className={cn(CARD, 'pdf-avoid')}>
           <h2 id="m-ranks" className="font-display text-xl font-bold">Rankings</h2>
@@ -71,7 +107,7 @@ export function MonthlyReportView({ r }: { r: MonthlyReport }) {
       </section>
       <section aria-labelledby="m-alerts" className={cn(CARD, 'pdf-avoid')}>
         <h2 id="m-alerts" className="font-display text-xl font-bold">What happened</h2>
-        <AlertList domain={r.domain} alerts={r.alerts} />
+        <AlertList domain={r.domain} alerts={r.alerts} readOnly={readOnly} />
       </section>
     </article>
   );

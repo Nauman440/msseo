@@ -108,7 +108,8 @@ const SEVERITY: Record<MonitorAlert['severity'], string> = {
   info: 'bg-teal-chip text-teal-text',
 };
 
-export function AlertList({ domain, alerts, showDomain = false, limit = 30 }: { domain: string; alerts: MonitorAlert[]; showDomain?: boolean; limit?: number }) {
+/** readOnly: printed reports (no "mark handled" buttons). */
+export function AlertList({ domain, alerts, showDomain = false, limit = 30, readOnly = false }: { domain: string; alerts: MonitorAlert[]; showDomain?: boolean; limit?: number; readOnly?: boolean }) {
   if (!alerts.length) return <p className="text-sm text-ink-2">No alerts. We check the site every morning: down, hidden pages, robots.txt, traffic, reviews and rankings.</p>;
   return (
     <ul className="flex flex-col">
@@ -123,7 +124,7 @@ export function AlertList({ domain, alerts, showDomain = false, limit = 30 }: { 
               <span className="block text-[12px] text-ink-3">{date(a.at)}{a.resolvedAt ? ` · closed ${date(a.resolvedAt)}` : ''}</span>
             </span>
           </span>
-          {!a.resolvedAt && a.severity !== 'info' && <ResolveAlert domain={domain} id={a.id} />}
+          {!readOnly && !a.resolvedAt && a.severity !== 'info' && <ResolveAlert domain={domain} id={a.id} />}
         </li>
       ))}
     </ul>

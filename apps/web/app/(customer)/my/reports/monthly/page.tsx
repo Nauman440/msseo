@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MonthlyReportView } from '@/components/monitor/MonthlyReportView';
+import { PdfLink } from '@/components/monitor/PdfLink';
+import { reportPdfHref } from '@/lib/report-docs';
 import { loadCustomerSite } from '@/lib/customer-site';
 import { getMonthlyReport } from '@/lib/monitor';
 
@@ -21,8 +23,8 @@ export default async function CustomerMonthlyReportPage({ searchParams }: Props)
   const r = await getMonthlyReport(s.domain, month);
   return (
     <>
-      <Link href={`/my/monitor?site=${encodeURIComponent(s.domain)}`} className="text-sm font-semibold text-primary-heading underline print:hidden">← Monitoring</Link>
-      <MonthlyReportView r={r} />
+      <Link href={`/my/reports?site=${encodeURIComponent(s.domain)}`} className="text-sm font-semibold text-primary-heading underline print:hidden">← Reports</Link>
+      <MonthlyReportView r={r} toolbar={<PdfLink href={reportPdfHref(s.domain, { kind: 'month', month })} />} />
     </>
   );
 }

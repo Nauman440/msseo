@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  analysisTargets, buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, nextMeeting, normDomain, pickTrackedKeywords, weeklyRun, type MeetingCadence, type MonitorWorkspace, type MonthlyReport,
+  analysisTargets, buildDailyDeps, buildWeeklyDeps, dailyChecks, emptyMonitor, monthlyReport, nextMeeting, reportMonths, reportWeeks, weeklyReport, normDomain, pickTrackedKeywords, weeklyRun, type MeetingCadence, type MonitorWorkspace, type MonthlyReport, type WeeklyReport,
 } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { getActions } from './actions';
@@ -89,4 +89,25 @@ export async function getMonthlyReport(rawDomain: string, month: string): Promis
     done: actions.actions.filter((a) => a.doneAt && (a.status === 'done' || a.status === 'verified')).map((a) => ({ title: a.title, doneAt: a.doneAt! })),
     open: actions.actions.filter((a) => a.status === 'todo' || a.status === 'in_progress').length,
   });
+}
+
+/** Work done and still open, for the weekly and monthly reports. */
+async function actionsFor(rawDomain: string) {
+  const actions = await getActions(rawDomain);
+  return {
+    done: actions.actions.filter((a) => a.doneAt && (a.status === 'done' || a.status === 'verified')).map((a) => ({ title: a.title, doneAt: a.doneAt! })),
+    open: actions.actions.filter((a) => a.status === 'todo' || a.status === 'in_progress').length,
+  };
+}
+
+/** 13.2 One week's report: the weekly snapshot of `date` (YYYY-MM-DD) against the one before. */
+export async function getWeeklyReport(rawDomain: string, date: string): Promise<WeeklyReport> {
+  const [ws, actions] = await Promise.all([getMonitor(rawDomain), actionsFor(rawDomain)]);
+  return weeklyReport(ws, date, actions);
+}
+
+/** The Reports tab: the last 6 months with snapshots, newest first, each with its weekly reports (oldest first). */
+export async function reportIndex(rawDomain: string): Promise<{ month: string; weeks: string[] }[]> {
+  const ws = await getMonitor(rawDomain);
+  return reportMonths(ws).slice(0, 6).map((month) => ({ month, weeks: reportWeeks(ws, month) }));
 }

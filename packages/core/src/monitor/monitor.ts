@@ -377,6 +377,8 @@ export type MonthlyReport = {
   alerts: MonitorAlert[];
   actionsDone: { title: string; doneAt: string }[];
   actionsOpen: number;
+  /** The month's weekly snapshots, oldest first (the week-by-week table of the combined report). */
+  weeks: Snapshot[];
 };
 
 /** 13.3 One month: the last snapshot of the month against the last one before it (or the baseline). */
@@ -387,23 +389,77 @@ export function monthlyReport(ws: MonitorWorkspace, month: string, actions: { do
   const pts = ws.ranks.history;
   const start = pts.filter((p) => p.date < `${month}-01`).at(-1) ?? pts.find((p) => p.date.startsWith(month));
   const end = pts.filter((p) => p.date.startsWith(month)).at(-1);
-  const moves = end && start && end !== start
-    ? Object.keys(end.positions).map((k) => ({ keyword: k, before: start.positions[k] ?? null, now: end.positions[k] ?? null })).filter((m) => m.before !== m.now)
-    : [];
-  const val = (p: number | null) => p ?? 101;
   return {
     domain: ws.domain,
     month,
     from: before && before !== to ? before : null,
     to,
     changes: compareSnapshots(to, before && before !== to ? before : null),
-    winners: moves.filter((m) => val(m.now) < val(m.before)).sort((a, b) => val(b.before) - val(b.now) - (val(a.before) - val(a.now))).slice(0, 8),
-    losers: moves.filter((m) => val(m.now) > val(m.before)).sort((a, b) => val(b.now) - val(b.before) - (val(a.now) - val(a.before))).slice(0, 8),
+    ...rankMoves(start, end),
     alerts: ws.alerts.filter((a) => a.at.startsWith(month) && a.kind !== 'up'),
     actionsDone: actions.done.filter((a) => a.doneAt.startsWith(month)),
     actionsOpen: actions.open,
+    weeks: inMonth,
   };
 }
+
+/** Ranking moves between two rank points: up (better) and down, biggest first, 8 each. */
+function rankMoves(start: RankPoint | undefined, end: RankPoint | undefined): { winners: MonthlyReport['winners']; losers: MonthlyReport['losers'] } {
+  if (!start || !end || start === end) return { winners: [], losers: [] };
+  const val = (p: number | null) => p ?? 101;
+  const moves = Object.keys(end.positions).map((k) => ({ keyword: k, before: start.positions[k] ?? null, now: end.positions[k] ?? null })).filter((m) => m.before !== m.now);
+  return {
+    winners: moves.filter((m) => val(m.now) < val(m.before)).sort((a, b) => val(b.before) - val(b.now) - (val(a.before) - val(a.now))).slice(0, 8),
+    losers: moves.filter((m) => val(m.now) > val(m.before)).sort((a, b) => val(b.now) - val(b.before) - (val(a.now) - val(a.before))).slice(0, 8),
+  };
+}
+
+export type WeeklyReport = {
+  domain: string;
+  /** The weekly snapshot this report is about (YYYY-MM-DD). */
+  date: string;
+  /** The snapshot before it (null for the first week). */
+  previousDate: string | null;
+  snapshot: Snapshot | null;
+  changes: MetricChange[];
+  winners: MonthlyReport['winners'];
+  losers: MonthlyReport['losers'];
+  alerts: MonitorAlert[];
+  actionsDone: { title: string; doneAt: string }[];
+  actionsOpen: number;
+  headline: string;
+};
+
+/** 13.2 One week: the snapshot of `date` against the one before it, what moved, what happened, what was done. */
+export function weeklyReport(ws: MonitorWorkspace, date: string, actions: { done: { title: string; doneAt: string }[]; open: number }): WeeklyReport {
+  const snapshot = ws.snapshots.find((s) => s.date.slice(0, 10) === date) ?? null;
+  const prev = snapshot ? ws.snapshots.filter((s) => s.date < snapshot.date).at(-1) ?? null : null;
+  const to = snapshot?.date ?? `${date}T23:59:59.999Z`;
+  // The first week covers the 7 days before its snapshot.
+  const from = prev?.date ?? new Date(Date.parse(to) - 7 * 86_400_000).toISOString();
+  const inRange = (iso: string) => iso > from && iso <= to;
+  const end = ws.ranks.history.filter((p) => p.date <= to).at(-1);
+  const start = ws.ranks.history.filter((p) => p.date <= from).at(-1);
+  const changes = compareSnapshots(snapshot, prev);
+  const moved = changes.filter((c) => c.before !== null && c.now !== null && c.now !== c.before);
+  const good = moved.filter((c) => changeTone(c) === 'good').length;
+  const bad = moved.filter((c) => changeTone(c) === 'bad').length;
+  return {
+    domain: ws.domain,
+    date,
+    previousDate: prev?.date.slice(0, 10) ?? null,
+    snapshot,
+    changes,
+    ...rankMoves(start, end),
+    alerts: ws.alerts.filter((a) => inRange(a.at) && a.kind !== 'up'),
+    actionsDone: actions.done.filter((a) => inRange(a.doneAt)),
+    actionsOpen: actions.open,
+    headline: !snapshot ? 'No snapshot was taken this week.' : !prev ? 'Your first weekly snapshot: this is your starting point.' : good > bad ? 'A good week: more went up than down.' : bad > good ? 'A mixed week: a few numbers went down.' : 'A steady week.',
+  };
+}
+
+/** The weekly snapshots of one month (YYYY-MM-DD, oldest first): one report each. */
+export const reportWeeks = (ws: MonitorWorkspace, month: string) => [...new Set(ws.snapshots.filter((s) => s.date.startsWith(month)).map((s) => s.date.slice(0, 10)))].sort();
 
 /** The months that have a snapshot, newest first ("YYYY-MM"). */
 export const reportMonths = (ws: MonitorWorkspace) => [...new Set(ws.snapshots.map((s) => s.date.slice(0, 7)))].sort().reverse();

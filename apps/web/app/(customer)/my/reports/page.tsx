@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { diffReports } from '@seo/core';
 import { SiteFrame } from '@/components/customer/SiteFrame';
+import { PeriodReports } from '@/components/monitor/PeriodReports';
 import { ChangesSinceLast } from '@/components/project/ChangesSinceLast';
 import { ScoreTrend } from '@/components/project/ScoreTrend';
 import { Card } from '@/components/ui/Card';
 import { loadCustomerSite } from '@/lib/customer-site';
+import { reportIndex } from '@/lib/monitor';
 import { cn } from '@/lib/tones';
 
 export const metadata: Metadata = { title: 'Reports' };
@@ -15,17 +17,18 @@ type Props = { searchParams: Promise<{ site?: string }> };
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const scoreTone = (s: number) => (s >= 90 ? 'bg-pass-bg text-pass-text' : s >= 70 ? 'bg-warn-bg text-warn-text' : 'bg-high-bg text-high-text');
 
-/** Reports tab: score over time, changes since the last audit, and every audit with its PDF. */
+/** Reports tab: the action plan PDF, weekly and monthly reports, score over time, changes since the last audit, and every audit. */
 export default async function ReportsPage({ searchParams }: Props) {
   const { site } = await searchParams;
   const s = await loadCustomerSite(site);
+  const months = await reportIndex(s.domain);
   const trend = [...s.rows]
     .reverse()
     .filter((r) => r.status === 'completed' && r.score !== null)
     .map((r) => ({ date: r.createdAt.slice(0, 10), score: r.score!, href: `/my/reports/${r.id}` }));
   return (
-    
-      <SiteFrame s={s} tab="reports">
+    <SiteFrame s={s} tab="reports">
+      <PeriodReports domain={s.domain} months={months} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title="Score over time">
           <ScoreTrend points={trend} />

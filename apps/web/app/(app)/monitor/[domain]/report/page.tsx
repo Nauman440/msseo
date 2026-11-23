@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { normDomain } from '@seo/core';
 import { Container } from '@/components/landing/primitives';
 import { MonthlyReportView } from '@/components/monitor/MonthlyReportView';
+import { PdfLink } from '@/components/monitor/PdfLink';
+import { reportPdfHref } from '@/lib/report-docs';
 import { getMonthlyReport } from '@/lib/monitor';
 import { requireUser } from '@/lib/session';
 
@@ -17,7 +19,7 @@ const lastMonth = () => {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
 };
 
-/** 13.3 Monthly report for the team (print it or save it as PDF for the client). */
+/** 13.3 Monthly report for the team (download the PDF for the client). */
 export default async function TeamMonthlyReportPage({ params, searchParams }: Props) {
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
@@ -28,7 +30,7 @@ export default async function TeamMonthlyReportPage({ params, searchParams }: Pr
   return (
     <Container className="flex flex-col gap-6 py-12">
       <Link href={`/monitor/${domain}`} className="text-sm font-semibold text-primary-heading underline print:hidden">← Monitoring</Link>
-      <MonthlyReportView r={r} />
+      <MonthlyReportView r={r} toolbar={<PdfLink href={reportPdfHref(domain, { kind: 'month', month })} />} />
     </Container>
   );
 }
