@@ -464,6 +464,31 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('heading', { name: 'Alerts', level: 1 })).toBeVisible();
   await page.goto('/my/reports/monthly?month=2026-10');
   await expect(page.getByRole('heading', { name: 'October 2026' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download PDF' })).toHaveAttribute('href', '/api/reports/summitairhvac.com/pdf?kind=month&month=2026-10');
+  // Reports tab: the 6-month plan as a PDF, and weekly + whole-month reports once the Monday checks run.
+  await page.goto('/my/reports');
+  await expect(page.getByRole('heading', { name: 'Your 6-month action plan' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Weekly and monthly reports' })).toBeVisible();
+  const planPdf = await page.request.get('/api/reports/summitairhvac.com/pdf?kind=plan');
+  expect(planPdf.headers()['content-type']).toBe('application/pdf');
+  expect((await planPdf.body()).subarray(0, 4).toString()).toBe('%PDF');
+  expect((await page.request.get('/api/reports/rival-hvac.com/pdf?kind=plan')).status()).toBe(404);
+  expect((await page.request.get('/api/reports/summitairhvac.com/pdf?kind=nope')).status()).toBe(400);
+  await page.goto('/my/reports/weekly?date=2026-11-16');
+  await expect(page.getByRole('heading', { name: 'Week of 16 November 2026' })).toBeVisible();
+  // Help assistant (no OpenAI in e2e: answers come from the help topics).
+  await page.getByRole('button', { name: 'Help' }).click();
+  const help = page.getByRole('dialog', { name: 'Help assistant' });
+  await help.getByRole('button', { name: 'How do I connect Google Search Console?' }).click();
+  await expect(help.getByText(/press "Connect Google"/)).toBeVisible();
+  await expect(help.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/my/connections?site=summitairhvac.com');
+  await help.getByLabel('Your question').fill('My website is not listed in Search Console');
+  await help.getByRole('button', { name: 'Send' }).click();
+  await expect(help.getByText(/Users and permissions/)).toBeVisible();
+  await help.getByRole('button', { name: 'Ask a person' }).click();
+  await expect(help.getByText(/support@msseo\.tech/)).toBeVisible(); // no email provider in e2e
+  await help.getByRole('button', { name: 'Close help' }).first().click();
+  expect((await page.request.post('/api/support/chat', { data: { messages: [] } })).status()).toBe(400);
   await page.goto('/monitor/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');

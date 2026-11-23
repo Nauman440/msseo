@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { SidebarBody } from '@/components/customer/Sidebar';
 import { SITE_COOKIE, SiteSwitcher } from '@/components/customer/SiteSwitcher';
+import { SupportWidget } from '@/components/customer/SupportWidget';
 import { Logo } from '@/components/ui/Logo';
 import { accountSites, domainOf, getAccountByUserId, PLANS } from '@/lib/accounts';
 import { requireCustomer } from '@/lib/session';
@@ -78,6 +79,11 @@ export default async function CustomerLayout({ children }: { children: React.Rea
           {children}
         </div>
       </main>
+      {account && (
+        <Suspense fallback={null}>
+          <SupportWidget />
+        </Suspense>
+      )}
     </div>
   );
 }

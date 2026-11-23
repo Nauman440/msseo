@@ -60,6 +60,8 @@ export default defineConfig({
         REDIS_URL: '',
         // Paid APIs fail fast (closed port): e2e never spends DataForSEO credits.
         DATAFORSEO_BASE_URL: 'http://127.0.0.1:9',
+        // No paid AI calls from tests: the help assistant and AI drafts use their no-AI fallbacks.
+        OPENAI_API_KEY: '',
         // No real emails from tests (welcome, plan changes, team alerts).
         RESEND_API_KEY: '',
         TEAM_NOTIFY_EMAIL: '',

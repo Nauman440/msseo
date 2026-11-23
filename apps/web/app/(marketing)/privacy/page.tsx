@@ -132,7 +132,9 @@ export default function PrivacyPage() {
           <li>
             <strong>OpenAI</strong>: only when AI recommendations are turned on for an audit; receives the audit findings and page addresses (no
             Search Console or Analytics data, no passwords, no page HTML) to write a fix plan; and, when a person asks for it, one Business Profile
-            review at a time to draft a reply (see section 4).
+            review at a time to draft a reply (see section 4); and the questions a customer types into the help assistant, with a short summary of
+            their setup (their name, plan, website addresses, whether Google and their website are connected and the date of the last audit; no
+            Search Console or Analytics data), to write an answer. If they press <em>Ask a person</em>, the conversation is emailed to our team.
           </li>
           <li><strong>Hostinger</strong> (servers), <strong>Cloudflare</strong> (DNS, network protection and backup storage).</li>
           <li><strong>Email delivery provider</strong>: only to send a report to an address you entered.</li>
