@@ -98,7 +98,7 @@ describe('keyword research', () => {
     expect(by['ac ac repair:suggestion']?.removeReason).toBe('Same search as "ac repair"');
   });
 
-  it('collects every source, fills metrics, cleans, and drops searches nobody makes', async () => {
+  it('collects every source, fills metrics, cleans, and keeps real local phrasings', async () => {
     const { client, calls } = fake();
     const ws = emptyKeywordWorkspace('www.myhvac.com', { seeds: { services: ['ac repair'], locations: ['Dallas'] } });
     const r = await researchKeywords(client, ws, {
@@ -114,7 +114,7 @@ describe('keyword research', () => {
     expect(by['ac repair houston']?.removeReason).toBe('Another location (houston)');
     expect(by['rival hvac reviews']?.removeReason).toBe('Competitor brand (rivalhvac)');
     expect(by['furnace repair dallas']).toMatchObject({ position: null, sources: ['competitor'] });
-    expect(by['ac repair dallas zzz odd phrasing']).toMatchObject({ volume: 0, status: 'removed', removeReason: 'Too few searches (under 10 a month)' });
+    expect(by['ac repair dallas zzz odd phrasing']).toMatchObject({ volume: 0, status: 'kept' }); // Google autocomplete for the place served
     expect(r.workspace.lastRunAt).not.toBeNull();
     expect(r.cost).toBeGreaterThan(0);
   });

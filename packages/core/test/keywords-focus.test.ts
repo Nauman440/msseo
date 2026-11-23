@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestService, cleanKeywords, emptyKeywordWorkspace, focusPass, PER_SERVICE, type KeywordRecord } from '../src';
+import { bestService, cleanKeywords, emptyKeywordWorkspace, focusPass, LOCAL_LOW_PER_SERVICE, localLowOk, PER_SERVICE, siteStrength, type KeywordRecord } from '../src';
 
 const kw = (term: string, o: Partial<KeywordRecord> = {}): KeywordRecord => ({
   term, volume: 200, trend: null, trendFrom: null, difficulty: 20, cpc: 4, intent: 'commercial', position: null, url: null, gscClicks: null, gscImpressions: null,
@@ -36,12 +36,12 @@ describe('keyword focus pass', () => {
   });
 
   it('keeps the best keywords per service, by opportunity', () => {
-    const list = Array.from({ length: PER_SERVICE + 10 }, (_, i) => kw(`ac repair dallas ${i}`, { volume: 100 + i * 10, difficulty: i < 5 ? 90 : 20 }));
+    const list = Array.from({ length: PER_SERVICE + 10 }, (_, i) => kw(`ac repair dallas ${i}`, { volume: 100 + i * 10, difficulty: i < 5 ? 45 : 20 }));
     const out = focusPass(list, ws);
     const kept = out.filter((k) => k.status === 'kept');
     expect(kept).toHaveLength(PER_SERVICE);
-    // The five very hard ones lose to easier keywords with the same demand.
-    expect(kept.some((k) => k.difficulty === 90)).toBe(false);
+    // The five harder ones lose to easier keywords with about the same demand.
+    expect(kept.some((k) => k.difficulty === 45)).toBe(false);
     expect(out.find((k) => k.status === 'removed')!.removeReason).toBe(`Not in the top ${PER_SERVICE} for "AC repair"`);
   });
 
@@ -69,5 +69,32 @@ describe('keyword focus pass', () => {
     const list = Array.from({ length: 100 }, (_, i) => kw(`storage box ${i}`));
     const out = focusPass(list, emptyKeywordWorkspace('maxbox.uk', { businessType: 'shop' }));
     expect(out.filter((k) => k.status === 'kept')).toHaveLength(60);
+  });
+
+  it('judges difficulty against what this site can reach', () => {
+    const ranked = (n: number, pos: number) => Array.from({ length: n }, (_, i) => kw(`ranked ${pos} ${i}`, { sources: ['ranked'], position: pos, status: 'removed' }));
+    expect(siteStrength([]).level).toBe('new');
+    expect(siteStrength(ranked(40, 30))).toMatchObject({ level: 'growing', reach: 45 });
+    expect(siteStrength(ranked(30, 5))).toMatchObject({ level: 'established', reach: 60 });
+
+    const list = [kw('ac repair dallas hard', { difficulty: 55 }), kw('ac repair dallas easy', { difficulty: 10 })];
+    // A new site (reach 30): difficulty 55 is out of reach for now.
+    expect(reasons(focusPass(list, ws))).toEqual({ 'ac repair dallas hard': 'Too hard for this site for now (difficulty 55; it can reach about 30)', 'ac repair dallas easy': 'kept' });
+    // An established site (reach 60) keeps it.
+    expect(focusPass([...list, ...ranked(30, 5)], ws).find((k) => k.term === 'ac repair dallas hard')!.status).toBe('kept');
+    // Already on page 1–5 of Google: never removed for difficulty.
+    expect(focusPass([kw('ac repair dallas hard', { difficulty: 90, position: 35 })], ws)[0]!.status).toBe('kept');
+  });
+
+  it('keeps a few low-volume "service + your place" searches per service', () => {
+    expect(localLowOk(kw('ac repair dallas'), ws.seeds)).toBe(true); // exactly service + place
+    expect(localLowOk(kw('ac repair dallas tx cheap'), ws.seeds)).toBe(false); // made up, not from Google
+    expect(localLowOk(kw('ac repair dallas tx cheap', { sources: ['autocomplete'] }), ws.seeds)).toBe(true);
+    const list = Array.from({ length: 8 }, (_, i) => kw(`ac repair dallas ${i}`, { volume: 0, sources: ['autocomplete'] }));
+    const out = focusPass(list, ws);
+    expect(out.filter((k) => k.status === 'kept')).toHaveLength(LOCAL_LOW_PER_SERVICE);
+    expect(out.filter((k) => k.status === 'removed')[0]!.removeReason).toBe('Too few searches (under 10 a month)');
+    // Shops have no places: the rule does not apply.
+    expect(focusPass(list, { ...ws, businessType: 'shop' }).filter((k) => k.status === 'kept')).toHaveLength(0);
   });
 });

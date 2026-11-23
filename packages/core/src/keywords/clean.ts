@@ -1,5 +1,5 @@
 import { KNOWN_CITIES } from '../audit/templates';
-import { focusPass } from './focus';
+import { focusPass, localLowOk } from './focus';
 import type { KeywordRecord, KeywordWorkspace } from './types';
 
 /**
@@ -124,7 +124,7 @@ export function siteVocabulary(texts: string[]): string[] {
 }
 
 /** Bumped when the cleaning rules change: lists cleaned with an older version are cleaned again (free). */
-export const KEYWORD_QUALITY_VERSION = 4;
+export const KEYWORD_QUALITY_VERSION = 5;
 
 /** Difficulty from which a keyword counts as hard to rank for (0–100). */
 export const HARD_KD = 60;
@@ -148,7 +148,7 @@ const trusted = (k: KeywordRecord) => k.statusLocked || k.sources.some((s) => s 
  *    searched ones (10% of the list, at least 5): the rest wait until the site is stronger;
  *  - searches with no recorded volume only when they name a whole service, and only a few (5%, at least 10).
  */
-export function qualityPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'seeds' | 'siteWords'>): KeywordRecord[] {
+export function qualityPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'seeds' | 'siteWords' | 'businessType'>): KeywordRecord[] {
   const topic = topicWords(ws.seeds);
   const site = new Set(ws.siteWords ?? []);
   const words = (t: string) => dedupeKey(t).split(' ');
@@ -169,7 +169,8 @@ export function qualityPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 's
   const tooHard = new Set(hard.slice(hardCap).map((k) => k.term));
 
   const zeroCap = Math.max(ZERO_MIN, Math.floor(kept().length * ZERO_SHARE));
-  const zero = kept().filter((k) => !trusted(k) && !(k.volume && k.volume > 0) && k.position === null);
+  // Low-volume "service + your place" searches are judged by the focus pass (a few per service are kept).
+  const zero = kept().filter((k) => !trusted(k) && !(k.volume && k.volume > 0) && k.position === null && !(ws.businessType !== 'shop' && localLowOk(k, ws.seeds)));
   const zeroKeep = new Set(zero.filter((k) => coversSeed(k.term, ws.seeds)).sort((a, b) => a.term.length - b.term.length).slice(0, zeroCap).map((k) => k.term));
 
   return out.map((k) =>
@@ -194,7 +195,7 @@ export function cleanKeywords(ws: KeywordWorkspace, competitorNames: string[] = 
     const t = normTerm(k.term);
     const shop = !k.sources.some((s) => s === 'manual' || s === 'import' || s === 'gsc') && RETAILERS.test(t) && !ownBrandWords.some((b) => b && RETAILERS.test(b) && t.includes(b));
     const elsewhere = k.intent === 'navigational' && toolOnly(k) && !t.replace(/[^a-z0-9]/g, '').includes(ownStem);
-    const generated = k.volume === 0 && k.sources.every((s) => s === 'seed') && !typed.has(t);
+    const generated = k.volume === 0 && k.sources.every((s) => s === 'seed') && !typed.has(t) && !(ws.businessType !== 'shop' && localLowOk(k, ws.seeds));
     const reason =
       removalReason(k.term, ctx) ??
       (shop || elsewhere ? 'Looking for another shop or site' : null) ??
