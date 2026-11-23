@@ -69,25 +69,24 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Card title="Top 10 to do now">
-          {top.length ? (
-            <ol className="flex list-decimal flex-col gap-2.5 pl-5 text-[15px]">
-              {top.map((a) => (
-                <li key={a.id} className="pl-1">
-                  <span className="font-semibold">{a.title}</span>
-                  <span className={cn('ml-2 rounded-pill px-2 py-0.5 text-[11px] font-bold', TONE_SOFT[SEVERITY_TONE[a.severity]])}>{SEVERITY_LABEL[a.severity]}</span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-ink-2">Everything in the plan is done.</p>
-          )}
-        </Card>
-        <Card title="6-month roadmap">
-          <Roadmap ws={ws} />
-        </Card>
-      </div>
+      <Card title="Top 10 to do now">
+        {top.length ? (
+          <ol className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-5">
+            {top.map((a, i) => (
+              <li key={a.id} className="flex items-start gap-3 border-b border-border py-2.5 text-[15px] last:border-0 lg:[&:nth-child(5)]:border-0">
+                <span className="w-6 shrink-0 text-right font-bold tabular text-ink-3">{i + 1}.</span>
+                <span className="min-w-0 flex-1 font-semibold leading-snug">{a.title}</span>
+                <span className={cn('shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-bold', TONE_SOFT[SEVERITY_TONE[a.severity]])}>{SEVERITY_LABEL[a.severity]}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-ink-2">Everything in the plan is done.</p>
+        )}
+      </Card>
+      <Card title="6-month roadmap">
+        <Roadmap ws={ws} columns={3} />
+      </Card>
 
       <section aria-labelledby="all-actions" className="flex flex-col gap-3">
         <h2 id="all-actions" className="font-display text-xl font-bold">All actions</h2>
