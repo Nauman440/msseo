@@ -64,4 +64,10 @@ describe('keyword focus pass', () => {
     const out = cleanKeywords({ ...three, keywords: [kw('ac repair dallas'), kw('water bottle dallas')] });
     expect(reasons(out.keywords)).toEqual({ 'ac repair dallas': 'kept', 'water bottle dallas': 'Not closely about one of your services' });
   });
+
+  it('keeps a sensible list when the research inputs have no services yet', () => {
+    const list = Array.from({ length: 100 }, (_, i) => kw(`storage box ${i}`));
+    const out = focusPass(list, emptyKeywordWorkspace('maxbox.uk', { businessType: 'shop' }));
+    expect(out.filter((k) => k.status === 'kept')).toHaveLength(60);
+  });
 });

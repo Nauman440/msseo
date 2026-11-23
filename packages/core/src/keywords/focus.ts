@@ -31,6 +31,7 @@ const INFO_MIN = 5;
 const BROAD_VOLUME = 1000;
 /** Keywords that match no service (built from symptoms or other inputs) share one small bucket. */
 const OTHER_CAP = 10;
+const NO_TOPICS_CAP = 60;
 
 const hasPhrase = (term: string, phrase: string) => phrase.length > 0 && ` ${term} `.includes(` ${phrase} `);
 
@@ -117,7 +118,8 @@ export function focusPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'see
     return { k, bucket: s.fit > 0 ? s.topic! : '', score: opportunity(k, { local, locations, fit: s.fit }), safe: protectedKw(k, typed) };
   });
   const buckets = new Set(scored.map((x) => x.bucket));
-  const cap = (b: string) => (b ? PER_SERVICE : OTHER_CAP);
+  // Without any services in the research inputs there is nothing to split by: one list of the best NO_TOPICS_CAP.
+  const cap = (b: string) => (b ? PER_SERVICE : topics.length ? OTHER_CAP : NO_TOPICS_CAP);
   const total = Math.min(MAX_FOCUS, [...buckets].reduce((s, b) => s + cap(b), 0));
   const infoCap = Math.max(INFO_MIN, Math.round(total * INFO_SHARE));
   const used = new Map<string, number>();
