@@ -42,7 +42,7 @@ export default async function TeamCompetitorsPage({ params, searchParams }: Prop
         view={COMPETITOR_VIEWS.includes(view as CompetitorView) ? (view as CompetitorView) : 'competitors'}
         gaps={gapByCompetitor(keywords)}
         analysis={analysis}
-        gapHref={`/keywords/${domain}?view=all&from=gap`}
+        gapHref={`/keywords/${domain}?open=all&from=gap#all-keywords`}
       />
     </Container>
   );

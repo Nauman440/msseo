@@ -62,7 +62,7 @@ export default async function CustomerAccountPage() {
           {accountSites(account).map(domainOf).map((d) => (
             <li key={d} className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-border px-4 py-3">
               <span className="font-semibold">{d}</span>
-              <Link href={`/my/keywords?site=${encodeURIComponent(d)}&view=inputs`} className="inline-flex min-h-10 items-center text-sm font-semibold text-primary-heading underline">
+              <Link href={`/my/keywords?site=${encodeURIComponent(d)}&open=inputs#research-inputs`} className="inline-flex min-h-10 items-center text-sm font-semibold text-primary-heading underline">
                 Research inputs
               </Link>
             </li>

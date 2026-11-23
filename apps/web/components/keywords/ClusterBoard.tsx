@@ -18,7 +18,11 @@ export function sortTopics(clusters: KeywordCluster[], order: TopicOrder, now = 
   return [...clusters].sort(by[order]);
 }
 
-export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHref, business = 'services', limit = 6 }: {
+/** Priority (1–25) in words, for people who do not need the score. */
+export const priorityWord = (p: number) => (p >= 15 ? 'Do first' : p >= 8 ? 'Do next' : 'Later');
+const PRIORITY_CHIP = (p: number) => (p >= 15 ? 'bg-night text-white' : p >= 8 ? 'bg-primary-chip text-primary-heading' : 'bg-sunken text-ink-2');
+
+export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHref, business = 'services', limit = 6, editable = false }: {
   domain: string;
   clusters: KeywordCluster[];
   keywords: KeywordRecord[];
@@ -27,6 +31,8 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
   allHref: string;
   business?: BusinessType;
   limit?: number;
+  /** Team: the score and the value / chance controls. Customers: priority in words, nothing to set. */
+  editable?: boolean;
 }) {
   const members = new Map<string, string[]>();
   for (const k of [...keywords].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))) if (k.clusterId && k.status === 'kept' && ((k.volume ?? 0) >= LOW_VOLUME || typedByHand(k))) members.set(k.clusterId, [...(members.get(k.clusterId) ?? []), k.term]);
@@ -36,8 +42,12 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
     <section aria-labelledby="all-topics" className="flex flex-col gap-3.5">
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <h2 id="all-topics" className="font-display text-[22px] font-bold sm:text-[26px]">All {clusters.length} {clusters.length === 1 ? 'topic' : 'topics'} by priority</h2>
-          <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">Priority = value to you × chance to rank, each from 1 to 5. Change either one and the order updates.</p>
+          <h2 id="all-topics" className="font-display text-[22px] font-bold sm:text-[26px]">All {clusters.length} {clusters.length === 1 ? 'topic' : 'topics'}</h2>
+          <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">
+            {editable
+              ? 'Priority = value to you × chance to rank, each from 1 to 5. Change either one and the order updates.'
+              : 'Each topic is a group of searches that one page on your website should answer. The ones worth most to you and easiest to win come first.'}
+          </p>
         </div>
         <TopicSort value={order} />
       </div>
@@ -49,7 +59,11 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
             <li key={c.id} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-[18px]">
               <div className="flex items-start justify-between gap-2.5">
                 <h3 className="min-w-0 break-words text-base font-bold leading-snug">{c.name}</h3>
-                <span title="Priority score" className="shrink-0 rounded-[8px] bg-night px-[9px] py-1 font-display text-[13px] font-extrabold text-white tabular">{c.priority}/25</span>
+                {editable ? (
+                  <span title="Priority score" className="shrink-0 rounded-[8px] bg-night px-[9px] py-1 font-display text-[13px] font-extrabold text-white tabular">{c.priority}/25</span>
+                ) : (
+                  <span className={cn('shrink-0 rounded-[8px] px-[9px] py-1 text-[12.5px] font-extrabold', PRIORITY_CHIP(c.priority))}>{priorityWord(c.priority)}</span>
+                )}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {c.quickWin && <span className={cn(CHIP, 'bg-primary-chip text-primary-heading')}>Quick win</span>}
@@ -61,7 +75,7 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
               <p className="text-[13px] text-ink-2 tabular">
                 {c.volume.toLocaleString('en-US')} searches a month · {c.size} keyword{c.size === 1 ? '' : 's'}
                 {c.trafficPotential ? <> · <Term k="trafficPotential">~{c.trafficPotential.toLocaleString('en-US')} visits a month for #1</Term></> : null}
-                {c.bestPosition !== null && c.bestPosition <= 100 ? ` · you rank #${c.bestPosition}` : ''}
+                {c.bestPosition !== null && c.bestPosition <= 100 ? ` · you are #${c.bestPosition} on Google` : ' · not on Google yet'}
               </p>
               <ul className="flex flex-wrap gap-1.5">
                 {terms.slice(0, 3).map((t) => (
@@ -69,9 +83,11 @@ export function ClusterBoard({ domain, clusters, keywords, order, showAll, allHr
                 ))}
                 {terms.length > 3 && <li className="px-0.5 py-1 text-[12.5px] text-ink-2">+{terms.length - 3} more</li>}
               </ul>
-              <div className="mt-auto border-t border-border pt-3">
-                <ClusterScores domain={domain} id={c.id} name={c.name} businessValue={c.businessValue} rankingChance={c.rankingChance} />
-              </div>
+              {editable && (
+                <div className="mt-auto border-t border-border pt-3">
+                  <ClusterScores domain={domain} id={c.id} name={c.name} businessValue={c.businessValue} rankingChance={c.rankingChance} />
+                </div>
+              )}
             </li>
           );
         })}

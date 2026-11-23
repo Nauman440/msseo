@@ -31,7 +31,7 @@ export default async function TeamAeoPage({ params }: Props) {
           <Link href={`/action-plan/${domain}`} className={link}>Action plan</Link>
         </div>
       </div>
-      <AeoView ws={ws} audience="team" nextRun={null} questionsHref={`/keywords/${domain}?view=questions`} />
+      <AeoView ws={ws} audience="team" nextRun={null} questionsHref={`/keywords/${domain}?open=questions#questions`} />
     </Container>
   );
 }

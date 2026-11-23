@@ -11,9 +11,9 @@ import { Term } from '@/components/ui/Term';
 const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
   { key: 'term', label: 'Keyword' },
   { key: 'volume', label: 'Searches / mo', right: true },
-  { key: 'difficulty', label: 'Difficulty' },
-  { key: 'cpc', label: 'Cost per click', right: true },
-  { key: 'position', label: 'Your position' },
+  { key: 'difficulty', label: 'How hard' },
+  { key: 'cpc', label: 'Ad price', right: true },
+  { key: 'position', label: 'You on Google' },
 ];
 const PAGE = 100;
 type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; topic: string; from: string; sort: KeywordSort; desc: boolean; low: boolean };
@@ -82,13 +82,13 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
         <label className={field}>
           Show
           <select value={filters.show} onChange={(e) => set({ show: e.target.value as Filters['show'] })} className={`${INPUT} text-sm text-ink`}>
-            <option value="kept">Kept</option>
-            <option value="removed">Removed</option>
-            <option value="all">All</option>
+            <option value="kept">Searches we target</option>
+            <option value="removed">Left out (and why)</option>
+            <option value="all">Both</option>
           </select>
         </label>
         <label className={field}>
-          Intent
+          What they want
           <select value={filters.intent} onChange={(e) => set({ intent: e.target.value })} className={`${INPUT} text-sm text-ink`}>
             <option value="">Any</option>
             {['transactional', 'commercial', 'informational', 'navigational'].map((i) => (
@@ -106,7 +106,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
           </select>
         </label>
         <label className={field}>
-          Found from
+          Where we found it
           <select value={filters.from} onChange={(e) => set({ from: e.target.value })} className={`${INPUT} text-sm text-ink`}>
             <option value="">Anywhere</option>
             <option value="gsc">Search Console</option>
@@ -133,9 +133,9 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-2">
           <span>What the columns mean:</span>
           <Term k="volume">Searches / mo</Term>
-          <Term k="difficulty">Difficulty</Term>
-          <Term k="position">Your position</Term>
-          <Term k="intent">Intent</Term>
+          <Term k="difficulty">How hard</Term>
+          <Term k="position">You on Google</Term>
+          <Term k="intent">What they want</Term>
           <Term k="topic">Topic</Term>
         </p>
         <div className="relative overflow-x-auto">
@@ -151,7 +151,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                   </th>
                 ))}
                 <th className={TH}>Topic</th>
-                <th className={TH}>Intent</th>
+                <th className={TH}>What they want</th>
                 <th className={TH}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -190,10 +190,10 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                       <button
                         type="button"
                         onClick={() => flip(r)}
-                        aria-label={`${r.status === 'kept' ? 'Remove' : 'Keep'} ${r.term}`}
+                        aria-label={`${r.status === 'kept' ? 'Remove' : 'Put back'} ${r.term}`}
                         className={cn('min-h-9 rounded-[8px] border border-border bg-surface px-2.5 text-[13px] font-semibold', r.status === 'kept' ? 'text-ink-2 hover:text-fail-text' : 'text-primary-text')}
                       >
-                        {r.status === 'kept' ? 'Remove' : 'Keep'}
+                        {r.status === 'kept' ? 'Remove' : 'Put back'}
                       </button>
                     </td>
                   </tr>
@@ -203,7 +203,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
           </table>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[13px] text-ink-2">Difficulty 0 to 100. Cost per click shows what advertisers pay, a sign of how valuable the search is.</p>
+          <p className="text-[13px] text-ink-2">How hard: 0 (easy) to 100 (very hard) to reach Google’s first page. Ad price: what advertisers pay per click, a sign of how much the search is worth.</p>
           <div className="flex gap-2">
             <button type="button" disabled={loading || offset === 0} onClick={() => void load(filters, Math.max(0, offset - PAGE))} className={BUTTON}>Previous</button>
             <button type="button" disabled={loading || offset + data.rows.length >= data.total} onClick={() => void load(filters, offset + PAGE)} className={BUTTON}>Next</button>

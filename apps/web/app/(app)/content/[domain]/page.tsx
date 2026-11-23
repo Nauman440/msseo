@@ -28,7 +28,7 @@ export default async function TeamContentPage({ params }: Props) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader as="h1" align="left" eyebrow="Content audit" title={domain} intro="Every page with a keep, improve, merge or remove verdict, pages losing visits, missing topics, services × places, and a content calendar." />
         <div className="flex flex-wrap gap-3">
-          <Link href={`/keywords/${domain}?view=mapping`} className={link}>Page mapping</Link>
+          <Link href={`/keywords/${domain}?view=mapping`} className={link}>Page plan</Link>
           <Link href={`/action-plan/${domain}`} className={link}>Action plan</Link>
         </div>
       </div>

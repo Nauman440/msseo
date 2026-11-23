@@ -29,7 +29,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader as="h1" align="left" eyebrow="Action plan" title={domain} intro="Every finding turned into tracked work: priority (impact × confidence ÷ effort), owner, due date, approval, and results checked 7, 14 and 28 days after each fix." />
         <div className="flex flex-wrap gap-3">
-          <Link href={`/keywords/${domain}?view=mapping`} className={link}>Page mapping</Link>
+          <Link href={`/keywords/${domain}?view=mapping`} className={link}>Page plan</Link>
           {ws.actions.length > 0 && <a href={`/api/action-plan/${domain}/csv`} className={link}>Download CSV</a>}
         </div>
       </div>

@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from 'react';
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, SEED_LIMITS, type BusinessType, type KeywordSeeds } from '@seo/core';
 import {
-  addKeywordsAction, clusterKeywordsAction, generatePromptsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
+  addKeywordsAction, clusterKeywordsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
   type KeywordState,
 } from '@/app/keywords/actions';
 import { INPUT, Message, Submit } from '@/components/competitors/forms';
@@ -93,29 +93,27 @@ export function SeedsForm({ domain, businessType, country, language, seeds }: { 
 export function KeywordRunButtons({ domain, hasKeywords, hasClusters, audience }: { domain: string; hasKeywords: boolean; hasClusters: boolean; audience: 'team' | 'customer' }) {
   const [research, runResearch] = useActionState<KeywordState>(researchKeywordsAction.bind(null, domain), {});
   const [cluster, runCluster] = useActionState<KeywordState>(clusterKeywordsAction.bind(null, domain), {});
-  const [prompts, runPrompts] = useActionState<KeywordState>(generatePromptsAction.bind(null, domain), {});
   const [sent, send] = useActionState<KeywordState>(sendClustersToCompetitorsAction.bind(null, domain), {});
+  const team = audience === 'team';
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2.5">
-        {hasClusters && (
+        {/* Team tools; customers get these from autopilot. AI questions live on the AI search page. */}
+        {team && hasClusters && (
           <form action={send}>
             <Submit label="Use topics to find competitors" busy="Sending…" tone="secondary" />
           </form>
         )}
-        <form action={runPrompts}>
-          <Submit label="Write AI questions" busy="Writing…" tone="secondary" />
-        </form>
-        {hasKeywords && audience === 'team' && (
+        {team && hasKeywords && (
           <form action={runCluster}>
             <Submit label="Rebuild topics" busy="Checking Google…" tone="secondary" />
           </form>
         )}
         <form action={runResearch}>
-          <Submit label={hasKeywords ? 'Update keywords' : 'Research keywords'} busy="Researching and grouping… (about a minute)" />
+          <Submit label={hasKeywords ? 'Check for new keywords now' : 'Find my keywords now'} busy="Checking Google… (about a minute)" tone={hasKeywords ? 'secondary' : undefined} />
         </form>
       </div>
-      {[research, cluster, prompts, sent].map((s, i) => (
+      {[research, cluster, sent].map((s, i) => (
         <Message key={i} state={s} />
       ))}
     </div>

@@ -310,10 +310,11 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Module 4 for customers: seeds come from onboarding; add keywords, remove one, export CSV.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
   const sections = page.getByRole('navigation', { name: 'Keyword sections' });
-  await expect(sections.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByText('No keywords yet.')).toBeVisible();
-  await sections.getByRole('link', { name: 'Research inputs' }).click();
-  await expect(page.getByRole('heading', { name: 'What you offer and where' })).toBeVisible();
+  // Two sections only: Keywords and Page plan. Questions for AI live on the AI search tab.
+  await expect(sections.getByRole('link')).toHaveCount(2);
+  await expect(sections.getByRole('link', { name: /^Keywords/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('Autopilot is getting your keywords ready', { exact: false })).toBeVisible();
+  await page.getByText('What we look for').click();
   await expect(page.getByRole('button', { name: 'Remove AC repair', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Plano' })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -323,8 +324,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Places you serve')).toBeHidden();
   await page.getByText('Visits, repairs or bookings in an area').click();
   await expect(page.getByText('Places you serve')).toBeVisible();
-  await sections.getByRole('link', { name: /^All keywords/ }).click();
-  await expect(page.getByRole('heading', { name: 'Add keywords you know' })).toBeVisible();
+  await page.locator('#all-keywords > summary').click();
+  await expect(page.getByRole('heading', { name: 'Add words your customers use', level: 3 })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Keywords', { exact: true }).fill('ac repair plano\nEmergency AC repair, ac repair plano');
   await page.getByRole('button', { name: 'Add keywords' }).click();
@@ -333,7 +334,7 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
   await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('removed');
-  await expect(page.getByRole('button', { name: 'Keep emergency ac repair' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Put back emergency ac repair' })).toBeVisible();
   await expect(page.getByText('Removed by hand')).toBeVisible();
   const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
   expect(csv.headers()['content-type']).toContain('text/csv');
@@ -345,7 +346,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   expect((await page.request.get('/api/keywords/rival-hvac.com/sheet')).status()).toBe(404);
   expect((await page.request.get('/api/keywords/summitairhvac.com/blog-brief?id=none')).status()).toBe(404);
   // Questions for AI: add one by hand, then choose which ones are tracked.
-  await sections.getByRole('link', { name: /^Questions for AI/ }).click();
+  // Folded at the bottom of Keywords; the old address opens it.
+  await page.goto('/my/keywords?view=questions');
   await expect(page.getByRole('heading', { name: 'Questions people ask AI assistants' })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Add a question your customers ask').fill('Who can fix my AC today in Plano?');
@@ -359,9 +361,9 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/keywords/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
 
-  // Module 5 for customers: Keywords → Page mapping needs keyword topics first (none researched in e2e).
+  // Module 5 for customers: Keywords → Page plan needs keyword topics first (none researched in e2e).
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
-  await page.getByRole('navigation', { name: 'Keyword sections' }).getByRole('link', { name: /^Page mapping/ }).click();
+  await page.getByRole('navigation', { name: 'Keyword sections' }).getByRole('link', { name: /^Page plan/ }).click();
   await expect(page.getByRole('heading', { name: 'Which page should rank for each topic', level: 2 })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Match pages to topics' }).click();

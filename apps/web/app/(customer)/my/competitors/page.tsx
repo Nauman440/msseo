@@ -34,7 +34,7 @@ export default async function CustomerCompetitorsPage({ searchParams }: Props) {
         gaps={gapByCompetitor(keywords)}
         analysis={analysis}
         nextRun={nextCustomerRun(analysis)}
-        gapHref={`/my/keywords?${q}&view=all&from=gap`}
+        gapHref={`/my/keywords?${q}&open=all&from=gap#all-keywords`}
       />
     </SiteFrame>
   );

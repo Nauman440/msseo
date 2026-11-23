@@ -32,8 +32,8 @@ export function TopTopics({ clusters, now = new Date() }: { clusters: KeywordClu
   return (
     <section className="flex flex-col gap-3.5" aria-labelledby="top-topics">
       <div className="flex flex-col gap-1.5">
-        <h2 id="top-topics" className="font-display text-[22px] font-bold tracking-[-0.01em] sm:text-[26px]">Your top topics to go after</h2>
-        <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">The {top.length === 1 ? 'topic' : `${top.length} topics`} most likely to bring you customers soon, with what to do for each.</p>
+        <h2 id="top-topics" className="font-display text-[22px] font-bold tracking-[-0.01em] sm:text-[26px]">Start here: your best chances to win customers</h2>
+        <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">The {top.length === 1 ? 'topic' : `${top.length} topics`} most likely to bring you customers soon, and what to do about each. The Page plan tab turns them into changes to your pages.</p>
       </div>
       <ol className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-3">
         {top.map((c, i) => {

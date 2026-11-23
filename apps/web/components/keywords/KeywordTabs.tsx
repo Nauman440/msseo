@@ -1,23 +1,31 @@
 import { SubTabs, withView } from '@/components/ui/SubTabs';
 
-export type KeywordView = 'overview' | 'all' | 'mapping' | 'questions' | 'inputs';
-export const KEYWORD_VIEWS: KeywordView[] = ['overview', 'all', 'mapping', 'questions', 'inputs'];
+/** Two sections: the keywords (with their research inputs) and the page plan (Module 5). */
+export type KeywordView = 'keywords' | 'mapping';
+/** Folded parts of the Keywords section that a link can open: every keyword, the research inputs, the AI questions. */
+export type KeywordOpen = 'all' | 'inputs' | 'questions' | null;
 
 /** Adds `view` (and other params) to the keyword page's base URL. */
-export const viewHref = (base: string, view: KeywordView, extra: Record<string, string> = {}) => withView(base, view, 'overview', extra);
+export const viewHref = (base: string, view: KeywordView, extra: Record<string, string> = {}) => withView(base, view, 'keywords', extra);
 
-/** Keyword sections (design: underline tabs with counts). */
-export function KeywordTabs({ base, view, keywords, topics, questions }: { base: string; view: KeywordView; keywords: number; topics: number; questions: number }) {
+/**
+ * Reads `?view=` and `?open=`. Older links still work: overview / all / inputs / questions land on Keywords
+ * and open their part.
+ */
+const OPEN = ['all', 'inputs', 'questions'];
+export function parseKeywordView(view?: string, open?: string): { view: KeywordView; open: KeywordOpen } {
+  const o = (OPEN.includes(open ?? '') ? open : OPEN.includes(view ?? '') ? view : null) as KeywordOpen;
+  return { view: view === 'mapping' ? 'mapping' : 'keywords', open: o };
+}
+
+export function KeywordTabs({ base, view, keywords, topics }: { base: string; view: KeywordView; keywords: number; topics: number }) {
   return (
     <SubTabs
       label="Keyword sections"
       active={view}
       tabs={[
-        { key: 'overview', label: 'Overview', href: viewHref(base, 'overview') },
-        { key: 'all', label: 'All keywords', count: keywords, href: viewHref(base, 'all') },
-        { key: 'mapping', label: 'Page mapping', count: topics, href: viewHref(base, 'mapping') },
-        { key: 'questions', label: 'Questions for AI', count: questions, href: viewHref(base, 'questions') },
-        { key: 'inputs', label: 'Research inputs', href: viewHref(base, 'inputs') },
+        { key: 'keywords', label: 'Keywords', count: keywords, href: viewHref(base, 'keywords') },
+        { key: 'mapping', label: 'Page plan', count: topics, href: viewHref(base, 'mapping') },
       ]}
     />
   );

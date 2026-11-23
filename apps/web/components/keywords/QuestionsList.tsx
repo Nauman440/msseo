@@ -60,7 +60,7 @@ export function QuestionsList({ domain, prompts, writtenAt }: { domain: string; 
           </p>
           <h2 className="mt-1.5 font-display text-[22px] font-bold text-white">Questions people ask AI assistants</h2>
           <p className="mt-1.5 text-sm leading-relaxed text-mist-3">
-            Written from your topics. Tick the ones that matter: we ask ChatGPT the ticked questions in your competitor analysis to see who it recommends, and they are the list for AI search tracking.
+            Written from your keywords. Tick the ones your customers would really ask: we put the ticked questions to ChatGPT, Perplexity and Google’s AI (see the AI search tab) to see whether they recommend you or someone else.
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
