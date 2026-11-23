@@ -3,11 +3,12 @@ import { Card } from '@/components/ui/Card';
 import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
 import { ActionRow } from './ActionRow';
+import { AiPlanOverview, type AiPlanState } from './AiPlanOverview';
 import { AddActions, ApproveButton } from './forms';
 import { Roadmap } from './Roadmap';
 
 /** Module 12 page body, shared by the team (/action-plan/<domain>) and customers (/my/actions). */
-export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site = null, connectHref }: {
+export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site = null, connectHref, ai = { available: false, disabledReason: null, preparing: false } }: {
   ws: ActionWorkspace;
   open: Suggestion[];
   audience: 'team' | 'customer';
@@ -15,6 +16,8 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
   /** Spec §16.5: the connected WordPress or Shopify site, and where to connect one. */
   site?: ConnectionView | null;
   connectHref?: string;
+  /** The AI-written plan: whether it can be written here, and whether it is being written now. */
+  ai?: AiPlanState;
 }) {
   const domain = ws.domain;
   const sum = actionSummary(ws);
@@ -23,7 +26,12 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
   const shown = ws.actions.filter((a) => a.status !== 'dismissed').sort((a, b) => b.priority - a.priority);
   const dismissed = ws.actions.filter((a) => a.status === 'dismissed');
 
+  // With an AI plan, it decides what is in the plan; the leftover findings list is for the team only.
+  const showSuggested = suggested.length > 0 && (!ws.aiPlan || audience === 'team');
+  const overview = <AiPlanOverview domain={domain} plan={ws.aiPlan} audience={audience} ai={ai} />;
+
   if (!ws.actions.length) {
+    if (ws.aiPlan || ai.available) return overview;
     return (
       <section className="flex flex-col items-start gap-3 rounded-[18px] border border-border bg-surface p-6">
         <h2 className="font-display text-xl font-bold">No actions yet</h2>
@@ -45,6 +53,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
   ];
   return (
     <div className="flex flex-col gap-6">
+      {overview}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-[14px] border border-border bg-surface p-4">
@@ -120,7 +129,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         )}
       </section>
 
-      {suggested.length > 0 && (
+      {showSuggested && (
         <section aria-labelledby="suggested" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>

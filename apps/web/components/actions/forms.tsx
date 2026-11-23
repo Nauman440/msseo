@@ -2,7 +2,7 @@
 
 import { useActionState, useRef } from 'react';
 import type { ActionItem } from '@seo/core';
-import { addActionsAction, approveActionAction, updateActionAction, type ActionState } from '@/app/action-plan/actions';
+import { addActionsAction, approveActionAction, rewriteAiPlanAction, updateActionAction, type ActionState } from '@/app/action-plan/actions';
 import { INPUT, Message, SELECT_SM, Submit } from '@/components/competitors/forms';
 import { ACTION_STATUS_LABEL, APPROVAL_LABEL, BUCKET_LABEL } from './labels';
 
@@ -12,6 +12,18 @@ export function AddActions({ domain, suggestionKey = null, label, tone = 'primar
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <Submit label={label} busy="Adding…" tone={tone} />
+      <Message state={state} />
+    </form>
+  );
+}
+
+/** Writes the 6-month plan with AI (or again). Takes up to a few minutes. */
+export function RewritePlanButton({ domain, label, disabledReason = null }: { domain: string; label: string; disabledReason?: string | null }) {
+  const [state, action] = useActionState<ActionState>(rewriteAiPlanAction.bind(null, domain), {});
+  if (disabledReason) return <p className="text-[13px] text-ink-2">{disabledReason}</p>;
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <Submit label={label} busy="Writing your plan… (up to 3 minutes)" tone="secondary" />
       <Message state={state} />
     </form>
   );

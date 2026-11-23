@@ -1,4 +1,5 @@
 import type { ApplyRecord } from '../connections/types';
+import type { StoredAiPlan, TaskCategory, TaskDoer } from './ai-plan';
 import type { MappingRow, MappingWorkspace } from '../mapping/mapping';
 import type { Ice, ReportIssue, ReportModel, Severity } from '../types';
 
@@ -13,7 +14,22 @@ export type Approval = 'none' | 'team_lead' | 'client';
 /** Roadmap months: d30 = month 1 (days 1–30) … d180 = month 6. Plans before 2026-11-20 only used the first three. */
 export type Bucket = 'd30' | 'd60' | 'd90' | 'd120' | 'd150' | 'd180';
 export const ACTION_BUCKETS: Bucket[] = ['d30', 'd60', 'd90', 'd120', 'd150', 'd180'];
-export type ActionSource = { kind: 'audit'; ruleId: string } | { kind: 'mapping'; clusterId: string };
+export type ActionSource = { kind: 'audit'; ruleId: string } | { kind: 'mapping'; clusterId: string } | { kind: 'ai'; planId: string; taskId: string };
+
+/** What the AI plan says about a task (ai-plan.ts): who does it, when, what changes and how success is checked. */
+export type PlanTaskInfo = {
+  taskId: string;
+  month: number;
+  week: number;
+  doer: TaskDoer;
+  category: TaskCategory;
+  why: string;
+  change: string;
+  keywords: string[];
+  dependsOn: string[];
+  successCheck: string;
+  checkAfterDays: number;
+};
 
 export type BeforeState = {
   capturedAt: string;
@@ -67,16 +83,24 @@ export type ActionItem = {
   changes?: PageChange[];
   /** Applied to the connected WordPress or Shopify site (spec §16.5), with undo information. */
   applied?: ApplyRecord | null;
+  /** Set on tasks from the AI-written plan. */
+  plan?: PlanTaskInfo;
   createdAt: string;
   updatedAt: string;
 };
 /** `data`: structured values for applying (a new page’s address, title, meta and HTML skeleton). */
 export type PageChange = { id: string; label: string; now: string; suggested: string; data?: Record<string, string> };
 
-export type ActionWorkspace = { domain: string; actions: ActionItem[]; updatedAt: string | null };
+export type ActionWorkspace = {
+  domain: string;
+  actions: ActionItem[];
+  updatedAt: string | null;
+  /** The AI-written 6-month plan (its tasks are the actions with `source.kind === 'ai'`). */
+  aiPlan?: StoredAiPlan | null;
+};
 export const emptyActions = (domain: string): ActionWorkspace => ({ domain, actions: [], updatedAt: null });
 
-export const actionKey = (s: ActionSource) => (s.kind === 'audit' ? `audit:${s.ruleId}` : `mapping:${s.clusterId}`);
+export const actionKey = (s: ActionSource) => (s.kind === 'audit' ? `audit:${s.ruleId}` : s.kind === 'mapping' ? `mapping:${s.clusterId}` : `ai:${s.planId}:${s.taskId}`);
 export const priorityOf = (i: number, c: number, e: number) => Math.round(((i * c) / Math.max(1, e)) * 10) / 10;
 const clamp = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
 const normUrl = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();

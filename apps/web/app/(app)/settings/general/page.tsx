@@ -169,6 +169,20 @@ export default async function GeneralSettingsPage() {
               )}
             </div>
           </fieldset>
+          <fieldset className="flex flex-col gap-3 border-t border-border pt-5">
+            <legend className="font-display text-lg font-bold">AI action plan: work per month</legend>
+            <p className={HINT}>The 6-month plan never schedules more than this in a month; the rest is listed as “later”. Team client sites use the Growth numbers.</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {(['autopilot', 'growth'] as const).flatMap((tier) =>
+                ([['automatic', 'automatic changes'], ['newPages', 'new pages'], ['articles', 'articles']] as const).map(([k, label]) => (
+                  <label key={`${tier}.${k}`} className={LABEL}>
+                    {tier === 'autopilot' ? 'Autopilot' : 'Growth'}: {label}
+                    <input name={`plan.${tier}.${k}`} type="number" min={0} max={100} defaultValue={s[`plan.${tier}.${k}`]} className={`${INPUT} tabular`} />
+                  </label>
+                )),
+              )}
+            </div>
+          </fieldset>
         </ActionForm>
       </section>
 

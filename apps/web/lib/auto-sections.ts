@@ -90,11 +90,23 @@ export async function autoKeywords(domain: string, account: Pick<Account, 'userI
   return prepare(`autopilot:${domain}`, () => now(false), 6 * 60 * 60_000);
 }
 
-/** 12.x for customers: every finding and page-plan topic is in the 6-month plan without clicking. */
-export async function autoActionPlan(domain: string): Promise<ActionWorkspace> {
+/**
+ * 12.x for customers: the 6-month plan without clicking. With OpenAI the plan is written by AI (in the
+ * background, when there is none or it is a month old and there are an audit and keywords); without
+ * it, every finding and page-plan topic becomes an action by the fixed rules.
+ */
+export async function autoActionPlan(domain: string): Promise<{ ws: ActionWorkspace; preparing: boolean }> {
   const [ws, ctx] = await Promise.all([getActions(domain), planContext(domain, false)]);
+  const { aiPlanAvailable, aiPlanDue, rewriteAiPlan } = await import('./ai-plan');
+  if (aiPlanAvailable()) {
+    const kw = await getKeywordWorkspace(domain);
+    const ready = Boolean(ctx.report) && kw.keywords.length > 0;
+    const preparing = ready && aiPlanDue(ws) ? prepare(`aiplan:${domain}`, () => rewriteAiPlan(domain), 6 * 60 * 60_000) : false;
+    // Until the first AI plan exists, the fixed rules still give the customer a plan to look at.
+    if (ws.aiPlan || preparing) return { ws, preparing };
+  }
   const next = autoPlan(ws, ctx.report, ctx.mapping, { gsc: ctx.gsc, newId: randomUUID });
-  if (!next) return ws;
+  if (!next) return { ws, preparing: false };
   await saveActions(next);
-  return next;
+  return { ws: next, preparing: false };
 }

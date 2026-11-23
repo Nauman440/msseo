@@ -17,6 +17,25 @@ const Chip = ({ tone, children }: { tone: keyof typeof TONE_SOFT; children: Reac
   <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-bold', TONE_SOFT[tone])}>{children}</span>
 );
 
+const DOER: Record<NonNullable<ActionItem['plan']>['doer'], string> = { automatic: 'Done by software after approval', team: 'Done by the SEO team', client: 'Done by you' };
+
+/** AI plan tasks: when, who, what changes and how success is checked. */
+function PlanLine({ a }: { a: ActionItem }) {
+  const p = a.plan!;
+  return (
+    <div className="flex flex-col gap-1.5 text-[13.5px]">
+      <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2">
+        <Chip tone="info">Month {p.month}, week {p.week}</Chip>
+        <Chip tone={p.doer === 'automatic' ? 'pass' : 'info'}>{DOER[p.doer]}</Chip>
+        {p.dependsOn.length > 0 && <span>after task {p.dependsOn.join(', ')}</span>}
+      </p>
+      {p.change && <p className="[overflow-wrap:anywhere]"><span className="font-semibold">What changes: </span>{p.change}</p>}
+      {p.successCheck && <p className="text-ink-2"><span className="font-semibold text-ink">How we know it worked: </span>{p.successCheck} (checked {p.checkAfterDays} days after the change)</p>}
+      {p.keywords.length > 0 && <p className="text-[12.5px] text-ink-2">Searches: {p.keywords.join(', ')}</p>}
+    </div>
+  );
+}
+
 /** One action: summary line, then details (12.4 fields, 12.5 before-state, 12.6 checks). */
 export function ActionRow({ domain, action: a, audience, site = null, connectHref }: { domain: string; action: ActionItem; audience: 'team' | 'customer'; site?: ConnectionView | null; connectHref?: string }) {
   const waiting = a.approval !== 'none' && !a.approvedAt;
@@ -40,6 +59,7 @@ export function ActionRow({ domain, action: a, audience, site = null, connectHre
         </div>
         <ActionStatusSelect domain={domain} action={a} />
       </div>
+      {a.plan && <PlanLine a={a} />}
       {a.changes && a.changes.length > 0 && (
         <ul aria-label="Changes to approve" className="flex flex-col gap-2">
           {a.changes.map((c) => (

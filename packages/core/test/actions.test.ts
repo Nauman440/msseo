@@ -26,7 +26,7 @@ describe('suggestions and adding actions', () => {
   it('takes failed and warned issues plus page-plan rows, highest priority first, skipping info and passes', () => {
     const r = report([issue('1.5.1'), issue('2.1.3', { status: 'warn', severity: 'medium', ice: { impact: 2, confidence: 4, effort: 1 } }), issue('1.1.5', { severity: 'info' }), issue('2.2.1', { status: 'pass' })]);
     const s = suggestions(emptyActions('site.com'), r, mapping([row('heat-pump-installation'), row('ac-repair', { action: 'leave' })]));
-    expect(s.map((x) => (x.source.kind === 'audit' ? x.source.ruleId : x.source.clusterId))).toEqual(['1.5.1', '2.1.3', 'heat-pump-installation']);
+    expect(s.map((x) => (x.source.kind === 'audit' ? x.source.ruleId : x.source.kind === 'mapping' ? x.source.clusterId : x.source.taskId))).toEqual(['1.5.1', '2.1.3', 'heat-pump-installation']);
     expect(s[0]!.priority).toBe(priorityOf(4, 4, 2));
     expect(s[2]!.title).toBe('Create a page for "heat pump installation"');
   });

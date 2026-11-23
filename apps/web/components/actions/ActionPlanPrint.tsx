@@ -14,6 +14,10 @@ const SEVERITY: Record<ActionItem['severity'], string> = { critical: 'Critical',
 export function ActionPlanPrint({ ws }: { ws: ActionWorkspace }) {
   const live = ws.actions.filter((a) => a.status !== 'dismissed');
   const done = live.filter((a) => a.status === 'done' || a.status === 'verified').length;
+  const theme = (b: (typeof ACTION_BUCKETS)[number]) => {
+    const m = ws.aiPlan?.months.find((x) => x.month === ACTION_BUCKETS.indexOf(b) + 1);
+    return m ? [m.theme, m.goal].filter(Boolean).join(': ') : '';
+  };
   return (
     <article className="flex flex-col gap-[22px]">
       <div>
@@ -27,6 +31,24 @@ export function ActionPlanPrint({ ws }: { ws: ActionWorkspace }) {
         <p className="rounded-[14px] border border-border bg-surface px-[18px] py-3.5 text-sm text-ink-2">The plan is empty: it fills in after the first audit.</p>
       ) : (
         <>
+          {ws.aiPlan && (
+            <section aria-labelledby="p-summary" className={cn(CARD, 'pdf-avoid')}>
+              <h2 id="p-summary" className="font-display text-xl font-bold">What the 6 months should achieve</h2>
+              <p className="text-sm">{ws.aiPlan.summary}</p>
+              {ws.aiPlan.baseline_and_targets.length > 0 && (
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-[12px] text-ink-2"><th className="py-1 pr-2">Measure</th><th className="py-1 pr-2">Now</th><th className="py-1 pr-2">Month 3</th><th className="py-1">Month 6</th></tr>
+                  </thead>
+                  <tbody>
+                    {ws.aiPlan.baseline_and_targets.map((r) => (
+                      <tr key={r.metric} className="border-t border-border"><td className="py-1 pr-2 font-semibold">{r.metric}</td><td className="py-1 pr-2">{r.now}</td><td className="py-1 pr-2">{r.month_3_target}</td><td className="py-1">{r.month_6_target}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
           <section aria-labelledby="p-roadmap" className={cn(CARD, 'pdf-avoid')}>
             <h2 id="p-roadmap" className="font-display text-xl font-bold">Roadmap</h2>
             <Roadmap ws={ws} max={4} />
@@ -39,6 +61,7 @@ export function ActionPlanPrint({ ws }: { ws: ActionWorkspace }) {
                 <h2 id={`p-${b}`} className="font-display text-xl font-bold">
                   {BUCKET_LABEL[b]} <span className="text-base font-semibold text-ink-2">· {items.length} actions</span>
                 </h2>
+                {theme(b) && <p className="text-sm text-ink-2">{theme(b)}</p>}
                 <ol className="flex flex-col">
                   {items.map((a, i) => (
                     <li key={a.id} className="pdf-avoid flex gap-3 border-t border-border py-3 text-sm first:border-t-0">
@@ -46,6 +69,7 @@ export function ActionPlanPrint({ ws }: { ws: ActionWorkspace }) {
                       <span className="min-w-0 flex-1">
                         <b className="block">{a.title}</b>
                         {a.detail && <span className="block text-ink-2">{a.detail}</span>}
+                        {a.plan?.successCheck && <span className="block text-ink-2">How we know it worked: {a.plan.successCheck} (after {a.plan.checkAfterDays} days)</span>}
                         <span className="mt-1 block text-[12px] text-ink-3">
                           {ACTION_STATUS_LABEL[a.status]} · {SEVERITY[a.severity]} · priority {Math.round(a.priority * 10) / 10}
                           {a.dueDate ? ` · due ${day(a.dueDate)}` : ''} · {APPROVAL_LABEL[a.approval]}

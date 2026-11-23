@@ -79,3 +79,15 @@ export async function approveActionAction(rawDomain: string, id: string): Promis
   pathsFor(domain);
   return { ok: 'Approved.' };
 }
+
+/** "Write the plan with AI" / "Rewrite plan": the team any time, customers once a week. */
+export async function rewriteAiPlanAction(rawDomain: string): Promise<ActionState> {
+  const { domain, customer } = await guard(rawDomain);
+  const { getActions: load } = await import('@/lib/actions');
+  const { nextAiPlan, rewriteAiPlan } = await import('@/lib/ai-plan');
+  const next = nextAiPlan(await load(domain), customer ? 'customer' : 'team');
+  if (next) return { error: `A new plan can be written from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}.` };
+  const r = await rewriteAiPlan(domain);
+  pathsFor(domain);
+  return 'ok' in r ? { ok: r.ok } : { error: r.error };
+}

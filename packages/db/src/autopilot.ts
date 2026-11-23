@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  autoPlan, autoShortlist, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type BacklinkWorkspace, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
   discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
@@ -11,6 +11,7 @@ import { searchConsoleFor } from './google-access';
 import { getKeywordWorkspace, saveKeywordWorkspace } from './keywords';
 import { getMappingWorkspace, saveMappingWorkspace } from './mapping';
 import { getSettings } from './settings';
+import { getSiteDocument } from './site-documents';
 
 /**
  * Autopilot for customers (2026-11-17): once after sign-up and then monthly per website, without
@@ -38,9 +39,9 @@ const hostOf = (url: string) => {
  * that were copied from the first website.
  */
 /** `team`: one of the team's client sites (no customer account; userId is empty). */
-export type AutopilotSite = { userId: string; domain: string; primary: boolean; team?: boolean; rederive?: boolean; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+export type AutopilotSite = { userId: string; domain: string; primary: boolean; team?: boolean; rederive?: boolean; /** Customer plan (team sites: growth); sets the AI plan's monthly capacity. */ tier?: 'autopilot' | 'growth'; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
-type AccountRow = { userId: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+type AccountRow = { userId: string; plan?: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
 
 /**
  * One website of an account. The sign-up answers (business name, services, areas, competitors) belong
@@ -50,7 +51,7 @@ function siteOf(a: AccountRow, domain: string): AutopilotSite {
   const primary = Boolean(a.website && hostOf(a.website) === domain);
   const fromAddress = domain.split('.')[0]!.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return {
-    userId: a.userId, domain, primary, country: a.country, language: a.language,
+    userId: a.userId, domain, primary, country: a.country, language: a.language, tier: a.plan === 'autopilot' ? 'autopilot' : 'growth',
     businessName: primary ? a.businessName || fromAddress : fromAddress,
     services: primary ? a.services : [], areas: primary ? a.areas : [], competitors: primary ? a.competitors : [],
   };
@@ -74,7 +75,7 @@ export async function resetBorrowedData(domain: string, site: Pick<AutopilotSite
   await saveCompetitorWorkspace({ ...emptyWorkspace(domain, loc), competitors: (comp?.competitors ?? []).filter((c) => c.sources.includes('manual')) });
   await saveMappingWorkspace(emptyMapping(domain));
   const actions = await getActionWorkspace(domain).catch(() => null);
-  if (actions) await saveActionWorkspace({ ...actions, actions: actions.actions.filter((a) => a.source.kind !== 'mapping' || a.status === 'done' || a.status === 'verified') });
+  if (actions) await saveActionWorkspace({ ...actions, aiPlan: null, actions: actions.actions.filter((a) => a.source.kind === 'audit' || a.status === 'done' || a.status === 'verified') });
   await prisma.competitorAnalysis.deleteMany({ where: { domain } }).catch(() => undefined);
   await prisma.siteDocument.deleteMany({ where: { domain, kind: { in: ['local', 'aeo'] } } }).catch(() => undefined);
 }
@@ -109,7 +110,7 @@ async function dueTeamSites(now: Date, customerDomains: Set<string>, cutoff: num
 export async function dueAutopilotSites(now = new Date(), includeTeam = false): Promise<AutopilotSite[]> {
   const accounts = await prisma.customerAccount.findMany({
     where: { onboardingStep: { gte: 6 }, user: { active: true }, OR: [{ status: 'active' }, { status: 'trial', trialEndsAt: { gt: now } }] },
-    select: { userId: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
+    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
   });
   const cutoff = now.getTime() - AUTOPILOT_EVERY_DAYS * 86_400_000;
   const out: AutopilotSite[] = [];
@@ -253,12 +254,35 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
         });
         await saveMappingWorkspace(plan);
         steps.push(`page plan: ${plan.rows.length} topics`);
-        // 7. The six-month action plan: every finding and page-plan topic not in it yet (free).
+        // 7. The six-month action plan: written by AI (monthly) when OpenAI is set up, else every finding
+        // and page-plan topic not in it yet by the fixed rules (free).
         const actions = (await getActionWorkspace(domain).catch(() => null)) ?? emptyActions(domain);
-        const next = autoPlan(actions, latest.report, plan, { gsc: null, newId: randomUUID, now });
-        if (next) {
-          await saveActionWorkspace(next);
-          steps.push(`action plan: ${next.actions.length - actions.actions.length} added`);
+        const aiDue = !actions.aiPlan || now.getTime() - Date.parse(actions.aiPlan.generatedAt) > AI_PLAN_EVERY_DAYS * 86_400_000;
+        if (env.openai && aiDue) {
+          try {
+            const tier = site.tier ?? 'growth';
+            const [backlinks, local] = await Promise.all([getSiteDocument<BacklinkWorkspace>('backlinks', domain).catch(() => null), getSiteDocument<LocalAudit>('local', domain).catch(() => null)]);
+            const written = await writeAiPlan(
+              createOpenAiClient(env.openai),
+              actions,
+              {
+                domain, tier, capacity: capacityFor(await getSettings(), tier), keywords, mapping: plan, report: latest.report, country: keywords.country,
+                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local }),
+              },
+              { newId: randomUUID, now, report: latest.report, gsc: null },
+            );
+            tokens += written.tokens;
+            await saveActionWorkspace(written.workspace);
+            steps.push(`AI action plan: ${written.workspace.actions.filter((x) => x.source.kind === 'ai' && x.source.planId === written.workspace.aiPlan?.id).length} tasks`);
+          } catch (err) {
+            error = [error, `AI action plan: ${err instanceof Error ? err.message : String(err)}`].filter(Boolean).join(' · ');
+          }
+        } else if (!env.openai) {
+          const next = autoPlan(actions, latest.report, plan, { gsc: null, newId: randomUUID, now });
+          if (next) {
+            await saveActionWorkspace(next);
+            steps.push(`action plan: ${next.actions.length - actions.actions.length} added`);
+          }
         }
       }
     }
@@ -327,7 +351,7 @@ export async function runAutopilotNow(userId: string, domain: string, opts: { re
   const settings = await getSettings();
   const a = await prisma.customerAccount.findUnique({
     where: { userId },
-    select: { userId: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
+    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
   });
   if (!a || ![a.website, ...a.extraWebsites].some((w) => w && hostOf(w) === domain)) return null;
   const primary = Boolean(a.website && hostOf(a.website) === domain);
