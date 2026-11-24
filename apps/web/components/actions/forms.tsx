@@ -2,7 +2,7 @@
 
 import { useActionState, useRef } from 'react';
 import type { ActionItem } from '@seo/core';
-import { addActionsAction, approveActionAction, rewriteAiPlanAction, updateActionAction, type ActionState } from '@/app/action-plan/actions';
+import { addActionsAction, approveActionAction, regeneratePlanAction, rewriteAiPlanAction, updateActionAction, type ActionState } from '@/app/action-plan/actions';
 import { INPUT, Message, SELECT_SM, Submit } from '@/components/competitors/forms';
 import { ACTION_STATUS_LABEL, APPROVAL_LABEL, BUCKET_LABEL } from './labels';
 
@@ -24,6 +24,23 @@ export function RewritePlanButton({ domain, label, disabledReason = null }: { do
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <Submit label={label} busy="Writing your plan… (up to 3 minutes)" tone="secondary" />
+      <Message state={state} />
+    </form>
+  );
+}
+
+/** Temporary: replaces the whole plan with a new one (finished work and applied changes stay). Asks once to be sure. */
+export function RegeneratePlanButton({ domain }: { domain: string }) {
+  const [state, action] = useActionState<ActionState>(regeneratePlanAction.bind(null, domain), {});
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm('Write a brand-new 6-month plan? Open tasks are replaced; finished work and changes already made on the website stay.')) e.preventDefault();
+      }}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <Submit label="Regenerate plan" busy="Regenerating… (up to 3 minutes)" />
       <Message state={state} />
     </form>
   );

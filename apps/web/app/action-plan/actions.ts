@@ -91,3 +91,13 @@ export async function rewriteAiPlanAction(rawDomain: string): Promise<ActionStat
   pathsFor(domain);
   return 'ok' in r ? { ok: r.ok } : { error: r.error };
 }
+
+/** Temporary "Regenerate plan" (Settings switch): a brand-new plan now, for anyone who can see the plan, no weekly limit. */
+export async function regeneratePlanAction(rawDomain: string): Promise<ActionState> {
+  const { domain } = await guard(rawDomain);
+  const { regenerateEnabled, rewriteAiPlan } = await import('@/lib/ai-plan');
+  if (!(await regenerateEnabled())) return { error: 'Regenerating plans is switched off.' };
+  const r = await rewriteAiPlan(domain, { fresh: true });
+  pathsFor(domain);
+  return 'ok' in r ? { ok: r.ok } : { error: r.error };
+}

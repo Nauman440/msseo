@@ -109,6 +109,7 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'autopilot.enabled': form.get('autopilot.enabled') === 'on',
     'autopilot.monthlyCap': form.get('autopilot.monthlyCap'),
     'autopilot.teamSites': form.get('autopilot.teamSites') === 'on',
+    'plan.regenerateButton': form.get('plan.regenerateButton') === 'on',
     'plan.autopilot.automatic': form.get('plan.autopilot.automatic'),
     'plan.autopilot.newPages': form.get('plan.autopilot.newPages'),
     'plan.autopilot.articles': form.get('plan.autopilot.articles'),

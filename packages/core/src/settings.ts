@@ -26,6 +26,8 @@ export const settingsSchema = z
     'autopilot.monthlyCap': z.coerce.number().min(0, 'At least 0').max(1000, 'At most 1,000').default(20),
     /** Also run autopilot monthly for the team's client sites (audited by the team in the last 120 days), under the same cap. */
     'autopilot.teamSites': z.coerce.boolean().default(true),
+    /** "Regenerate plan" button on every action plan (team and customers); switch off before going live. */
+    'plan.regenerateButton': z.coerce.boolean().default(true),
     /** AI action plan: work per month for each plan (team client sites use Growth). */
     'plan.autopilot.automatic': z.coerce.number().int().min(0, 'At least 0').max(100, 'At most 100').default(15),
     'plan.autopilot.newPages': z.coerce.number().int().min(0, 'At least 0').max(100, 'At most 100').default(2),

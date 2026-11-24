@@ -1,5 +1,5 @@
 import type { StoredAiPlan } from '@seo/core';
-import { RewritePlanButton } from './forms';
+import { RegeneratePlanButton, RewritePlanButton } from './forms';
 
 /**
  * The top of the action plan when it was written by AI: what the 6 months should achieve, the numbers
@@ -18,10 +18,17 @@ const path = (u: string) => {
   }
 };
 
-export type AiPlanState = { available: boolean; disabledReason: string | null; preparing: boolean };
+export type AiPlanState = { available: boolean; disabledReason: string | null; preparing: boolean; /** Temporary "Regenerate plan" button (Settings switch). */ regenerate?: boolean };
 
 export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string; plan: StoredAiPlan | null | undefined; audience: 'team' | 'customer'; ai: AiPlanState }) {
+  const regenerate = ai.regenerate ? (
+    <div className="flex flex-col items-start gap-1.5 rounded-[14px] border border-dashed border-border-strong bg-surface p-4">
+      <p className="text-[13px] text-ink-2">Start over: a new plan from today’s audit, keywords and Google data.</p>
+      <RegeneratePlanButton domain={domain} />
+    </div>
+  ) : null;
   if (!plan) {
+    if (regenerate && !ai.preparing) return regenerate;
     if (!ai.available || ai.preparing) return null;
     return (
       <section className="flex flex-col items-start gap-3 rounded-[18px] border border-border bg-surface p-6">
@@ -40,7 +47,7 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
           <h2 id="ai-plan" className="font-display text-[22px] font-bold">What the next 6 months should achieve</h2>
           <p className="text-[15px] leading-relaxed text-ink-2">{plan.summary}</p>
         </div>
-        {ai.available && <RewritePlanButton domain={domain} label="Rewrite the plan" disabledReason={ai.disabledReason} />}
+        {ai.regenerate ? <RegeneratePlanButton domain={domain} /> : ai.available && <RewritePlanButton domain={domain} label="Rewrite the plan" disabledReason={ai.disabledReason} />}
       </div>
 
       {plan.baseline_and_targets.length > 0 && (

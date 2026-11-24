@@ -3,7 +3,7 @@ import { suggestions } from '@seo/core';
 import { ActionPlanView } from '@/components/actions/ActionPlanView';
 import { SiteFrame } from '@/components/customer/SiteFrame';
 import { Preparing } from '@/components/customer/Preparing';
-import { aiPlanAvailable, nextAiPlan } from '@/lib/ai-plan';
+import { aiPlanAvailable, nextAiPlan, regenerateEnabled } from '@/lib/ai-plan';
 import { autoActionPlan } from '@/lib/auto-sections';
 import { planContext } from '@/lib/actions';
 import { getConnection, viewOf } from '@/lib/connections';
@@ -20,6 +20,7 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
   const s = await loadCustomerSite(site);
   const [{ ws, preparing }, ctx, conn] = await Promise.all([autoActionPlan(s.domain), planContext(s.domain), getConnection(s.domain)]);
   const next = nextAiPlan(ws, 'customer');
+  const regenerate = await regenerateEnabled();
   return (
     <SiteFrame s={s} tab="actions">
       {preparing && <Preparing what="your 6-month plan" />}
@@ -35,7 +36,7 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
         )}
       </div>
       <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="customer" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`}
-        ai={{ available: aiPlanAvailable(), preparing, disabledReason: next ? `You can ask for a new plan from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}. Autopilot also updates it every month.` : null }}
+        ai={{ available: aiPlanAvailable(), preparing, regenerate, disabledReason: next ? `You can ask for a new plan from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}. Autopilot also updates it every month.` : null }}
       />
     </SiteFrame>
   );

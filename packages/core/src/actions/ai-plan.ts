@@ -385,13 +385,15 @@ export function applyAiPlan(
   ws: ActionWorkspace,
   checked: CheckedPlan,
   meta: { model: string; tokens: number; business: PlanBusiness },
-  ctx: { newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null },
+  ctx: { newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; /** Regenerate: start over, keeping only finished work and changes already applied to the site. */ fresh?: boolean },
 ): ActionWorkspace {
   const now = ctx.now ?? new Date();
   const iso = now.toISOString();
   const start = Date.parse(`${meta.business.startDate}T00:00:00Z`);
   const planId = ctx.newId();
-  const keep = ws.actions.filter((a) => a.status === 'dismissed' || !untouched(a));
+  const keep = ctx.fresh
+    ? ws.actions.filter((a) => a.status === 'done' || a.status === 'verified' || Boolean(a.applied))
+    : ws.actions.filter((a) => a.status === 'dismissed' || !untouched(a));
   const added: ActionItem[] = checked.plan.months.flatMap((m) =>
     m.tasks.map((t): ActionItem => {
       const blocker = m.month === 1 && t.week <= 2 && t.category === 'technical';
@@ -471,7 +473,7 @@ export async function writeAiPlan(
   client: OpenAiClient,
   ws: ActionWorkspace,
   args: Parameters<typeof buildPlanInput>[0],
-  ctx: { newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null },
+  ctx: { newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; fresh?: boolean },
 ): Promise<{ workspace: ActionWorkspace; tokens: number }> {
   const input = buildPlanInput(args);
   const { plan, tokens, model } = await generateAiPlan(client, input);

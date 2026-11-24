@@ -33,7 +33,12 @@ export function nextAiPlan(ws: ActionWorkspace, audience: 'team' | 'customer', n
 export const aiPlanDue = (ws: ActionWorkspace, now = new Date()) =>
   !ws.aiPlan || now.getTime() - Date.parse(ws.aiPlan.generatedAt) > AI_PLAN_EVERY_DAYS * 86_400_000;
 
-export async function rewriteAiPlan(domain: string): Promise<{ ok: string } | { error: string }> {
+/** Whether the temporary "Regenerate plan" button shows (Settings → Audit settings). */
+export async function regenerateEnabled(): Promise<boolean> {
+  return aiPlanAvailable() && (await appSettings())['plan.regenerateButton'];
+}
+
+export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = {}): Promise<{ ok: string } | { error: string }> {
   const openai = providerConfig().env?.openai;
   if (!openai) return { error: 'The AI plan needs an OpenAI key on this server.' };
   const keywords = await freshKeywords(domain);
@@ -57,7 +62,7 @@ export async function rewriteAiPlan(domain: string): Promise<{ ok: string } | { 
         domain, tier: who.tier, capacity: capacityFor(settings, who.tier), keywords, mapping, report: ctx.report, country: keywords.country, priorities: who.priorities, start: now,
         extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local }),
       },
-      { newId: randomUUID, now, report: ctx.report, gsc: ctx.gsc },
+      { newId: randomUUID, now, report: ctx.report, gsc: ctx.gsc, fresh: opts.fresh },
     );
     await saveActions(workspace);
     if (usingDatabase()) {
@@ -65,7 +70,7 @@ export async function rewriteAiPlan(domain: string): Promise<{ ok: string } | { 
       await prisma.apiUsage.create({ data: { provider: 'openai', endpoint: 'tokens', units: tokens } }).catch(() => undefined);
     }
     const tasks = workspace.actions.filter((a) => a.source.kind === 'ai' && a.source.planId === workspace.aiPlan?.id).length;
-    return { ok: `New 6-month plan written: ${tasks} tasks.` };
+    return { ok: `${opts.fresh ? 'Plan regenerated' : 'New 6-month plan written'}: ${tasks} tasks.` };
   } catch (err) {
     return { error: `The AI plan could not be written: ${err instanceof Error ? err.message : String(err)}` };
   }

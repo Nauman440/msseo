@@ -75,4 +75,18 @@ describe('AI action plan', () => {
     expect(input.business).toMatchObject({ businessType: 'local_service', capacity: PLAN_CAPACITY.growth, startDate: '2026-12-01', where: 'United States; serves Dallas' });
     expect(input.data.search_console_90_days).toBe('not connected');
   });
+
+  it('regenerating starts over: only finished work and changes applied to the site stay', () => {
+    let n = 0;
+    const base: ActionItem = {
+      id: 'x', source: { kind: 'audit', ruleId: '1.5.1' }, title: 'T', detail: '', severity: 'high', impact: 4, confidence: 4, effort: 2, priority: 8, urls: [],
+      owner: 'Ann', dueDate: null, approval: 'none', approvedAt: '2026-11-01', approvedBy: 'Ann', status: 'in_progress', bucket: 'd30', bucketLocked: true, before: null, doneAt: null, checkpoints: [], createdAt: '', updatedAt: '',
+    };
+    const ws = { ...emptyActions('shop.com'), actions: [{ ...base, id: 'started' }, { ...base, id: 'done', status: 'done' as const }, { ...base, id: 'verified', status: 'verified' as const }, { ...base, id: 'dismissed', status: 'dismissed' as const }] };
+    const business = buildPlanInput({ domain: 'shop.com', tier: 'autopilot', keywords: emptyKeywordWorkspace('shop.com', { businessType: 'shop' }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z') }).business;
+    const checked = checkPlan(plan(), shop);
+    const ctx = { newId: () => `n${++n}`, now: new Date('2026-12-01T00:00:00Z') };
+    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, ctx).actions.map((a) => a.id)).toEqual(['started', 'done', 'verified', 'dismissed', 'n2']);
+    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, { ...ctx, fresh: true }).actions.map((a) => a.id)).toEqual(['done', 'verified', 'n4']);
+  });
 });

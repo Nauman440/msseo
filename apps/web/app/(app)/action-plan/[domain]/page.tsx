@@ -6,7 +6,7 @@ import { ActionPlanView } from '@/components/actions/ActionPlanView';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard';
 import { getActions, planContext } from '@/lib/actions';
-import { aiPlanAvailable } from '@/lib/ai-plan';
+import { aiPlanAvailable, regenerateEnabled } from '@/lib/ai-plan';
 import { connectionsReady, getConnection, shopifyApp, viewOf } from '@/lib/connections';
 import { requireUser } from '@/lib/session';
 
@@ -23,7 +23,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
-  const [ws, ctx, conn, q] = await Promise.all([getActions(domain), planContext(domain), getConnection(domain), searchParams]);
+  const [ws, ctx, conn, q, regenerate] = await Promise.all([getActions(domain), planContext(domain), getConnection(domain), searchParams, regenerateEnabled()]);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">
@@ -36,7 +36,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
       </div>
       {q.error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{q.error}</p>}
       {q.connected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm font-semibold text-pass-text">{q.connected === 'shopify' ? 'Shopify' : 'WordPress'} is connected.</p>}
-      <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="team" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref="#site-connection" ai={{ available: aiPlanAvailable(), preparing: false, disabledReason: null }} />
+      <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="team" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref="#site-connection" ai={{ available: aiPlanAvailable(), preparing: false, disabledReason: null, regenerate }} />
       <SiteConnectionCard domain={domain} connection={viewOf(conn)} back={`/action-plan/${domain}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="team" />
     </Container>
   );
