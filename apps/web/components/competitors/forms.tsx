@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, MAX_SEARCHES } from '@seo/core';
@@ -59,7 +58,7 @@ export function CompetitorSettings({ domain, country, language, searches }: { do
           </select>
         </label>
       </div>
-      <TagInput name="searches" label="Searches your customers type" hint={`Type a search and press Enter, e.g. "ac repair dallas". Up to ${MAX_SEARCHES}.`} placeholder="For example: ac repair dallas" initial={searches} />
+      <TagInput name="searches" label="Searches your customers type" hint={`Type a search and press Enter, the way a customer would, such as a service and a place. Up to ${MAX_SEARCHES}.`} placeholder="For example: plumber in leeds" initial={searches} />
       <div className="flex flex-wrap items-center gap-3">
         <Submit label="Save searches" busy="Saving…" tone="secondary" />
         <Message state={state} />
@@ -68,23 +67,20 @@ export function CompetitorSettings({ domain, country, language, searches }: { do
   );
 }
 
-/** 3.2–3.4 run discovery, 3.8 refresh strength (team), and a link to change the searches. */
-export function RunButtons({ domain, canRefresh, hasRun, changeHref }: { domain: string; canRefresh: boolean; hasRun: boolean; changeHref: string }) {
+/** 3.2–3.4 run discovery and 3.8 refresh strength (team). */
+export function RunButtons({ domain, canRefresh, hasRun }: { domain: string; canRefresh: boolean; hasRun: boolean }) {
   const [found, find] = useActionState<CompetitorState>(findCompetitorsAction.bind(null, domain), {});
   const [strength, refresh] = useActionState<CompetitorState>(refreshStrengthAction.bind(null, domain), {});
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2.5">
-        <Link href={changeHref} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
-          Change searches
-        </Link>
         {canRefresh && (
           <form action={refresh}>
-            <Submit label="Refresh strength" busy="Measuring…" tone="secondary" />
+            <Submit label="Refresh visits and trend" busy="Measuring…" tone="secondary" />
           </form>
         )}
         <form action={find}>
-          <Submit label={hasRun ? 'Find competitors again' : 'Find competitors'} busy="Searching… (about a minute)" />
+          <Submit label={hasRun ? 'Check for new competitors now' : 'Find my competitors now'} busy="Searching Google… (about a minute)" tone={hasRun ? 'secondary' : 'primary'} />
         </form>
       </div>
       <Message state={found} />
@@ -108,10 +104,10 @@ export function AddCompetitorForm({ domain }: { domain: string }) {
         <input name="name" className={`${INPUT} text-sm font-normal`} />
       </label>
       <label className={`${field} min-w-[150px] flex-1`}>
-        Add as
+        Watch it as
         <select name="shortlist" defaultValue="direct" className={`${INPUT} text-sm font-normal`}>
-          <option value="direct">Direct</option>
-          <option value="aspirational">Aspirational</option>
+          <option value="direct">Main competitor</option>
+          <option value="aspirational">Bigger name to learn from</option>
         </select>
       </label>
       <Submit label="Add competitor" busy="Adding…" />

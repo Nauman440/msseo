@@ -1,8 +1,21 @@
 import type { CompetitorRecord, ListingKind, ListingStatus } from '@seo/core';
 
 /** Competitors design (design-reference/Competitors tab *.zip): labels and chip colours, shared by server and client components. */
-export type CompetitorView = 'competitors' | 'listings' | 'analysis' | 'where';
-export const COMPETITOR_VIEWS: CompetitorView[] = ['competitors', 'listings', 'analysis', 'where'];
+/** Three sections: who you are up against, the detailed comparison, and where to get listed. */
+export type CompetitorView = 'competitors' | 'analysis' | 'listings';
+export const COMPETITOR_VIEWS: CompetitorView[] = ['competitors', 'analysis', 'listings'];
+/** Folded parts of the first section that a link can open. */
+export type CompetitorOpen = 'searches' | 'all' | 'add' | null;
+
+/** Reads `?view=` and `?open=`; the old "Where to look" tab (`view=where`) opens the searches. */
+export function parseCompetitorView(view?: string, open?: string): { view: CompetitorView; open: CompetitorOpen } {
+  if (view === 'where') return { view: 'competitors', open: 'searches' };
+  const v = COMPETITOR_VIEWS.includes(view as CompetitorView) ? (view as CompetitorView) : 'competitors';
+  return { view: v, open: open === 'searches' || open === 'all' || open === 'add' ? open : null };
+}
+
+/** Plain names for the two shortlist groups (stored as direct / aspirational). */
+export const GROUP_LABEL = { direct: 'Main competitor', aspirational: 'Bigger name' } as const;
 
 export const CHIP = 'whitespace-nowrap rounded-full px-[9px] py-[3px] text-[12px] font-bold';
 

@@ -276,31 +276,34 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.goto('/my');
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Competitors' }).click();
   const compSections = page.getByRole('navigation', { name: 'Competitor sections' });
-  await expect(page.getByRole('heading', { name: 'Your shortlist' })).toBeVisible();
-  await compSections.getByRole('link', { name: 'Where to look' }).click();
+  // Three sections; the searches are a fold on the first one (old "Where to look" links open it).
+  await expect(compSections.getByRole('link')).toHaveCount(3);
+  await expect(page.getByRole('heading', { name: 'Who you are up against on Google' })).toBeVisible();
+  await page.getByText('What we searched').click();
   await expect(page.getByRole('button', { name: 'Remove ac repair dallas' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove ac repair plano' })).toBeVisible();
-  await compSections.getByRole('link', { name: /^Competitors/ }).click();
-  await expect(page.getByText('No competitors yet.')).toBeVisible();
+  await expect(page.getByText('No competitors yet.', { exact: false })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Website', { exact: true }).fill('https://www.rival-hvac.com/');
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await expect(page.getByText('rival-hvac.com added.')).toBeVisible();
   // Added as direct: on the shortlist and pressed in the table.
   await expect(page.getByRole('button', { name: 'Remove rival-hvac.com from shortlist' })).toBeVisible();
-  await expect(page.getByText('1 of 5 to 8')).toBeVisible();
+  await expect(page.getByText('1 picked · aim for 5–8')).toBeVisible();
+  // Once something is watched, customers see "Everyone we found" folded; ?open=all opens it.
+  await page.goto('/my/competitors?open=all');
   const choice = page.getByRole('group', { name: 'Shortlist rival-hvac.com' });
-  await expect(choice.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true');
-  await choice.getByRole('button', { name: 'Aspirational' }).click();
-  await expect(page.getByText('1 of 2 to 3')).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole('group', { name: 'Shortlist rival-hvac.com' }).getByRole('button', { name: 'Aspirational' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('heading', { name: 'You vs your shortlist' })).toBeVisible();
-  await compSections.getByRole('link', { name: /^Listings and links/ }).click();
-  await expect(page.getByRole('heading', { name: 'Listings and link targets' })).toBeVisible();
+  await expect(choice.getByRole('button', { name: 'Main competitor' })).toHaveAttribute('aria-pressed', 'true');
+  await choice.getByRole('button', { name: 'Bigger name' }).click();
+  await expect(page.getByText('1 picked · aim for 2–3')).toBeVisible();
+  await page.goto('/my/competitors?open=all');
+  await expect(page.getByRole('group', { name: 'Shortlist rival-hvac.com' }).getByRole('button', { name: 'Bigger name' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'You next to them' })).toBeVisible();
+  await compSections.getByRole('link', { name: /^Get listed/ }).click();
+  await expect(page.getByRole('heading', { name: 'Where to get your business listed' })).toBeVisible();
   // Module 6: the analysis compares the shortlist (not run in e2e: it would fetch real sites).
-  await compSections.getByRole('link', { name: 'Analysis' }).click();
-  await expect(page.getByText('Compares you with 1 shortlisted competitor: rival-hvac.com')).toBeVisible();
+  await compSections.getByRole('link', { name: 'Compare in detail' }).click();
+  await expect(page.getByText('Compares you with the 1 competitor we watch: rival-hvac.com')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Run the analysis' })).toBeVisible();
   expect((await page.request.get('/api/analysis/summitairhvac.com/csv')).status()).toBe(404);
   expect((await page.request.get('/api/analysis/rival-hvac.com/csv')).status()).toBe(404);

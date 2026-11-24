@@ -8,8 +8,8 @@ import { Message } from './forms';
 
 type Choice = 'direct' | 'aspirational' | 'rejected';
 const CHOICES: { value: Choice; label: string }[] = [
-  { value: 'direct', label: 'Direct' },
-  { value: 'aspirational', label: 'Aspirational' },
+  { value: 'direct', label: 'Main competitor' },
+  { value: 'aspirational', label: 'Bigger name' },
   { value: 'rejected', label: 'Not a competitor' },
 ];
 

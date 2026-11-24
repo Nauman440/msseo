@@ -36,18 +36,18 @@ export function AnalysisView({ a, domain, audience, targets, nextRun, shortlistH
           <p className={EYEBROW}>{a ? `Last analysis · ${day(a.runAt)}${audience === 'team' ? ` · $${a.costUsd.toFixed(2)}` : ''}` : 'No analysis yet'}</p>
           <p className="text-[15px] font-semibold">
             {targets.length
-              ? `Compares you with ${targets.length} shortlisted ${targets.length === 1 ? 'competitor' : 'competitors'}: ${targets.join(', ')}`
-              : 'Shortlist your competitors first (Direct or Aspirational).'}
+              ? `Compares you with the ${targets.length} ${targets.length === 1 ? 'competitor' : 'competitors'} we watch: ${targets.join(', ')}`
+              : 'Pick the competitors to watch first, under Your competitors.'}
           </p>
           <p className="text-[13px] text-ink-2">
-            Traffic and keywords, Google and map positions, Business Profiles, speed and pages, and what ChatGPT recommends.{' '}
-            {audience === 'customer' ? 'You can run it once a month.' : 'About $0.70–0.90 per run.'}
+            Their visits and best pages, where each of you shows up on Google and in the map, Google reviews, website speed, the content they have and you do not, and who ChatGPT recommends, with the five things to do first.{' '}
+            {audience === 'customer' ? 'We run it for you the first time; after that you can run it again once a month.' : 'About $0.70–0.90 per run.'}
           </p>
         </div>
         {targets.length ? (
           <RunAnalysis domain={domain} again={Boolean(a)} disabledReason={blocked} />
         ) : (
-          <a href={shortlistHref} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">Go to the shortlist</a>
+          <a href={shortlistHref} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">Pick competitors</a>
         )}
       </div>
 

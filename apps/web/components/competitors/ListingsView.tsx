@@ -21,9 +21,9 @@ export function ListingsView({ ws }: { ws: CompetitorWorkspace }) {
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <h2 className="font-display text-[22px] font-bold sm:text-[26px]">Listings and link targets</h2>
+        <h2 className="font-display text-[22px] font-bold sm:text-[26px]">Where to get your business listed</h2>
         <p className="max-w-[680px] text-[15px] leading-relaxed text-ink-2">
-          Directories, review sites and publishers that show up for your searches. Being listed with correct details, or mentioned on them, helps you rank and helps AI assistants recommend you.
+          These sites are not competitors: they are directories, review sites and publishers that show up when customers search. Being listed on them with the same name, address and phone as your website, or being mentioned on them, brings customers, helps you rank and helps AI assistants recommend you.
         </p>
       </div>
       {listings.length > 0 ? (
@@ -65,12 +65,12 @@ export function ListingsView({ ws }: { ws: CompetitorWorkspace }) {
           </ul>
         </>
       ) : (
-        <p className="rounded-card border border-border bg-surface p-6 text-sm text-ink-2">No directories or publishers yet. They appear after “Find competitors”.</p>
+        <p className="rounded-card border border-border bg-surface p-6 text-sm text-ink-2">No directories or publishers yet. They appear after the first competitor check.</p>
       )}
       {hidden.length > 0 && (
         <section aria-labelledby="hidden-title" className="flex flex-col gap-2.5 rounded-card border border-border bg-surface px-[22px] py-5">
-          <h2 id="hidden-title" className="text-[17px] font-bold">Hidden from competitors</h2>
-          <p className="text-sm leading-normal text-ink-2">These show up for your searches but are not businesses like yours, so we keep them out of reports.</p>
+          <h2 id="hidden-title" className="text-[17px] font-bold">Left out of your competitors</h2>
+          <p className="text-sm leading-normal text-ink-2">These show up for your searches but are not businesses like yours (job boards, big shops, information sites), so we keep them out of your reports. If one really is a competitor, move it back.</p>
           <ul className="flex flex-wrap gap-2">
             {hidden.map((c) => (
               <li key={c.domain} className="inline-flex items-center gap-2 rounded-full border border-border bg-canvas py-1.5 pl-3.5 pr-1.5 text-[13px] font-semibold">

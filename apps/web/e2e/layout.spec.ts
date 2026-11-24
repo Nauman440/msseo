@@ -14,7 +14,7 @@ const ROUTES = [
   { path: '/settings/customers', heading: 'Trials and plans' },
   { path: '/competitors/example.com', heading: 'example.com' },
   { path: '/competitors/example.com?view=listings', heading: 'example.com' },
-  { path: '/competitors/example.com?view=where', heading: 'example.com' },
+  { path: '/competitors/example.com?view=where', heading: 'example.com' }, // old link: opens the searches
   { path: '/competitors/example.com?view=analysis', heading: 'example.com' },
   { path: '/keywords/example.com', heading: 'example.com' },
   { path: '/keywords/example.com?open=all', heading: 'example.com' },
