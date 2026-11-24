@@ -1,15 +1,13 @@
 import { zipStore } from '../report/xlsx';
 import type { ActionItem, ActionWorkspace } from './actions';
 import type { StoredAiPlan } from './ai-plan';
-import { AREA_LABEL, type AuditArea } from './plan-pipeline';
 import { validationText } from './plan-validate';
 
 /**
- * The strategist prompt's ./output folder, built from the saved plan: plan.md, plan.json, page_fixes.csv,
- * issue_register.csv, audit_checklist.md, keyword_map.csv, offpage_programme.md, data_gaps.md and
- * validation.txt, one at a time or together as a .zip.
+ * The plan's files, built from the saved plan: plan.md, plan.json, issue_register.csv, keyword_map.csv,
+ * needs_developer.md, data_gaps.md and validation.txt, one at a time or together as a .zip.
  */
-export const PLAN_FILES = ['plan.md', 'plan.json', 'page_fixes.csv', 'issue_register.csv', 'audit_checklist.md', 'keyword_map.csv', 'offpage_programme.md', 'data_gaps.md', 'validation.txt'] as const;
+export const PLAN_FILES = ['plan.md', 'plan.json', 'issue_register.csv', 'keyword_map.csv', 'needs_developer.md', 'data_gaps.md', 'validation.txt'] as const;
 export type PlanFile = (typeof PLAN_FILES)[number];
 
 // CSV cells never start a formula (=, +, -, @) and quote commas, quotes and line breaks.
@@ -38,13 +36,13 @@ export function planFile(ws: ActionWorkspace, name: PlanFile): string | null {
         months: plan.months.map((m) => ({
           month: m.month, theme: m.theme, goal: m.goal,
           tasks: tasks.filter((t) => t.plan!.month === m.month).map((t) => ({
-            id: t.plan!.taskId, month: t.plan!.month, week: t.plan!.week, title: t.title, area: t.plan!.area ?? '', category: t.plan!.category, why: t.plan!.why,
+            id: t.plan!.taskId, month: t.plan!.month, week: t.plan!.week, title: t.title, category: t.plan!.category === 'ai_visibility' ? 'aeo' : t.plan!.category, why: t.plan!.why,
             urls: t.urls, keywords: t.plan!.keywords, what_changes: t.plan!.change, doer: t.plan!.doer, impact: t.impact, confidence: t.confidence, effort: t.effort,
             priority: t.priority, depends_on: t.plan!.dependsOn, success_measure: t.plan!.successCheck, check_after_days: t.plan!.checkAfterDays,
             issue_ids: t.plan!.issueIds ?? [], recurring: Boolean(t.plan!.recurring), due_date: t.dueDate, status: t.status,
           })),
         })),
-        later: plan.later, data_gaps: plan.data_gaps, notes: plan.notes,
+        later: plan.later, needs_developer: plan.needsDeveloper ?? [], data_gaps: plan.data_gaps, notes: plan.notes,
       }, null, 2);
     case 'plan.md': {
       const out = [`# 6-month SEO plan: ${ws.domain}`, '', `Start date: ${plan.startDate} · written ${plan.generatedAt.slice(0, 10)}`, '', plan.summary, ''];
@@ -63,45 +61,21 @@ export function planFile(ws: ActionWorkspace, name: PlanFile): string | null {
       if (plan.later.length) out.push('## Later', '', ...plan.later.map((l) => `- ${l.title}: ${l.reason_deferred}`), '');
       return out.filter((l) => l !== '').join('\n').replace(/\n(## )/g, '\n\n$1') + '\n';
     }
-    case 'page_fixes.csv':
-      return csv(
-        ['url', 'page_type', 'main_keyword', 'current_title', 'new_title', 'title_length', 'current_meta', 'new_meta', 'meta_length', 'current_h1s', 'new_h1', 'h1_fix', 'current_canonical', 'correct_canonical', 'canonical_action', 'images_total', 'images_missing_alt', 'alt_fixes', 'other_fixes', 'priority', 'note'],
-        (plan.pageFixes ?? []).map((r) => {
-          const title = /^keep$/i.test(r.new_title.trim()) ? r.current_title : r.new_title;
-          const meta = /^keep$/i.test(r.new_meta.trim()) ? r.current_meta : r.new_meta;
-          return [r.url, r.page_type, r.main_keyword, r.current_title, r.new_title, title?.length ?? '', r.current_meta, r.new_meta, meta?.length ?? '', r.current_h1s, r.new_h1, r.h1_fix, r.current_canonical, r.correct_canonical, r.canonical_action,
-            r.images_total, r.images_missing_alt, r.alt_fixes.map((a) => `${a.image} → ${a.alt || '""'}${a.verify ? ' (verify)' : ''}`), r.other_fixes, r.priority, r.note ?? ''];
-        }),
-      );
     case 'issue_register.csv':
       return csv(
-        ['issue_id', 'area', 'issue', 'severity', 'affected_url_count', 'example_urls', 'fix', 'impact', 'confidence', 'effort', 'priority', 'doer', 'scheduled_in'],
-        (plan.issues ?? []).map((i) => [i.issue_id, `${i.area} ${AREA_LABEL[i.area as AuditArea] ?? ''}`.trim(), i.issue, i.severity, i.affected_url_count, i.example_urls, i.fix, i.impact, i.confidence, i.effort, i.priority ?? '', i.doer,
-          tasks.filter((t) => t.plan!.issueIds?.includes(i.issue_id)).map((t) => t.plan!.taskId)]),
+        ['issue_id', 'issue', 'severity', 'affected_url_count', 'example_urls', 'fix', 'scheduled_in'],
+        (plan.issues ?? []).map((i) => [i.issue_id, i.issue, i.severity, i.affected_url_count, i.example_urls, i.fix,
+          tasks.filter((t) => t.plan!.issueIds?.includes(i.issue_id) || (i.item && t.plan!.siteWideItem === i.item)).map((t) => t.plan!.taskId)
+            .concat((plan.needsDeveloper ?? []).some((n) => n.issue_id === i.issue_id) ? ['needs developer'] : [])]),
       );
-    case 'audit_checklist.md': {
-      const out = [`# Audit checklist: ${ws.domain}`, ''];
-      for (const area of Object.keys(AREA_LABEL) as AuditArea[]) {
-        const lines = (plan.checklist ?? []).filter((c) => c.area === area);
-        if (!lines.length) continue;
-        out.push(`## ${area}. ${AREA_LABEL[area]}`, '', '| Check | Status | Severity | Evidence |', '| --- | --- | --- | --- |');
-        for (const c of lines) out.push(`| ${c.item.replace(/\|/g, '/')} | ${c.status} | ${c.severity} | ${c.evidence.replace(/\|/g, '/')} |`);
-        out.push('');
-      }
-      return out.join('\n');
-    }
     case 'keyword_map.csv':
       return csv(['url', 'main_keyword', 'supporting_keywords', 'volume', 'position', 'removed_reason'], [
         ...plan.page_map.map((p) => [p.url, p.main_keyword, p.supporting_keywords, p.total_monthly_volume, '', '']),
         ...plan.removed_keywords.map((k) => ['', k.keyword, '', '', '', k.reason]),
       ]);
-    case 'offpage_programme.md': {
-      const out = [`# Off-page programme: ${ws.domain}`, ''];
-      for (let m = 1; m <= 6; m++) {
-        const items = (plan.offpage ?? []).filter((o) => Math.round(o.month) === m);
-        out.push(`## Month ${m}`, '', ...(items.length ? items.map((o) => `- **${o.title}** (${o.monthly_number}): ${o.method}${o.targets.length ? ` Targets: ${o.targets.join(', ')}.` : ''}`) : ['- no programme items']), '');
-      }
-      return out.join('\n');
+    case 'needs_developer.md': {
+      const nd = plan.needsDeveloper ?? [];
+      return [`# Needs a developer: ${ws.domain}`, '', 'Issues with no no-code fix, left out of the plan (rule 3).', '', ...(nd.length ? nd.map((n) => `- **${n.issue_id || '—'}** ${n.issue}: ${n.reason}`) : ['- none']), ''].join('\n');
     }
     case 'data_gaps.md':
       return [`# Data gaps: ${ws.domain}`, '', ...(plan.data_gaps.length ? plan.data_gaps.map((g) => `- ${g}`) : ['- none']), '', '## What the checks changed', '', ...(plan.notes.length ? plan.notes.map((n) => `- ${n}`) : ['- nothing']), ''].join('\n');

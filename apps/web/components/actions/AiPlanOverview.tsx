@@ -37,7 +37,7 @@ function StatusLine({ status }: { status: AiPlanState['status'] }) {
   return null;
 }
 
-/** Step 7: the checks the plan passed, and the plan's files to download. */
+/** RULES 1–10: the checks the plan passed, and the plan's files to download. */
 function ChecksAndFiles({ domain, plan, team }: { domain: string; plan: StoredAiPlan; team: boolean }) {
   const v = plan.validation ?? [];
   const passed = v.filter((x) => x.pass).length;
@@ -148,6 +148,16 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
             <ul className="flex flex-col gap-1.5 px-4 pb-4 text-sm">
               {plan.later.map((l, i) => (
                 <li key={i}><span className="font-semibold">{l.title}</span> <span className="text-ink-2">· {l.reason_deferred}</span></li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {(plan.needsDeveloper ?? []).length > 0 && (
+          <details className={FOLD}>
+            <summary className={SUMMARY}>Needs a developer: left out of the plan ({plan.needsDeveloper!.length})</summary>
+            <ul className="flex flex-col gap-1.5 px-4 pb-4 text-sm">
+              {plan.needsDeveloper!.map((n, i) => (
+                <li key={i}><span className="font-semibold">{n.issue}</span> <span className="text-ink-2">· {n.reason}</span></li>
               ))}
             </ul>
           </details>

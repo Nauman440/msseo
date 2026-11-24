@@ -106,4 +106,4 @@ export async function regeneratePlanAction(rawDomain: string): Promise<ActionSta
   return { ok: WRITING };
 }
 
-const WRITING = 'Writing the new plan: it takes about 5–10 minutes. This page shows each step and updates itself.';
+const WRITING = 'Writing the new plan: it takes a few minutes. This page updates itself.';

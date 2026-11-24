@@ -13,6 +13,7 @@ import { appSettings } from './settings';
 import { getAltText } from './alt-text';
 import { prepare } from './auto';
 import { getSavedWorkspace } from './competitors';
+import { getConnection } from './connections';
 
 /**
  * The AI-written 6-month action plan for one website (Module 12): gathers what the tool knows (audit,
@@ -52,7 +53,7 @@ async function setStatus(domain: string, status: ActionWorkspace['aiPlanStatus']
 }
 
 /**
- * Writes the plan with the staged strategist prompt (several OpenAI calls, a few minutes). Progress and a
+ * Writes the plan with the plan prompt (one OpenAI call, a few minutes). Progress and a
  * failure reason are saved on the workspace, so the page can show them; it never throws.
  */
 export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = {}): Promise<{ ok: string } | { error: string }> {
@@ -62,7 +63,7 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
   await setStatus(domain, { state: 'writing', step: 'Collecting the site’s data', startedAt });
   try {
     const keywords = await freshKeywords(domain);
-    const [mapping, ctx, settings, who, gscRows, backlinks, local, aeo, content, competitors, alt] = await Promise.all([
+    const [mapping, ctx, settings, who, gscRows, backlinks, local, aeo, content, competitors, alt, connection] = await Promise.all([
       freshMapping(domain),
       planContext(domain, true),
       appSettings(),
@@ -74,6 +75,7 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
       getContent(domain).catch(() => null),
       getSavedWorkspace(domain).catch(() => null),
       getAltText(domain).catch(() => null),
+      getConnection(domain).catch(() => null),
     ]);
     if (!ctx.report) {
       await setStatus(domain, { state: 'failed', step: 'Waiting for an audit', startedAt, message: 'Run an audit first: the plan is built from its findings.' });
@@ -87,7 +89,7 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
       createOpenAiClient(openai),
       await getActions(domain),
       {
-        domain, tier: who.tier, capacity: capacityFor(settings, who.tier), keywords, mapping, report: ctx.report, country: keywords.country, priorities: who.priorities, start: now,
+        domain, tier: who.tier, capacity: capacityFor(settings, who.tier), keywords, mapping, report: ctx.report, country: keywords.country, priorities: who.priorities, start: now, connected: connection?.platform ?? null,
         extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
       },
       { newId: randomUUID, now, report: ctx.report, gsc: ctx.gsc, fresh: opts.fresh, altDrafts, onProgress: (step) => setStatus(domain, { state: 'writing', step, startedAt }) },

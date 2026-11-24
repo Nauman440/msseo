@@ -20,7 +20,7 @@ export function PlanWriting({ step, startedAt }: { step: string; startedAt: stri
     <p role="status" className="flex items-center gap-3 rounded-[14px] border border-primary-tint bg-primary-chip px-[18px] py-3.5 text-sm text-ink">
       <span aria-hidden className="size-2.5 shrink-0 animate-pulse rounded-full bg-primary" />
       <span>
-        <b>Writing your 6-month plan.</b> {step}… (started {minutes ? `${minutes} min ago` : 'just now'}; it usually takes 5–10 minutes). This page updates itself.
+        <b>Writing your 6-month plan.</b> {step}… (started {minutes ? `${minutes} min ago` : 'just now'}; it usually takes a few minutes). This page updates itself.
       </span>
     </p>
   );

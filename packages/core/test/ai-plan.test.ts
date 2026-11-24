@@ -91,10 +91,11 @@ describe('AI action plan', () => {
       page('https://shop.com/blog/how-to-wash', { pageType: 'blog_post', h1Count: 2 }),
     ], 'ecommerce');
     expect(pages.map((p) => [p.group, p.needs])).toEqual([
-      ['products', ['canonical', 'alt_text']],
-      ['collections', ['meta_title', 'open_graph']],
-      ['products', ['canonical']],
-      ['articles', ['h1']],
+      // No page has BreadcrumbList schema, so every page needs the schema batch too (plan prompt rule 4).
+      ['products', ['canonical', 'alt_text', 'schema']],
+      ['collections', ['meta_title', 'schema', 'open_graph']],
+      ['products', ['canonical', 'schema']],
+      ['articles', ['h1', 'schema']],
     ]);
     const r = checkPlan(plan({
       months: [
@@ -112,6 +113,7 @@ describe('AI action plan', () => {
     expect(find('alt_text', 'products')).toMatchObject({ doer: 'automatic_no_approval' });
     expect(find('open_graph', 'collections')).toMatchObject({ doer: 'automatic_no_approval' });
     expect(find('h1', 'articles')).toBeTruthy();
+    expect(find('schema', 'products')).toMatchObject({ doer: 'automatic_no_approval', category: 'technical' });
     expect(m1.filter((x) => x.site_wide_item === 'weekly_check')).toHaveLength(1);
     // A heading change never goes live without approval.
     expect(r.plan.months[2]!.tasks.find((x) => x.title === 'New H1s on guides')).toMatchObject({ doer: 'automatic' });

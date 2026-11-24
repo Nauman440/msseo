@@ -7,6 +7,7 @@ import {
 import { getActionWorkspace, saveActionWorkspace } from './actions';
 import { prisma } from './client';
 import { getCompetitorWorkspace, saveCompetitorWorkspace } from './competitors';
+import { getSiteConnection } from './connections';
 import { searchConsoleFor } from './google-access';
 import { getKeywordWorkspace, saveKeywordWorkspace } from './keywords';
 import { getMappingWorkspace, saveMappingWorkspace } from './mapping';
@@ -277,7 +278,8 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
               actions,
               {
                 domain, tier, capacity: capacityFor(await getSettings(), tier), keywords, mapping: plan, report: latest.report, country: keywords.country,
-                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
+                priorities: site.primary ? site.services.slice(0, 5) : [], start: now,
+                connected: (await getSiteConnection(domain).catch(() => null))?.platform ?? null, extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
               },
               { newId: randomUUID, now, report: latest.report, gsc: null, altDrafts },
             );

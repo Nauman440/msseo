@@ -3,8 +3,8 @@ import { dedupeKey, normTerm } from '../keywords/clean';
 import type { KeywordWorkspace } from '../keywords/types';
 import type { MappingWorkspace } from '../mapping/mapping';
 import type { OpenAiClient } from '../providers/openai';
-import { runPlanPipeline, type ChecklistLine, type OffpageItem, type PlanPageFix, type PlanIssue, type SiteStudy } from './plan-pipeline';
-import { fixDependencies, MIN_TASKS, repairMonths, validatePlan, type RepairContext, type ValidationLine } from './plan-validate';
+import { aiVisibilityBlock, askForPlan, auditIssues, businessBlock, keywordsBlock, offpageBlock, planPrompt, platformOf, siteCheck, softwareCan, titleSuffix, toAiPlan, type NeedsDeveloper, type PlanIssue, type PlanPlatform } from './plan-prompt';
+import { BLOCKER_TASK, fixDependencies, MIN_TASKS, repairPlan, validatePlan, type RepairContext, type ValidationLine } from './plan-validate';
 import type { ReportModel } from '../types';
 import type { AeoAudit, AeoWorkspace } from '../aeo/aeo';
 import type { ContentAudit } from '../content/content';
@@ -136,7 +136,7 @@ export type PlanBusiness = {
 };
 export type PlanExtras = {
   gsc?: { query: string; page?: string; clicks: number; impressions: number; position: number }[] | null;
-  backlinks?: { referringDomains: number | null; competitors: { domain: string; referringDomains: number | null }[]; gap: string[] } | null;
+  backlinks?: { referringDomains: number | null; competitors: { domain: string; referringDomains: number | null }[]; gap: string[]; /** Backlinks pointing to pages that no longer work. */ broken?: number } | null;
   local?: { name: string | null; rating: number | null; reviews: number | null; category: string | null; claimed: boolean | null } | null;
   /** Module 10: how the business shows in AI answers, trimmed for the plan. */
   aiSearch?: PlanAiSearch | null;
@@ -157,6 +157,8 @@ export type PlanAiSearch = {
   cited_sources: string[];
   snippet_controls: string[];
   missing_third_party: string[];
+  /** Each question as each assistant answered it (for <ai_visibility>). */
+  answers?: { question: string; assistant: string; mentioned: boolean; cited: string[] }[];
 };
 export type PlanContentRow = { url: string; verdict: string; reason: string; clicks: number | null; position: number | null };
 export type PlanContent = { pages: PlanContentRow[]; decay: { url: string; change: number | null; clicks: number | null }[]; topic_gaps: string[]; weak_quality: { url: string; note: string }[] };
@@ -180,6 +182,8 @@ export function buildPlanInput(args: {
   priorities?: string[];
   start: Date;
   extras?: PlanExtras;
+  /** The site connection (§16.5), when there is one. */
+  connected?: 'shopify' | 'wordpress' | null;
 }): PlanInput {
   const kw = args.keywords;
   const kind = businessKindOf(kw);
@@ -264,8 +268,8 @@ export function checkPlan(
   business: Pick<PlanBusiness, 'businessType' | 'capacity'>,
   pages: CleanupPage[] = [],
   topUp: TopUpCandidate[] = [],
-  /** The staged plan's analysis: issues to schedule, the off-page programme and the fix sheet (Step 7 repairs). */
-  repair?: Pick<RepairContext, 'issues' | 'offpage' | 'pageFixes'>,
+  /** The plan prompt's issues and developer-only items: RULES 1–6 are repaired from the site's findings. */
+  repair?: Pick<RepairContext, 'issues' | 'needsDeveloper' | 'questions'>,
 ): CheckedPlan {
   const notes: string[] = [];
   const plan: AiPlan = structuredClone(raw);
@@ -316,14 +320,7 @@ export function checkPlan(
     return false;
   });
 
-  // 7. Blockers belong in month 1, weeks 1–2.
-  for (const t of fits) {
-    if (t.category === 'technical' && BLOCKER.test(`${t.title} ${t.change}`) && (t.month > 1 || t.week > 2)) {
-      notes.push(`Moved "${t.title}" to month 1: it stops Google from reading or indexing pages.`);
-      t.month = 1;
-      t.week = Math.min(t.week, 2);
-    }
-  }
+  moveBlockers(fits, notes, BLOCKER);
 
   // 13. Monthly capacity: keep the highest priority in each month, the rest go to "later".
   const kindOf = (t: AiPlanTask) => {
@@ -349,7 +346,9 @@ export function checkPlan(
   const deferred = fits.length - kept.length;
   if (deferred) notes.push(`${deferred} task(s) moved to "later" to stay within the monthly capacity.`);
   if (repair) {
-    notes.push(...repairMonths(kept, later, { ...repair, minTasks: business.capacity.minTasks ?? MIN_TASKS, local: business.businessType === 'local_service' || business.businessType === 'local_shop', extra: topUp }));
+    notes.push(...repairPlan(kept, { ...repair, target: Math.max(MIN_TASKS, business.capacity.minTasks ?? 0), extra: topUp }));
+    // Rule 4: blockers, broken links, redirects, sitemap and tracking in month 1, weeks 1–2.
+    moveBlockers(kept, notes, BLOCKER_TASK);
   } else {
     fillMonths(kept, business.capacity.minTasks ?? 0, topUp, notes);
   }
@@ -378,6 +377,17 @@ export function checkPlan(
 }
 
 type MonthTask = AiPlanTask & { month: number };
+
+/** Problems that stop Google reading the site go in month 1, weeks 1–2. */
+function moveBlockers(tasks: MonthTask[], notes: string[], re: RegExp) {
+  for (const t of tasks) {
+    if (t.category === 'technical' && !t.recurring && t.site_wide_item === 'none' && re.test(`${t.title} ${t.change}`) && (t.month > 1 || t.week > 2)) {
+      notes.push(`Moved "${t.title}" to month 1: it stops Google from reading or indexing pages.`);
+      t.month = 1;
+      t.week = Math.min(t.week, 2);
+    }
+  }
+}
 
 /**
  * Rule 31: a month with fewer than `min` tasks is topped up from the audit, content and AI search findings
@@ -484,13 +494,13 @@ export type StoredAiPlan = Omit<AiPlan, 'months'> & {
   months: { month: number; theme: string; goal: string }[];
   /** What `checkPlan()` changed in the model's answer. */
   notes: string[];
-  /** Staged plan (2026-11-24 prompt): Step 1 study, Step 2 checklist, Step 4 issues, Step 5 off-page, Step 3 fix sheet, Step 7 checks. */
-  study?: SiteStudy;
-  checklist?: ChecklistLine[];
+  /** The audit issues and site-check problems the plan was written from (issue_register.csv). */
   issues?: PlanIssue[];
-  offpage?: OffpageItem[];
-  pageFixes?: PlanPageFix[];
+  /** Issues only a developer can fix, left out of the plan (rule 3). */
+  needsDeveloper?: NeedsDeveloper[];
+  /** RULES 1–10 checked in code. */
   validation?: ValidationLine[];
+  platform?: PlanPlatform;
   /** Business inputs the plan was written with (shown in plan.md and the files). */
   business?: PlanBusiness;
 };
@@ -588,7 +598,7 @@ export function applyAiPlan(
 /** Backlinks and Business Profile summaries from the saved Module 8 and 9 results. */
 export function planExtrasFrom(args: {
   gsc?: PlanExtras['gsc'];
-  backlinks?: { audit: { summary: { referringDomains: number | null }; competitors: { domain: string; referringDomains: number | null }[]; gap: { domain: string }[] } | null } | null;
+  backlinks?: { audit: { summary: { referringDomains: number | null }; competitors: { domain: string; referringDomains: number | null }[]; gap: { domain: string }[]; broken?: unknown[] } | null } | null;
   local?: { profile: { title: string; rating: number | null; reviews: number | null; category: string | null; claimed: boolean | null } | null } | null;
   aeo?: AeoWorkspace | null;
   content?: ContentAudit | null;
@@ -599,10 +609,12 @@ export function planExtrasFrom(args: {
     aiSearch: aiSearchSummary(args.aeo?.audit ?? null),
     content: contentSummary(args.content ?? null),
     gsc: args.gsc ?? null,
-    backlinks: b ? { referringDomains: b.summary.referringDomains, competitors: b.competitors.map((c) => ({ domain: c.domain, referringDomains: c.referringDomains })), gap: b.gap.slice(0, 20).map((g) => g.domain) } : null,
+    backlinks: b ? { referringDomains: b.summary.referringDomains, competitors: b.competitors.map((c) => ({ domain: c.domain, referringDomains: c.referringDomains })), gap: b.gap.slice(0, 20).map((g) => g.domain), broken: b.broken?.length } : null,
     local: p ? { name: p.title, rating: p.rating, reviews: p.reviews, category: p.category, claimed: p.claimed } : null,
   };
 }
+
+const ASSISTANT: Record<string, string> = { chatgpt: 'ChatGPT', perplexity: 'Perplexity', overview: 'AI Overviews', aio: 'AI Overviews', gemini: 'Gemini' };
 
 function aiSearchSummary(a: AeoAudit | null): PlanAiSearch | null {
   if (!a) return null;
@@ -619,6 +631,7 @@ function aiSearchSummary(a: AeoAudit | null): PlanAiSearch | null {
     cited_sources: a.sources.slice(0, 10).map((x) => x.domain),
     snippet_controls: a.controls.slice(0, 5).map((c) => `${c.url}: ${c.issue}`),
     missing_third_party: a.thirdParty.filter((x) => !x.ok).map((x) => x.label),
+    answers: a.answers.filter((x) => !x.error).slice(0, 60).map((x) => ({ question: x.prompt, assistant: ASSISTANT[x.assistant] ?? x.assistant, mentioned: x.shown, cited: x.cited.slice(0, 5) })),
   };
 }
 
@@ -633,8 +646,8 @@ function contentSummary(c: ContentAudit | null): PlanContent | null {
 }
 
 /**
- * Builds the input, runs the staged strategist prompt (plan-pipeline.ts), checks and repairs the answer
- * (checkPlan + Step 7 validation) and puts its tasks in the action plan.
+ * Builds the input, sends the plan prompt (plan-prompt.ts) in one call, checks and repairs the answer
+ * (checkPlan + RULES 1–10 in plan-validate.ts) and puts its tasks in the action plan.
  */
 export async function writeAiPlan(
   client: OpenAiClient,
@@ -642,29 +655,42 @@ export async function writeAiPlan(
   args: Parameters<typeof buildPlanInput>[0],
   ctx: {
     newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; fresh?: boolean;
-    /** Drafted alt text per page URL (Module 2 alt-text drafts). */
+    /** Drafted alt text per page URL (Module 2 alt-text drafts); not used by the one-call prompt. */
     altDrafts?: Map<string, { image: string; alt: string }[]>;
     onProgress?: (step: string) => void | Promise<void>;
   },
 ): Promise<{ workspace: ActionWorkspace; tokens: number }> {
   const input = buildPlanInput(args);
+  const b = input.business;
   const pages = input.data.site_wide_pages as CleanupPage[];
-  const run = await runPlanPipeline({ client, input, report: args.report, pages, altDrafts: ctx.altDrafts, onProgress: ctx.onProgress });
-  const topUp = topUpCandidates({ report: args.report, extras: args.extras, prompts: input.data.ai_questions as string[], domain: args.domain });
-  const checked = checkPlan(run.plan, input.business, pages, topUp, { issues: run.analysis.issues, offpage: run.analysis.offpage, pageFixes: run.pageFixes });
-  checked.notes.unshift(...run.notes);
-  const validation = validatePlan(checked.plan, {
-    issues: run.analysis.issues, pageFixes: run.pageFixes, indexableUrls: pages.filter((p) => p.indexable).map((p) => p.url),
-    minTasks: input.business.capacity.minTasks, local: input.business.businessType === 'local_service' || input.business.businessType === 'local_shop', banned: input.business.bannedWords ?? [],
-  });
-  const workspace = applyAiPlan(ws, checked, { model: run.model, tokens: run.tokens, business: input.business }, ctx);
-  workspace.aiPlan = {
-    ...workspace.aiPlan!,
-    study: run.analysis.study, checklist: run.analysis.checklist,
-    issues: run.analysis.issues.map((i) => ({ ...i, priority: Math.round(((i.impact * i.confidence) / Math.max(1, i.effort)) * 10) / 10 })),
-    offpage: run.analysis.offpage, pageFixes: run.pageFixes, validation, business: input.business,
-  };
-  return { workspace, tokens: run.tokens };
+  const local = b.businessType === 'local_service' || b.businessType === 'local_shop';
+  const platform = platformOf(args.report, args.connected);
+  const check = siteCheck(args.report, pages);
+  const audit = auditIssues(args.report);
+  const issues = [...audit, ...check.issues];
+  const questions = input.data.ai_questions as string[];
+  const prompt = planPrompt({
+    business: businessBlock(b, { platform, suffix: titleSuffix(args.report?.pages ?? []), software: softwareCan(platform, Boolean(args.connected)) }),
+    audit, siteCheck: check.lines, keywords: keywordsBlock(args.keywords, args.mapping, args.extras?.gsc ?? null),
+    ai: aiVisibilityBlock(args.extras?.aiSearch ?? null, questions), offpage: offpageBlock(args.extras, local),
+  }, b.capacity.minTasks);
+
+  await ctx.onProgress?.('Writing the 6-month plan');
+  const asked = await askForPlan(client, prompt);
+  await ctx.onProgress?.('Checking the plan against the rules');
+  const raw = toAiPlan(asked.answer);
+  // Page map and left-out keywords come from the page plan and keyword research (no model tokens).
+  raw.page_map = (args.mapping?.rows ?? []).filter((r) => r.primaryKeyword).slice(0, 60).map((r) => ({
+    url: r.url ?? r.suggestedPath ?? '', is_new: !r.url, page_type: r.newPageType ?? (r.url ? 'existing page' : 'new page'), main_keyword: r.primaryKeyword, supporting_keywords: r.secondaryKeywords.slice(0, 6), total_monthly_volume: r.volume,
+  }));
+  raw.removed_keywords = args.keywords.keywords.filter((k) => k.status === 'removed').sort((x, y) => (y.volume ?? 0) - (x.volume ?? 0)).slice(0, 30).map((k) => ({ keyword: k.term, reason: k.removeReason ?? 'removed' }));
+  const needsDeveloper = [...asked.answer.needs_developer];
+  const topUp = topUpCandidates({ report: args.report, extras: args.extras, prompts: questions, domain: args.domain, kind: b.businessType });
+  const checked = checkPlan(raw, b, pages, topUp, { issues, needsDeveloper, questions: questions.length });
+  const validation = validatePlan(checked.plan, { issues, needsDeveloper, pages, capacity: b.capacity, banned: b.bannedWords ?? [] });
+  const workspace = applyAiPlan(ws, checked, { model: asked.model, tokens: asked.tokens, business: b }, ctx);
+  workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform };
+  return { workspace, tokens: asked.tokens };
 }
 
 /** A plan this old is written again by autopilot (and customers may ask for a new one after a week). */
