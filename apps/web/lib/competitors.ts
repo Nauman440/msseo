@@ -2,7 +2,7 @@ import 'server-only';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { COMPETITOR_COUNTRIES, defaultSearches, emptyWorkspace, normDomain, type CompetitorWorkspace } from '@seo/core';
+import { COMPETITOR_COUNTRIES, defaultSearches, emptyWorkspace, normDomain, type CompetitorWorkspace, repairCompetitors } from '@seo/core';
 import { accountSites, domainOf, getAccountByUserId, listAccounts, type Account, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { getSessionUser, type SessionUser } from './session';
@@ -43,7 +43,12 @@ export async function getSavedWorkspace(rawDomain: string): Promise<CompetitorWo
 export async function getWorkspace(rawDomain: string): Promise<CompetitorWorkspace> {
   const domain = normDomain(rawDomain);
   const saved = await getSavedWorkspace(domain);
-  if (saved) return saved;
+  if (saved) {
+    // Older workspaces may hold unrelated sites picked from the competitor database: drop them once.
+    const { workspace, changed } = repairCompetitors(saved);
+    if (changed) await saveWorkspace(workspace).catch(() => undefined);
+    return workspace;
+  }
   const account = (await listAccounts()).find((a) => accountSites(a).some((w) => domainOf(w) === domain));
   return fromAccount(domain, account);
 }

@@ -41,6 +41,8 @@ export type CompetitorRecord = {
   reviews?: number | null;
   /** Reviewed and marked "Not a competitor". */
   rejected?: boolean;
+  /** Who put it on (or took it off) the shortlist: autopilot or a person (missing on older data). */
+  shortlistBy?: 'auto' | 'person';
   /** Directories and publishers: is the business listed there (set by hand until Module 9 checks it)? */
   listing?: ListingStatus;
 };
@@ -285,7 +287,9 @@ export async function discoverCompetitors(client: CompetitorClient, ws: Competit
     etv: ownOverview?.etv ?? ws.own?.etv ?? null,
     keywords: ownOverview?.keywords ?? ws.own?.keywords ?? null,
   };
-  return { workspace: { ...ws, lastRunAt: iso, own: ownSnapshot, competitors: sortCompetitors([...byDomain.values()]) }, cost, errors, newDomains };
+  // Sites that only share a few searches in the competitor database are not competitors (see isRelevant).
+  const { workspace } = repairCompetitors({ ...ws, lastRunAt: iso, own: ownSnapshot, competitors: sortCompetitors([...byDomain.values()]) });
+  return { workspace, cost, errors, newDomains: newDomains.filter((d) => workspace.competitors.some((c) => c.domain === d)) };
 }
 
 /** 3.8 Strength snapshot for the shortlist: traffic, keywords and a 12-month trend. */
@@ -348,6 +352,7 @@ export function updateCompetitor(ws: CompetitorWorkspace, domain: string, patch:
               ...c,
               ...(patch.type ? { type: patch.type, typeLocked: true } : {}),
               ...(patch.shortlist ? { shortlist: patch.shortlist, rejected: patch.shortlist === 'none' ? (patch.rejected ?? c.rejected ?? false) : false } : {}),
+              ...(patch.shortlist || patch.rejected !== undefined ? { shortlistBy: 'person' as const } : {}),
               ...(patch.rejected !== undefined && !patch.shortlist ? { rejected: patch.rejected, ...(patch.rejected ? { shortlist: 'none' as const } : {}) } : {}),
               ...(patch.listing ? { listing: patch.listing } : {}),
               ...(patch.notes !== undefined ? { notes: patch.notes?.slice(0, 500) || null } : {}),
@@ -379,16 +384,77 @@ export function shortlistStatus(ws: CompetitorWorkspace): { direct: number; aspi
 /** Autopilot: competitors over this many visits a month are aspirational at most, never mined for keywords. */
 const GIANT_ETV = 1_000_000;
 
-/** The strongest direct rivals, shortlisted only when no person has shortlisted any yet. */
+/** The competitor database needs this many ranking searches for the site before its matches mean anything. */
+const MIN_OWN_KEYWORDS = 30;
+
+/**
+ * Whether a site really competes with this one. Showing up for the business's own searches (results or
+ * map) always counts. A site found only in the competitor database (Labs: sites ranking for some of the
+ * same keywords) must share a real slice of them: at least 10 and a tenth of the site's own, and only once
+ * the site ranks for enough searches; a new site's few matches are coincidences (a software site and a
+ * bookshop "competing" with a pet shop over one shared word).
+ */
+export function isRelevant(c: Pick<CompetitorRecord, 'seenIn' | 'sources' | 'sharedKeywords' | 'typeLocked'>, own: Pick<OwnSnapshot, 'keywords'> | null | undefined): boolean {
+  if (c.seenIn > 0 || c.sources.includes('manual') || c.sources.includes('serp') || c.sources.includes('local') || c.typeLocked) return true;
+  const mine = own?.keywords ?? 0;
+  const shared = c.sharedKeywords ?? 0;
+  return mine >= MIN_OWN_KEYWORDS && shared >= 10 && shared >= mine * 0.1;
+}
+/** A person shortlisted or rejected it: never dropped or changed by the tool. */
+const keptByPerson = (c: CompetitorRecord) => c.shortlistBy === 'person' && (c.shortlist !== 'none' || Boolean(c.rejected));
+
+/** Bigger names to learn from: relevant sites, seen most in the business's searches, then the strongest. */
+function pickAspirational(ws: CompetitorWorkspace, exclude: Set<string>, count: number): string[] {
+  return ws.competitors
+    .filter((c) => !c.rejected && !hiddenReason(c) && c.shortlist === 'none' && !exclude.has(c.domain))
+    .filter((c) => c.type === 'search' && (c.etv ?? 0) > 0 && (c.etv ?? 0) <= GIANT_ETV && isRelevant(c, ws.own))
+    .sort((a, b) => b.seenIn - a.seenIn || (b.etv ?? 0) - (a.etv ?? 0))
+    .slice(0, count)
+    .map((c) => c.domain);
+}
+
+/** The strongest direct rivals and up to two relevant bigger names, only when no person has shortlisted any yet. */
 export function autoShortlist(ws: CompetitorWorkspace): CompetitorWorkspace {
   if (ws.competitors.some((c) => c.shortlist !== 'none')) return ws;
   const candidates = ws.competitors.filter((c) => !c.rejected && !hiddenReason(c));
   const direct = candidates.filter((c) => c.type === 'direct' || c.type === 'local').sort((a, b) => b.seenIn - a.seenIn || (b.etv ?? 0) - (a.etv ?? 0)).slice(0, 5).map((c) => c.domain);
-  const aspirational = candidates
-    .filter((c) => c.type === 'search' && !direct.includes(c.domain) && (c.etv ?? 0) > 0 && (c.etv ?? 0) <= GIANT_ETV)
-    .sort((a, b) => (b.etv ?? 0) - (a.etv ?? 0))
-    .slice(0, 2)
-    .map((c) => c.domain);
-  return { ...ws, competitors: ws.competitors.map((c) => (direct.includes(c.domain) ? { ...c, shortlist: 'direct' as const } : aspirational.includes(c.domain) ? { ...c, shortlist: 'aspirational' as const } : c)) };
+  const aspirational = pickAspirational(ws, new Set(direct), 2);
+  return {
+    ...ws,
+    competitors: ws.competitors.map((c) =>
+      direct.includes(c.domain) ? { ...c, shortlist: 'direct' as const, shortlistBy: 'auto' as const } : aspirational.includes(c.domain) ? { ...c, shortlist: 'aspirational' as const, shortlistBy: 'auto' as const } : c,
+    ),
+  };
+}
+
+/**
+ * Repairs workspaces built before the relevance check: competitors autopilot picked that are not
+ * relevant leave the shortlist (a person's pick is never touched), sites found only in the competitor
+ * database that share too little are dropped, and empty "bigger name" slots are filled again from
+ * relevant sites when no person has shortlisted anything. `changed` is false when nothing moved.
+ */
+export function repairCompetitors(ws: CompetitorWorkspace): { workspace: CompetitorWorkspace; changed: boolean } {
+  // Without the site's own numbers (workspaces before 2026-11-17) relevance cannot be judged yet.
+  if (!ws.own) return { workspace: ws, changed: false };
+  let changed = false;
+  let list = ws.competitors.filter((c) => {
+    const keep = isRelevant(c, ws.own) || keptByPerson(c);
+    if (!keep) changed = true;
+    return keep;
+  });
+  list = list.map((c) => {
+    if (c.shortlist === 'none' || c.shortlistBy === 'person' || isRelevant(c, ws.own)) return c;
+    changed = true;
+    return { ...c, shortlist: 'none' as const, shortlistBy: 'auto' as const };
+  });
+  let next: CompetitorWorkspace = { ...ws, competitors: list };
+  const byPerson = list.some((c) => c.shortlistBy === 'person' && c.shortlist !== 'none');
+  const aspirational = list.filter((c) => c.shortlist === 'aspirational').length;
+  if (changed && !byPerson && aspirational < SHORTLIST_TARGET.aspirational[0]) {
+    const picked = new Set(list.filter((c) => c.shortlist !== 'none').map((c) => c.domain));
+    const add = pickAspirational(next, picked, SHORTLIST_TARGET.aspirational[0] - aspirational);
+    next = { ...next, competitors: list.map((c) => (add.includes(c.domain) ? { ...c, shortlist: 'aspirational' as const, shortlistBy: 'auto' as const } : c)) };
+  }
+  return { workspace: changed ? { ...next, competitors: sortCompetitors(next.competitors) } : ws, changed };
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addManualCompetitor, classify, defaultSearches, hiddenReason, listingKind, discoverCompetitors, emptyWorkspace, normDomain, refreshStrength, removeCompetitor, shortlistStatus, updateCompetitor,
-  type CompetitorClient,
+  addManualCompetitor, classify, defaultSearches, hiddenReason, listingKind, discoverCompetitors, emptyWorkspace, normDomain, refreshStrength, removeCompetitor, shortlistStatus, updateCompetitor, isRelevant, repairCompetitors,
+  type CompetitorClient, type CompetitorRecord, type CompetitorWorkspace,
 } from '../src';
 
 /** Fake DataForSEO: Labs list, one SERP per search, rank overview and history. */
@@ -145,5 +145,49 @@ describe('autopilot shortlist', () => {
     expect(ws.competitors[0]).toMatchObject({ shortlist: 'aspirational', rejected: false });
     ws = updateCompetitor(ws, 'rival.com', { listing: 'listed' });
     expect(ws.competitors[0]?.listing).toBe('listed');
+  });
+});
+
+describe('relevance of competitors from the competitor database', () => {
+  const rec = (domain: string, o: Partial<CompetitorRecord> = {}): CompetitorRecord => ({
+    domain, name: null, type: 'search', typeLocked: false, shortlist: 'none', sources: ['labs'], seenIn: 0, avgPosition: 20, sharedKeywords: 2,
+    etv: 500_000, keywords: 90_000, trend: null, notes: null, isNew: false, firstSeenAt: '', refreshedAt: null, ...o,
+  });
+
+  it('a new site’s few shared keywords do not make a software site or a bookshop a competitor', () => {
+    const own = { seenIn: 0, avgPosition: null, rating: null, reviews: null, etv: 0, keywords: 4 };
+    expect(isRelevant(rec('sourceforge.net'), own)).toBe(false);
+    expect(isRelevant(rec('petshop-rival.com', { sources: ['serp'], seenIn: 1 }), own)).toBe(true);
+    // An established site: sharing a real slice of its searches counts.
+    const big = { ...own, keywords: 400 };
+    expect(isRelevant(rec('rival.com', { sharedKeywords: 60 }), big)).toBe(true);
+    expect(isRelevant(rec('random.com', { sharedKeywords: 12 }), big)).toBe(false);
+  });
+
+  it('repair takes autopilot’s unrelated picks off the list, keeps a person’s, and refills from relevant sites', () => {
+    const ws: CompetitorWorkspace = {
+      ...emptyWorkspace('maxbox.uk'),
+      own: { seenIn: 0, avgPosition: null, rating: null, reviews: null, etv: 0, keywords: 3 },
+      competitors: [
+        rec('allamericanpettreat.com', { type: 'direct', sources: ['serp', 'local'], seenIn: 1, shortlist: 'direct', etv: null }),
+        rec('sourceforge.net', { shortlist: 'aspirational', etv: 893_593 }),
+        rec('thriftbooks.com', { shortlist: 'aspirational', etv: 481_453 }),
+        rec('bigpetstore.com', { sources: ['serp'], seenIn: 1, etv: 40_000 }),
+        rec('chewy-like.com', { sources: ['labs'], shortlist: 'aspirational', shortlistBy: 'person', etv: 200_000 }),
+      ],
+    };
+    const { workspace, changed } = repairCompetitors(ws);
+    expect(changed).toBe(true);
+    const by = Object.fromEntries(workspace.competitors.map((c) => [c.domain, c.shortlist]));
+    expect(by['sourceforge.net']).toBeUndefined();
+    expect(by['thriftbooks.com']).toBeUndefined();
+    expect(by['chewy-like.com']).toBe('aspirational'); // a person picked it: never touched
+    expect(by['allamericanpettreat.com']).toBe('direct');
+    // A person has a pick, so empty slots are not refilled.
+    expect(by['bigpetstore.com']).toBe('none');
+
+    const auto = repairCompetitors({ ...ws, competitors: ws.competitors.filter((c) => c.domain !== 'chewy-like.com') }).workspace;
+    expect(auto.competitors.find((c) => c.domain === 'bigpetstore.com')).toMatchObject({ shortlist: 'aspirational', shortlistBy: 'auto' });
+    expect(repairCompetitors(auto).changed).toBe(false);
   });
 });
