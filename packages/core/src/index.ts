@@ -40,6 +40,7 @@ export { keywordResearchSheets } from './keywords/sheet';
 export { toXlsx, zipStore, type Sheet, type SheetCell } from './report/xlsx';
 export * from './actions/actions';
 export * from './actions/ai-plan';
+export * from './actions/cleanup';
 export * from './analysis/analysis';
 export { analysisDeps, sitemapCount, sitemapUrlList } from './analysis/deps';
 export { missingEntities } from './analysis/extras';

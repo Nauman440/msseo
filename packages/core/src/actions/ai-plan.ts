@@ -4,6 +4,7 @@ import type { KeywordWorkspace } from '../keywords/types';
 import type { MappingWorkspace } from '../mapping/mapping';
 import type { OpenAiClient } from '../providers/openai';
 import type { ReportModel } from '../types';
+import { AFTER_CANONICAL, CLEANUP_DOER, CLEANUP_ITEMS, cleanupPages, cleanupTask, NEEDS_APPROVAL, PAGE_GROUPS, SITE_WIDE_ITEMS, weeklyCheckTask, type CleanupItem, type CleanupPage, type PageGroup } from './cleanup';
 import { ACTION_BUCKETS, beforeState, type ActionItem, type ActionWorkspace, type Suggestion } from './actions';
 
 /**
@@ -31,7 +32,8 @@ export function capacityFor(settings: Partial<Record<string, unknown>>, tier: Pl
 }
 
 export const TASK_CATEGORIES = ['technical', 'on_page', 'content', 'off_page', 'local', 'tracking'] as const;
-export const TASK_DOERS = ['automatic', 'team', 'client'] as const;
+/** automatic = software applies it after approval; automatic_no_approval = software applies it straight away (rule 22). */
+export const TASK_DOERS = ['automatic', 'automatic_no_approval', 'team', 'client'] as const;
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 export type TaskDoer = (typeof TASK_DOERS)[number];
 
@@ -52,6 +54,9 @@ const task = z.object({
   depends_on: z.array(z.string()),
   success_check: z.string(),
   check_after_days: z.number(),
+  /** Rules 20–23: which site-wide clean-up this task is ('none' for every other task). */
+  site_wide_item: z.enum(SITE_WIDE_ITEMS),
+  page_group: z.enum(PAGE_GROUPS),
 });
 export const aiPlanSchema = z.object({
   summary: z.string(),
@@ -85,6 +90,7 @@ export const AI_PLAN_JSON_SCHEMA = obj({
           id: str, week: num, title: str, why: str, urls: strs, keywords: strs, change: str,
           category: { type: 'string', enum: [...TASK_CATEGORIES] }, doer: { type: 'string', enum: [...TASK_DOERS] },
           impact: num, confidence: num, effort: num, priority: num, depends_on: strs, success_check: str, check_after_days: num,
+          site_wide_item: { type: 'string', enum: [...SITE_WIDE_ITEMS] }, page_group: { type: 'string', enum: [...PAGE_GROUPS] },
         }),
       },
     }),
@@ -94,7 +100,7 @@ export const AI_PLAN_JSON_SCHEMA = obj({
 });
 
 export const AI_PLAN_SYSTEM = `You are a senior SEO strategist building a 6-month SEO action plan for one website.
-The plan will be shown to a non-expert business owner and carried out partly by software (automatic changes after approval) and partly by an SEO team.
+The plan will be shown to a non-expert business owner and carried out partly by software (some changes go live straight away, others after the client approves them) and partly by an SEO team.
 Accuracy and relevance matter more than the number of tasks. The user message holds <business> and <data> as JSON.
 
 <rules>
@@ -115,21 +121,27 @@ C. Order of work
 10. Months 3–5: create new pages and articles from the topic groups, highest value first; then internal links into them.
 11. Throughout, at a steady pace: off-page work that fits the business type (links from the link gap, reviews, listings, Business Profile, digital PR).
 12. Plan seasonal content and pages at least 6–8 weeks before the peak.
-13. Never schedule more work in a month than the stated capacity. If there is more work, keep the highest-scoring tasks and list the rest as "later".
+13. Never schedule more work in a month than the stated capacity. If there is more work, keep the highest-scoring tasks and list the rest as "later". The site-wide clean-up (rules 20–23) does not count towards the capacity.
 
 D. Scoring
 14. Score each task: impact (1–5: traffic and revenue potential, using volume, position and intent), confidence (1–5), effort (1–5). Priority = impact × confidence ÷ effort. Use priority to order tasks within the constraints of rules 7–13.
 
 E. Every task must be specific
 15. Name the exact URL(s), the keywords, what changes (before → after where possible) and why, in one plain sentence a business owner understands.
-16. Mark who does it: "automatic" (software can apply it after approval: SEO titles, meta descriptions, H1s, redirects, draft pages), "team" or "client".
+16. Mark who does it: "automatic" (software applies it after the client approves: SEO titles, meta descriptions, H1s, canonicals, redirects, draft pages), "automatic_no_approval" (software applies it straight away: image alt text, Open Graph tags, fixes for new pages), "team" or "client".
 17. Give a measurable success check and the day to check it (7, 14 or 28 days after the change).
 18. List dependencies by task id (e.g. "1.3").
 19. Do not invent data. If something needed is missing, add it to "data_gaps" instead of guessing. Use only URLs from the crawl summary, or clearly new URLs on the same domain.
+
+F. Site-wide on-page clean-up (always include)
+20. In Month 1, include one task per item type that covers EVERY indexable page from the crawl (data.site_wide_pages), not only pages in the keyword map: meta titles, meta descriptions, H1, canonical tags, image alt text, Open Graph tags. Group by page type (money pages, products, collections, articles, other) so each group can be approved in one action. List the group's URLs in "urls". Set "site_wide_item" to the item type and "page_group" to the group; every other task uses "none" for both.
+21. Canonical fixes come before title changes. Self-referencing canonicals on indexable pages; variant, filter, tag, pagination and nested product URLs point to the clean URL.
+22. Alt text, Open Graph tags and fixes for new pages are "automatic_no_approval". Titles, descriptions, H1s and canonicals are "automatic" (after approval).
+23. Add one ongoing task: check new and changed pages weekly and apply the same rules (site_wide_item "weekly_check", page_group "none").
 </rules>
 
 Task ids are "<month>.<n>". Months are 1 to 6. Weeks are 1 to 4. Write for a business owner: plain words, no jargon.
-Before answering, check your plan against every rule. In particular: no keyword appears on two pages, no task uses a check that does not fit the business type, every blocker sits in Month 1, and no month exceeds capacity.`;
+Before answering, check your plan against every rule. In particular: no keyword appears on two pages, no task uses a check that does not fit the business type, every blocker sits in Month 1, no month exceeds capacity, the site-wide clean-up covers every indexable page in Month 1 with canonicals first, and there is exactly one weekly check task.`;
 
 // ---- Input --------------------------------------------------------------------------------
 
@@ -208,6 +220,7 @@ export function buildPlanInput(args: {
       startDate: args.start.toISOString().slice(0, 10),
     },
     data: {
+      site_wide_pages: cleanupPages(allPages, kind),
       crawl_summary: pages.map((p) => ({ url: p.url, title: p.title, h1: p.h1, words: p.words, inlinks: inlinks.get(key(p.url)) ?? 0, page_type: p.pageType })),
       audit_score: args.report?.overall.score ?? null,
       audit_issues: issues,
@@ -250,8 +263,11 @@ const NEW_PAGE = /\b(create|new|build|add|write)\b/i;
 
 export type CheckedPlan = { plan: AiPlan; notes: string[] };
 
-/** Enforces rules 3, 5, 7, 13 and 14–17 on the model's answer, and says what it changed. */
-export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessType' | 'capacity'>): CheckedPlan {
+/**
+ * Enforces rules 3, 5, 7, 13, 14–17 and 20–23 on the model's answer, and says what it changed.
+ * `pages` (the crawl's site-wide clean-up view) lets it add clean-up tasks the model left out.
+ */
+export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessType' | 'capacity'>, pages: CleanupPage[] = []): CheckedPlan {
   const notes: string[] = [];
   const plan: AiPlan = structuredClone(raw);
 
@@ -281,7 +297,7 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
 
   // Tidy every task: scores, priority, week, check day, ids.
   const later = [...plan.later];
-  const all: (AiPlanTask & { month: number })[] = [];
+  const all: MonthTask[] = [];
   for (const m of plan.months) {
     for (const t of m.tasks) {
       const month = Math.max(1, Math.min(6, Math.round(m.month)));
@@ -291,6 +307,8 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
       all.push({ ...t, month, week: Math.max(1, Math.min(4, Math.round(t.week))), impact, confidence, effort, priority: priorityOf(impact, confidence, effort), check_after_days: nearestCheck(t.check_after_days) });
     }
   }
+
+  siteWideCleanup(all, pages, notes);
 
   // 5. Checks that do not fit the business type.
   const fits = all.filter((t) => {
@@ -310,6 +328,7 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
 
   // 13. Monthly capacity: keep the highest priority in each month, the rest go to "later".
   const kindOf = (t: AiPlanTask) => {
+    if (t.site_wide_item !== 'none') return null; // the clean-up does not count towards capacity
     const creates = t.urls.some((u) => newPages.has(u)) || (t.category === 'content' && NEW_PAGE.test(t.title));
     if (creates && (t.urls.some((u) => articlePages.has(u)) || ARTICLE.test(t.title))) return 'articles' as const;
     if (creates) return 'newPages' as const;
@@ -351,6 +370,64 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
   return { plan: { ...plan, months, later }, notes };
 }
 
+type MonthTask = AiPlanTask & { month: number };
+
+/** Rules 20–23 on the tidied tasks (in place): month 1, canonicals first, who applies what, nothing left out, one weekly check. */
+function siteWideCleanup(all: MonthTask[], pages: CleanupPage[], notes: string[]) {
+  // 22. Titles, descriptions, H1s, canonicals and redirects are never changed without approval.
+  for (const t of all) {
+    if (t.site_wide_item === 'none' || t.site_wide_item === 'weekly_check') {
+      if (t.doer === 'automatic_no_approval' && NEEDS_APPROVAL.test(`${t.title} ${t.change}`)) {
+        t.doer = 'automatic';
+        notes.push(`"${t.title}" changes titles, descriptions, headings, canonicals or redirects: it now waits for approval.`);
+      }
+      continue;
+    }
+    if (t.month !== 1) notes.push(`Moved "${t.title}" to month 1: the site-wide clean-up starts the plan.`);
+    t.month = 1;
+    t.doer = CLEANUP_DOER[t.site_wide_item];
+    if (t.page_group === 'none') t.page_group = 'other';
+  }
+
+  // 20. Every item type for every page group that needs work, even if the model left it out.
+  const covered = new Set(all.filter((t) => t.site_wide_item !== 'none').map((t) => `${t.site_wide_item}|${t.page_group}`));
+  const missing = new Map<string, { item: CleanupItem; group: Exclude<PageGroup, 'none'>; urls: string[] }>();
+  for (const p of pages) {
+    for (const item of p.needs) {
+      const k = `${item}|${p.group}`;
+      if (covered.has(k)) continue;
+      const m = missing.get(k) ?? { item, group: p.group, urls: [] };
+      m.urls.push(p.url);
+      missing.set(k, m);
+    }
+  }
+  for (const m of [...missing.values()].sort((a, b) => CLEANUP_ITEMS.indexOf(a.item) - CLEANUP_ITEMS.indexOf(b.item))) {
+    all.push({ ...cleanupTask(m.item, m.group, m.urls), month: 1, priority: priorityOf(m.item === 'canonical' || m.item === 'meta_title' ? 4 : 3, 4, 2) });
+  }
+  if (missing.size) notes.push(`Added ${missing.size} site-wide clean-up task(s) the plan had left out, so every crawled page is covered.`);
+
+  // 23. Exactly one ongoing weekly check.
+  const weekly = all.filter((t) => t.site_wide_item === 'weekly_check');
+  if (!weekly.length) {
+    all.push({ ...weeklyCheckTask(), month: 1, priority: priorityOf(3, 4, 1) });
+    notes.push('Added the weekly check of new and changed pages.');
+  }
+  for (const extra of weekly.slice(1)) all.splice(all.indexOf(extra), 1);
+  for (const t of all.filter((x) => x.site_wide_item === 'weekly_check')) t.month = 1;
+
+  // 21. Canonicals before title changes: canonicals in week 1; month-1 title, description and H1 work after them.
+  const canonicals = all.filter((t) => t.site_wide_item === 'canonical');
+  for (const t of canonicals) t.week = 1;
+  if (!canonicals.length) return;
+  for (const t of all) {
+    const textChange = AFTER_CANONICAL.includes(t.site_wide_item) || (t.site_wide_item === 'none' && t.category === 'on_page' && /\b(titles?|meta descriptions?|h1s?)\b/i.test(t.title));
+    if (!textChange || t.month !== 1) continue;
+    t.week = Math.max(t.week, 2);
+    const first = canonicals.filter((c) => c.page_group === t.page_group);
+    for (const c of first.length ? first : canonicals) if (!t.depends_on.includes(c.id)) t.depends_on.push(c.id);
+  }
+}
+
 // ---- Into the action plan ------------------------------------------------------------------
 
 /** The plan as saved on the action workspace; its tasks live on as actions. */
@@ -368,7 +445,7 @@ export type StoredAiPlan = Omit<AiPlan, 'months'> & {
   notes: string[];
 };
 
-const OWNER: Record<TaskDoer, string> = { automatic: 'Automatic (after approval)', team: 'SEO team', client: 'Client' };
+const OWNER: Record<TaskDoer, string> = { automatic: 'Automatic (after approval)', automatic_no_approval: 'Automatic (no approval needed)', team: 'SEO team', client: 'Client' };
 
 /** Untouched by a person: still to do, not approved, not moved, not applied, no exact changes attached. */
 const untouched = (a: ActionItem) =>
@@ -406,7 +483,8 @@ export function applyAiPlan(
         confidence: t.confidence,
         effort: t.effort,
         priority: t.priority,
-        urls: t.urls.slice(0, 20),
+        // A site-wide clean-up task covers every page of its group.
+        urls: t.urls.slice(0, t.site_wide_item === 'none' ? 20 : 200),
       };
       return {
         ...s,
@@ -426,6 +504,7 @@ export function applyAiPlan(
         plan: {
           taskId: t.id, month: m.month, week: t.week, doer: t.doer, category: t.category, why: t.why, change: t.change,
           keywords: t.keywords.slice(0, 10), dependsOn: t.depends_on, successCheck: t.success_check, checkAfterDays: t.check_after_days,
+          ...(t.site_wide_item !== 'none' ? { siteWideItem: t.site_wide_item, pageGroup: t.page_group } : {}),
         },
         createdAt: iso,
         updatedAt: iso,
@@ -477,7 +556,7 @@ export async function writeAiPlan(
 ): Promise<{ workspace: ActionWorkspace; tokens: number }> {
   const input = buildPlanInput(args);
   const { plan, tokens, model } = await generateAiPlan(client, input);
-  const checked = checkPlan(plan, input.business);
+  const checked = checkPlan(plan, input.business, input.data.site_wide_pages as CleanupPage[]);
   return { workspace: applyAiPlan(ws, checked, { model, tokens, business: input.business }, ctx), tokens };
 }
 

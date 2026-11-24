@@ -197,4 +197,12 @@ export type ReportPage = {
   schemaTypes: string[];
   /** Internal pages this page links to (absolute URLs, at most 150). */
   links: string[];
+  /** On-page fields for the site-wide clean-up in the action plan (reports from 2026-11-24 on). */
+  description?: string | null;
+  h1Count?: number;
+  canonical?: string | null;
+  noindex?: boolean;
+  images?: number;
+  imagesNoAlt?: number;
+  openGraph?: { title: boolean; description: boolean; image: boolean } | null;
 };

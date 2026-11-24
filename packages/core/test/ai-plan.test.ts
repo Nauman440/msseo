@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, applyAiPlan, buildPlanInput, checkPlan, emptyActions, emptyKeywordWorkspace, PLAN_CAPACITY, type AiPlan, type AiPlanTask, type ActionItem } from '../src';
+import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, applyAiPlan, buildPlanInput, checkPlan, emptyActions, emptyKeywordWorkspace, PLAN_CAPACITY, type AiPlan, type AiPlanTask, type ActionItem, cleanupPages, type ReportPage } from '../src';
 
 const t = (id: string, o: Partial<AiPlanTask> = {}): AiPlanTask => ({
   id, week: 1, title: `Task ${id}`, why: 'Because.', urls: ['https://shop.com/duvets/'], keywords: ['duvet covers'], change: 'Title A → Title B', category: 'on_page',
-  doer: 'automatic', impact: 4, confidence: 4, effort: 2, priority: 0, depends_on: [], success_check: 'Clicks up', check_after_days: 14, ...o,
+  doer: 'automatic', impact: 4, confidence: 4, effort: 2, priority: 0, depends_on: [], success_check: 'Clicks up', check_after_days: 14, site_wide_item: 'none', page_group: 'none', ...o,
 });
 const plan = (o: Partial<AiPlan> = {}): AiPlan => ({
   summary: 'S', baseline_and_targets: [], removed_keywords: [], page_map: [], later: [], data_gaps: [],
@@ -39,7 +39,8 @@ describe('AI action plan', () => {
     }), shop);
     const m1 = r.plan.months[0]!.tasks;
     // Ordered by week: the blocker moves from month 3 week 3 to month 1 week 2; its dependency keeps pointing at the renamed task.
-    expect(m1.map((x) => x.title)).toEqual(['Task 1.1', 'Remove noindex from category pages']);
+    // The weekly check of new and changed pages (rule 23) is always added, last in month 1.
+    expect(m1.map((x) => x.title)).toEqual(['Task 1.1', 'Remove noindex from category pages', 'Check new and changed pages every week']);
     expect(m1[0]).toMatchObject({ impact: 5, effort: 1, priority: 20, id: '1.1' });
     expect(m1[1]).toMatchObject({ week: 2, id: '1.2', depends_on: ['1.1'] });
     expect(r.plan.months[2]!.tasks).toEqual([]);
@@ -49,7 +50,8 @@ describe('AI action plan', () => {
   it('never goes over the monthly capacity: the rest goes to "later"', () => {
     const tasks = Array.from({ length: 20 }, (_, i) => t(`1.${i + 1}`, { impact: (i % 5) + 1 }));
     const r = checkPlan(plan({ months: [{ month: 1, theme: '', goal: '', tasks }] }), shop);
-    expect(r.plan.months[0]!.tasks).toHaveLength(PLAN_CAPACITY.autopilot.automatic);
+    // The weekly check does not count towards the capacity.
+    expect(r.plan.months[0]!.tasks.filter((x) => x.site_wide_item === 'none')).toHaveLength(PLAN_CAPACITY.autopilot.automatic);
     expect(r.plan.later).toHaveLength(5);
     expect(Math.min(...r.plan.months[0]!.tasks.map((x) => x.impact))).toBeGreaterThanOrEqual(Math.max(...r.plan.later.map(() => 1)));
   });
@@ -65,8 +67,8 @@ describe('AI action plan', () => {
     const ws = { ...emptyActions('shop.com'), actions: [started, untouched] };
     const business = buildPlanInput({ domain: 'shop.com', tier: 'autopilot', keywords: emptyKeywordWorkspace('shop.com', { businessType: 'shop', seeds: { services: ['duvet covers'] } }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z') }).business;
     const out = applyAiPlan(ws, checkPlan(plan({ months: [{ month: 2, theme: 'Pages', goal: 'g', tasks: [t('2.1', { week: 3 })] }] }), shop), { model: 'm', tokens: 10, business }, { newId, now: new Date('2026-12-01T00:00:00Z') });
-    expect(out.actions.map((a) => a.id)).toEqual(['old', 'id2']);
-    expect(out.actions[1]).toMatchObject({ bucket: 'd60', bucketLocked: true, approval: 'client', owner: 'Automatic (after approval)', dueDate: '2027-01-19', plan: { month: 2, week: 3, doer: 'automatic', successCheck: 'Clicks up' } });
+    expect(out.actions.map((a) => a.id)).toEqual(['old', 'id2', 'id3']);
+    expect(out.actions.find((a) => a.plan?.month === 2)).toMatchObject({ bucket: 'd60', bucketLocked: true, approval: 'client', owner: 'Automatic (after approval)', dueDate: '2027-01-19', plan: { month: 2, week: 3, doer: 'automatic', successCheck: 'Clicks up' } });
     expect(out.aiPlan).toMatchObject({ id: 'id1', tier: 'autopilot', businessType: 'ecommerce', months: [{ month: 1 }, { month: 2, theme: 'Pages' }, { month: 3 }, { month: 4 }, { month: 5 }, { month: 6 }] });
   });
 
@@ -74,6 +76,52 @@ describe('AI action plan', () => {
     const input = buildPlanInput({ domain: 'coolco.com', tier: 'growth', keywords: emptyKeywordWorkspace('coolco.com', { seeds: { services: ['AC repair'], locations: ['Dallas'] } }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z') });
     expect(input.business).toMatchObject({ businessType: 'local_service', capacity: PLAN_CAPACITY.growth, startDate: '2026-12-01', where: 'United States; serves Dallas' });
     expect(input.data.search_console_90_days).toBe('not connected');
+  });
+
+  it('site-wide clean-up: month 1, canonicals first, approvals by item type, nothing left out (rules 20–23)', () => {
+    const page = (url: string, o: Partial<ReportPage> = {}): ReportPage => ({
+      url, title: `Duvet covers in every size ${url.length} | Fold and Feel bedding`, h1: 'Duvet covers', words: 500, pageType: 'other', schemaTypes: [], links: [],
+      description: `Soft cotton duvet covers in every size, delivered free across the UK in two days. Order today and sleep better, ref ${url.length}.`, h1Count: 1, noindex: false,
+      images: 2, imagesNoAlt: 0, openGraph: { title: true, description: true, image: true }, ...o, canonical: o.canonical === undefined ? url : o.canonical,
+    });
+    const pages = cleanupPages([
+      page('https://shop.com/products/duvet', { schemaTypes: ['Product'], imagesNoAlt: 3, canonical: null }),
+      page('https://shop.com/collections/bedding', { title: 'Bedding', openGraph: { title: true, description: false, image: false } }),
+      page('https://shop.com/collections/bedding/products/duvet', { canonical: 'https://shop.com/collections/bedding/products/duvet' }),
+      page('https://shop.com/blog/how-to-wash', { pageType: 'blog_post', h1Count: 2 }),
+    ], 'ecommerce');
+    expect(pages.map((p) => [p.group, p.needs])).toEqual([
+      ['products', ['canonical', 'alt_text']],
+      ['collections', ['meta_title', 'open_graph']],
+      ['products', ['canonical']],
+      ['articles', ['h1']],
+    ]);
+    const r = checkPlan(plan({
+      months: [
+        { month: 1, theme: '', goal: '', tasks: [t('1.1', { title: 'Rewrite product titles', site_wide_item: 'meta_title', page_group: 'products', week: 1 })] },
+        { month: 3, theme: '', goal: '', tasks: [t('3.1', { title: 'Alt text on products', site_wide_item: 'alt_text', page_group: 'products', doer: 'automatic' }), t('3.2', { title: 'New H1s on guides', doer: 'automatic_no_approval', week: 2 })] },
+      ],
+    }), shop, pages);
+    const m1 = r.plan.months[0]!.tasks;
+    const find = (item: string, group: string) => m1.find((x) => x.site_wide_item === item && x.page_group === group);
+    // Added from the crawl: canonical (products, week 1), collection titles, collection Open Graph, article H1; plus the weekly check.
+    expect(find('canonical', 'products')).toMatchObject({ week: 1, doer: 'automatic', urls: ['https://shop.com/products/duvet', 'https://shop.com/collections/bedding/products/duvet'] });
+    const canonicalId = find('canonical', 'products')!.id;
+    expect(find('meta_title', 'products')).toMatchObject({ week: 2, doer: 'automatic', depends_on: [canonicalId] });
+    expect(find('meta_title', 'collections')).toMatchObject({ urls: ['https://shop.com/collections/bedding'] });
+    expect(find('alt_text', 'products')).toMatchObject({ doer: 'automatic_no_approval' });
+    expect(find('open_graph', 'collections')).toMatchObject({ doer: 'automatic_no_approval' });
+    expect(find('h1', 'articles')).toBeTruthy();
+    expect(m1.filter((x) => x.site_wide_item === 'weekly_check')).toHaveLength(1);
+    // A heading change never goes live without approval.
+    expect(r.plan.months[2]!.tasks.find((x) => x.title === 'New H1s on guides')).toMatchObject({ doer: 'automatic' });
+    expect(r.notes.join(' ')).toMatch(/left out/);
+
+    const business = buildPlanInput({ domain: 'shop.com', tier: 'autopilot', keywords: emptyKeywordWorkspace('shop.com', { businessType: 'shop' }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z') }).business;
+    let n = 0;
+    const out = applyAiPlan(emptyActions('shop.com'), r, { model: 'm', tokens: 1, business }, { newId: () => `a${++n}` });
+    expect(out.actions.find((a) => a.plan?.siteWideItem === 'alt_text')).toMatchObject({ approval: 'none', owner: 'Automatic (no approval needed)', plan: { pageGroup: 'products' } });
+    expect(out.actions.find((a) => a.plan?.siteWideItem === 'canonical')).toMatchObject({ approval: 'client' });
   });
 
   it('regenerating starts over: only finished work and changes applied to the site stay', () => {
@@ -86,7 +134,7 @@ describe('AI action plan', () => {
     const business = buildPlanInput({ domain: 'shop.com', tier: 'autopilot', keywords: emptyKeywordWorkspace('shop.com', { businessType: 'shop' }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z') }).business;
     const checked = checkPlan(plan(), shop);
     const ctx = { newId: () => `n${++n}`, now: new Date('2026-12-01T00:00:00Z') };
-    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, ctx).actions.map((a) => a.id)).toEqual(['started', 'done', 'verified', 'dismissed', 'n2']);
-    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, { ...ctx, fresh: true }).actions.map((a) => a.id)).toEqual(['done', 'verified', 'n4']);
+    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, ctx).actions.map((a) => a.id)).toEqual(['started', 'done', 'verified', 'dismissed', 'n2', 'n3']);
+    expect(applyAiPlan(ws, checked, { model: 'm', tokens: 1, business }, { ...ctx, fresh: true }).actions.map((a) => a.id)).toEqual(['done', 'verified', 'n5', 'n6']);
   });
 });

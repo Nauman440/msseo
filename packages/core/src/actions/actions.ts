@@ -1,5 +1,6 @@
 import type { ApplyRecord } from '../connections/types';
 import type { StoredAiPlan, TaskCategory, TaskDoer } from './ai-plan';
+import type { PageGroup, SiteWideItem } from './cleanup';
 import type { MappingRow, MappingWorkspace } from '../mapping/mapping';
 import type { Ice, ReportIssue, ReportModel, Severity } from '../types';
 
@@ -29,6 +30,9 @@ export type PlanTaskInfo = {
   dependsOn: string[];
   successCheck: string;
   checkAfterDays: number;
+  /** Rules 20–23: a site-wide clean-up task (older plans have none). */
+  siteWideItem?: SiteWideItem;
+  pageGroup?: PageGroup;
 };
 
 export type BeforeState = {

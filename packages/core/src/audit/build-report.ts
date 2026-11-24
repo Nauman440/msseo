@@ -220,6 +220,14 @@ function reportPages(data: AuditData): ReportPage[] | undefined {
       pageType: typeOf.get(c.url) ?? null,
       schemaTypes: c.schemaTypes,
       links: [...new Set(c.links.filter((l) => l.internal).map((l) => l.href.split('#')[0]!))].slice(0, 150),
+      description: c.description ?? null,
+      h1Count: c.h1.length,
+      canonical: c.canonical ?? null,
+      noindex: /noindex/.test(c.robots ?? ''),
+      images: c.images.length,
+      // alt="" marks a decorative image; only a missing attribute counts.
+      imagesNoAlt: c.images.filter((i) => i.alt === undefined).length,
+      openGraph: c.openGraph ?? null,
     }));
 }
 

@@ -33,6 +33,8 @@ export type PageContent = {
   firstParagraph?: string;
   links: { href: string; text: string; internal: boolean; imageAlt?: string; inNav: boolean }[];
   images: { src: string; alt?: string }[];
+  /** Open Graph tags present (og:title, og:description, og:image); missing on pages parsed before 2026-11-24. */
+  openGraph?: { title: boolean; description: boolean; image: boolean };
   jsonLd: Record<string, unknown>[];
   schemaTypes: string[];
   hreflang: { lang: string; href: string }[];
@@ -181,6 +183,11 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     firstParagraph: firstParagraph ? clean(firstParagraph) : undefined,
     links,
     images: root.querySelectorAll('img').map((i) => ({ src: i.getAttribute('src') ?? i.getAttribute('data-src') ?? '', alt: i.getAttribute('alt') ?? undefined })).filter((i) => i.src),
+    openGraph: {
+      title: Boolean(root.querySelector('meta[property="og:title"]')?.getAttribute('content')),
+      description: Boolean(root.querySelector('meta[property="og:description"]')?.getAttribute('content')),
+      image: Boolean(root.querySelector('meta[property="og:image"]')?.getAttribute('content')),
+    },
     jsonLd,
     schemaTypes,
     hreflang: root.querySelectorAll('link[rel="alternate"][hreflang]').map((l) => ({ lang: l.getAttribute('hreflang') ?? '', href: l.getAttribute('href') ?? '' })),
