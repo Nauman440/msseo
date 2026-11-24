@@ -3,6 +3,8 @@ import { dedupeKey, normTerm } from '../keywords/clean';
 import type { KeywordWorkspace } from '../keywords/types';
 import type { MappingWorkspace } from '../mapping/mapping';
 import type { OpenAiClient } from '../providers/openai';
+import { runPlanPipeline, type ChecklistLine, type OffpageItem, type PlanPageFix, type PlanIssue, type SiteStudy } from './plan-pipeline';
+import { fixDependencies, MIN_TASKS, repairMonths, validatePlan, type RepairContext, type ValidationLine } from './plan-validate';
 import type { ReportModel } from '../types';
 import type { AeoAudit, AeoWorkspace } from '../aeo/aeo';
 import type { ContentAudit } from '../content/content';
@@ -22,24 +24,24 @@ export type PlanTier = 'autopilot' | 'growth';
  * Work per month: the most changes software applies after approval, new pages and new articles, and the
  * fewest tasks a month should hold (`minTasks`; plans written before 2026-11-24 have none).
  */
-export type PlanCapacity = { automatic: number; newPages: number; articles: number; minTasks: number };
+export type PlanCapacity = { automatic: number; newPages: number; articles: number; minTasks: number; /** The SEO team does outreach (else the client, with templates). */ outreach?: boolean };
 export const PLAN_CAPACITY: Record<PlanTier, PlanCapacity> = {
-  autopilot: { automatic: 15, newPages: 2, articles: 1, minTasks: 15 },
-  growth: { automatic: 40, newPages: 4, articles: 4, minTasks: 20 },
+  autopilot: { automatic: 15, newPages: 2, articles: 1, minTasks: 15, outreach: false },
+  growth: { automatic: 40, newPages: 4, articles: 4, minTasks: 20, outreach: true },
 };
 
 /** Monthly capacity from the admin settings (`plan.<tier>.*`), else the defaults above. */
 export function capacityFor(settings: Partial<Record<string, unknown>>, tier: PlanTier): PlanCapacity {
-  const n = (k: keyof PlanCapacity) => {
+  const n = (k: 'automatic' | 'newPages' | 'articles' | 'minTasks') => {
     const v = Number(settings[`plan.${tier}.${k}`]);
     return Number.isFinite(v) && v >= 0 ? v : PLAN_CAPACITY[tier][k];
   };
-  return { automatic: n('automatic'), newPages: n('newPages'), articles: n('articles'), minTasks: n('minTasks') };
+  const o = settings[`plan.${tier}.outreach`];
+  return { automatic: n('automatic'), newPages: n('newPages'), articles: n('articles'), minTasks: n('minTasks'), outreach: typeof o === 'boolean' ? o : PLAN_CAPACITY[tier].outreach };
 }
 
-export const TASK_CATEGORIES = ['technical', 'on_page', 'content', 'ai_visibility', 'off_page', 'local', 'tracking'] as const;
-/** automatic = software applies it after approval; automatic_no_approval = software applies it straight away (rule 22). */
-export const TASK_DOERS = ['automatic', 'automatic_no_approval', 'team', 'client'] as const;
+export { TASK_CATEGORIES, TASK_DOERS } from './plan-constants';
+import { TASK_CATEGORIES, TASK_DOERS } from './plan-constants';
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 export type TaskDoer = (typeof TASK_DOERS)[number];
 
@@ -63,6 +65,12 @@ const task = z.object({
   /** Rules 20–23: which site-wide clean-up this task is ('none' for every other task). */
   site_wide_item: z.enum(SITE_WIDE_ITEMS),
   page_group: z.enum(PAGE_GROUPS),
+  /** Audit area A–Q from the checklist ('' when none). */
+  area: z.string(),
+  /** Issue register ids this task fixes. */
+  issue_ids: z.array(z.string()),
+  /** A task that repeats every week or month (at most 3 count toward a month's minimum). */
+  recurring: z.boolean(),
 });
 export const aiPlanSchema = z.object({
   summary: z.string(),
@@ -97,6 +105,7 @@ export const AI_PLAN_JSON_SCHEMA = obj({
           category: { type: 'string', enum: [...TASK_CATEGORIES] }, doer: { type: 'string', enum: [...TASK_DOERS] },
           impact: num, confidence: num, effort: num, priority: num, depends_on: strs, success_check: str, check_after_days: num,
           site_wide_item: { type: 'string', enum: [...SITE_WIDE_ITEMS] }, page_group: { type: 'string', enum: [...PAGE_GROUPS] },
+          area: str, issue_ids: strs, recurring: { type: 'boolean' },
         }),
       },
     }),
@@ -104,64 +113,6 @@ export const AI_PLAN_JSON_SCHEMA = obj({
   later: { type: 'array', items: obj({ title: str, reason_deferred: str }) },
   data_gaps: strs,
 });
-
-export const AI_PLAN_SYSTEM = `You are a senior SEO strategist building a 6-month SEO action plan for one website.
-The plan will be shown to a non-expert business owner and carried out partly by software (some changes go live straight away, others after the client approves them) and partly by an SEO team.
-The plan must be full and specific: every task real, grounded in the data and named by URL, and every month busy enough to move the business forward (rule 31). The user message holds <business> and <data> as JSON.
-
-<rules>
-A. Check and group keywords before planning
-1. Remove a keyword if it is irrelevant to what the business sells, if it names a competitor or a brand the business does not stock, if it has the wrong intent for any page the business could own (jobs, wholesale for a retail-only shop, DIY), or if it is a health or legal claim the business cannot safely make. Record each removed keyword with a one-line reason.
-2. Group the remaining keywords into topics: keywords that Google would answer with the same page (synonyms, plurals, near variants) belong together.
-3. Assign each topic to exactly ONE page: an existing URL if one fits, otherwise a proposed new URL. Pick one main keyword per page; the rest are supporting. No keyword on two pages.
-4. Send learning or comparison topics ("how to", "best X", "X vs Y") to articles or guides, not to product, category or service pages.
-
-B. Use only checks that fit the business type
-5. Ecommerce: category and product page optimisation, Product and ItemList schema, reviews, delivery and returns information, faceted navigation and duplicate URLs, out-of-stock handling. Do NOT suggest licences, insurance or service-area checks unless the business is a service.
-6. Local service or shop: Business Profile, NAP consistency, LocalBusiness schema, service and location pages, reviews.
-
-C. Order of work
-7. Month 1, weeks 1–2: anything that stops Google from crawling, indexing or rendering money pages (robots/noindex blocks, pages not indexed, sitemap, broken pages and links, severe mobile speed problems), plus tracking checks and a recorded baseline.
-8. Month 1, weeks 3–4, then Month 2: pages already ranking in positions 4–20 for high-value keywords: titles, H1s, meta descriptions, opening text, internal links. Do title and meta fixes as one batch per page, never as separate tasks spread across months.
-9. Months 2–3: merge or redirect pages that compete for the same topic; expand thin money pages compared with the pages that rank.
-10. Months 3–5: create new pages and articles from the topic groups, highest value first; then internal links into them.
-11. Throughout, at a steady pace: off-page work that fits the business type (links from the link gap, reviews, listings, Business Profile, digital PR), content optimisation (section G) and AI visibility (section H) in every month.
-12. Plan seasonal content and pages at least 6–8 weeks before the peak.
-13. Never schedule more work in a month than the stated capacity. If there is more work, keep the highest-scoring tasks and list the rest as "later". The site-wide clean-up (rules 20–23) does not count towards the capacity.
-
-D. Scoring
-14. Score each task: impact (1–5: traffic and revenue potential, using volume, position and intent), confidence (1–5), effort (1–5). Priority = impact × confidence ÷ effort. Use priority to order tasks within the constraints of rules 7–13.
-
-E. Every task must be specific
-15. Name the exact URL(s), the keywords, what changes (before → after where possible) and why, in one plain sentence a business owner understands.
-16. Mark who does it: "automatic" (software applies it after the client approves: SEO titles, meta descriptions, H1s, canonicals, redirects, draft pages), "automatic_no_approval" (software applies it straight away: image alt text, Open Graph tags, fixes for new pages), "team" or "client".
-17. Give a measurable success check and the day to check it (7, 14 or 28 days after the change).
-18. List dependencies by task id (e.g. "1.3").
-19. Do not invent data. If something needed is missing, add it to "data_gaps" instead of guessing. Use only URLs from the crawl summary, or clearly new URLs on the same domain.
-
-F. Site-wide on-page clean-up (always include)
-20. In Month 1, include one task per item type that covers EVERY indexable page from the crawl (data.site_wide_pages), not only pages in the keyword map: meta titles, meta descriptions, H1, canonical tags, image alt text, Open Graph tags. Group by page type (money pages, products, collections, articles, other) so each group can be approved in one action. List the group's URLs in "urls". Set "site_wide_item" to the item type and "page_group" to the group; every other task uses "none" for both.
-21. Canonical fixes come before title changes. Self-referencing canonicals on indexable pages; variant, filter, tag, pagination and nested product URLs point to the clean URL.
-22. Alt text, Open Graph tags and fixes for new pages are "automatic_no_approval". Titles, descriptions, H1s and canonicals are "automatic" (after approval).
-23. Add one ongoing task: check new and changed pages weekly and apply the same rules (site_wide_item "weekly_check", page_group "none").
-
-G. Optimise the content that already exists (category "content")
-24. Every existing money page, product, collection and article that can rank better gets its own content task, one page per task: pages in positions 4–20, pages marked "improve" or "merge" in data.content_audit, pages losing clicks (decay), thin pages (under 300 words for a money page) and pages the page plan marks expand or optimise.
-25. Say exactly what to add or change, measured against the pages that rank: missing subtopics and sections, questions from data.people_also_ask, a direct answer of 40–80 words under the H1, lists, tables, prices or specifications, real photos, proof (reviews, results, credentials), an updated date and facts, and internal links to and from related pages.
-26. Refresh decaying pages before writing new ones; merge (with a redirect) pages the content audit marks "merge"; never delete a page that gets clicks.
-27. Spread content optimisation over every month from Month 2 (Month 1 only for pages in positions 4–10), highest value first.
-
-H. Be visible in AI search: ChatGPT, Perplexity, Gemini, Google AI Overviews (category "ai_visibility")
-28. Month 1: AI search crawlers (OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, Bingbot, Googlebot) are not blocked by robots.txt or the firewall; fix any wrong facts AI gives about the business (data.ai_search.wrong_facts).
-29. Months 1–3: entity signals, so AI knows who the business is: one consistent business name, Organization (or LocalBusiness) schema with logo, contact details and sameAs links to its profiles, an About page that says who is behind the business and why to trust it; author or expert details on articles; FAQPage schema where the page has an FAQ.
-30. Months 2–6: answer-ready content for the questions people ask AI (data.ai_questions) and Google (data.people_also_ask): a short direct answer near the top, then detail; question-style H2s; comparison tables and step lists; the business's own figures, prices and experience. Get mentioned on the sites AI cites in this niche (data.ai_search.cited_sources: directories, review sites, forums, press) and on the listings that fit the business type. Re-check the tracked questions every month and plan for the ones where competitors are named instead.
-
-I. How much goes in each month
-31. Every month holds at least business.capacity.minTasks tasks (the site-wide clean-up counts in Month 1). Each month mixes categories: technical and on-page fixes, content optimisation, AI visibility, off-page or local work and, when needed, tracking. If the data runs out, use the audit issues in data.audit_issues before leaving a month short; never pad with vague tasks.
-</rules>
-
-Task ids are "<month>.<n>". Months are 1 to 6. Weeks are 1 to 4. Write for a business owner: plain words, no jargon.
-Before answering, check your plan against every rule. In particular: no keyword appears on two pages, no task uses a check that does not fit the business type, every blocker sits in Month 1, no month exceeds capacity, the site-wide clean-up covers every indexable page in Month 1 with canonicals first, there is exactly one weekly check task, every month has content optimisation and AI visibility tasks, and every month holds at least the minimum number of tasks.`;
 
 // ---- Input --------------------------------------------------------------------------------
 
@@ -176,6 +127,12 @@ export type PlanBusiness = {
   tier: PlanTier;
   capacity: PlanCapacity;
   startDate: string;
+  outreachByTeam?: boolean;
+  /** The shortlisted competitors (Module 3). */
+  competitors?: string[];
+  /** Not known yet: there is no field for them, so the prompt says "no data". */
+  notOffered?: string[];
+  bannedWords?: string[];
 };
 export type PlanExtras = {
   gsc?: { query: string; page?: string; clicks: number; impressions: number; position: number }[] | null;
@@ -185,6 +142,8 @@ export type PlanExtras = {
   aiSearch?: PlanAiSearch | null;
   /** Module 7: pages to improve, merge or refresh. */
   content?: PlanContent | null;
+  /** Module 3: the competitors we watch. */
+  competitors?: string[] | null;
 };
 export type PlanAiSearch = {
   checked_at: string;
@@ -234,14 +193,14 @@ export function buildPlanInput(args: {
   const gap = new Map<string, string[]>();
   for (const k of kept) for (const d of k.gapFrom ?? []) gap.set(d, [...(gap.get(d) ?? []), k.term]);
   const allPages = args.report?.pages ?? [];
-  const pages = allPages.slice(0, 60);
+  const pages = allPages.slice(0, 100);
   // Links into each page from the other checked pages (the crawl keeps each page's outgoing links).
   const key = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
   const inlinks = new Map<string, number>();
   for (const p of allPages) for (const l of new Set(p.links.map(key))) if (l !== key(p.url)) inlinks.set(l, (inlinks.get(l) ?? 0) + 1);
   const issues = (args.report?.issues ?? [])
     .filter((i) => i.severity !== 'info' && (i.status === 'fail' || i.status === 'warn'))
-    .slice(0, 40)
+    .slice(0, 80)
     .map((i) => ({ rule: i.ruleId, issue: i.title.expert, fix: i.fix.expert, severity: i.severity, affected: i.affectedCount ?? i.urls.length, urls: i.urls.slice(0, 5) }));
   const gsc = (args.extras?.gsc ?? []).slice().sort((a, b) => b.impressions - a.impressions).slice(0, 80)
     .map((r) => ({ query: r.query, page: r.page ?? null, clicks: r.clicks, impressions: r.impressions, ctr: r.impressions ? Math.round((r.clicks / r.impressions) * 1000) / 10 : 0, position: Math.round(r.position * 10) / 10 }));
@@ -257,10 +216,13 @@ export function buildPlanInput(args: {
       tier: args.tier,
       capacity: args.capacity ?? PLAN_CAPACITY[args.tier],
       startDate: args.start.toISOString().slice(0, 10),
+      outreachByTeam: (args.capacity ?? PLAN_CAPACITY[args.tier]).outreach ?? args.tier === 'growth',
+      competitors: (args.extras?.competitors ?? []).slice(0, 8),
     },
     data: {
       site_wide_pages: cleanupPages(allPages, kind),
-      crawl_summary: pages.map((p) => ({ url: p.url, title: p.title, h1: p.h1, words: p.words, inlinks: inlinks.get(key(p.url)) ?? 0, page_type: p.pageType })),
+      crawl_summary: pages.map((p) => ({ url: p.url, title: p.title, title_length: p.title?.length ?? null, meta_description: p.description ?? null, h1: p.h1, h1_count: p.h1Count ?? null, canonical: p.canonical ?? null, noindex: p.noindex ?? null, words: p.words, inlinks: inlinks.get(key(p.url)) ?? 0, images: p.images ?? null, images_missing_alt: p.imagesNoAlt ?? null, schema: p.schemaTypes, page_type: p.pageType })),
+      audit_checks_passed: (args.report?.issues ?? []).filter((i) => i.status === 'pass').map((i) => `${i.ruleId} ${i.title.expert}`).slice(0, 80),
       audit_score: args.report?.overall.score ?? null,
       audit_issues: issues,
       search_console_90_days: args.extras?.gsc ? gsc : 'not connected',
@@ -276,20 +238,6 @@ export function buildPlanInput(args: {
       business_profile: args.extras?.local ?? (kind === 'ecommerce' ? 'not relevant' : 'not checked'),
     },
   };
-}
-
-export async function generateAiPlan(client: OpenAiClient, input: PlanInput): Promise<{ plan: AiPlan; tokens: number; model: string }> {
-  const r = await client.generateJson({
-    system: AI_PLAN_SYSTEM,
-    user: JSON.stringify(input),
-    name: 'seo_action_plan',
-    jsonSchema: AI_PLAN_JSON_SCHEMA,
-    parse: aiPlanSchema,
-    // Six full months (15–20+ tasks each) plus the clean-up: a long answer.
-    maxOutputTokens: 40_000,
-    timeoutMs: 420_000,
-  });
-  return { plan: r.data, tokens: r.tokens, model: r.model };
 }
 
 // ---- Checks the code can enforce -----------------------------------------------------------
@@ -311,7 +259,14 @@ export type CheckedPlan = { plan: AiPlan; notes: string[] };
  * Enforces rules 3, 5, 7, 13, 14–17 and 20–23 on the model's answer, and says what it changed.
  * `pages` (the crawl's site-wide clean-up view) lets it add clean-up tasks the model left out.
  */
-export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessType' | 'capacity'>, pages: CleanupPage[] = [], topUp: TopUpCandidate[] = []): CheckedPlan {
+export function checkPlan(
+  raw: AiPlan,
+  business: Pick<PlanBusiness, 'businessType' | 'capacity'>,
+  pages: CleanupPage[] = [],
+  topUp: TopUpCandidate[] = [],
+  /** The staged plan's analysis: issues to schedule, the off-page programme and the fix sheet (Step 7 repairs). */
+  repair?: Pick<RepairContext, 'issues' | 'offpage' | 'pageFixes'>,
+): CheckedPlan {
   const notes: string[] = [];
   const plan: AiPlan = structuredClone(raw);
 
@@ -393,7 +348,11 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
   }
   const deferred = fits.length - kept.length;
   if (deferred) notes.push(`${deferred} task(s) moved to "later" to stay within the monthly capacity.`);
-  fillMonths(kept, business.capacity.minTasks ?? 0, topUp, notes);
+  if (repair) {
+    notes.push(...repairMonths(kept, later, { ...repair, minTasks: business.capacity.minTasks ?? MIN_TASKS, local: business.businessType === 'local_service' || business.businessType === 'local_shop', extra: topUp }));
+  } else {
+    fillMonths(kept, business.capacity.minTasks ?? 0, topUp, notes);
+  }
 
   // Rebuild months 1–6 with unique, ordered ids; dependencies point at ids that still exist.
   const byMonth = new Map(plan.months.map((m) => [Math.round(m.month), m]));
@@ -404,7 +363,7 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
       .filter((t) => t.month === month)
       .sort((a, b) => a.week - b.week || b.priority - a.priority)
       .map((t, i) => {
-        const id = `${month}.${i + 1}`;
+        const id = `${month}.${String(i + 1).padStart(2, '0')}`;
         rename.set(t.id, id);
         const { month: _m, ...rest } = t;
         return { ...rest, id };
@@ -412,7 +371,10 @@ export function checkPlan(raw: AiPlan, business: Pick<PlanBusiness, 'businessTyp
     return { month, theme: src?.theme ?? '', goal: src?.goal ?? '', tasks };
   });
   for (const m of months) for (const t of m.tasks) t.depends_on = t.depends_on.map((d) => rename.get(d)).filter((d): d is string => Boolean(d));
-  return { plan: { ...plan, months, later }, notes };
+  const out = { ...plan, months, later };
+  const dropped = fixDependencies(out);
+  if (dropped) notes.push(`Removed ${dropped} dependenc${dropped === 1 ? 'y' : 'ies'} that pointed to the same or a later task.`);
+  return { plan: out, notes };
 }
 
 type MonthTask = AiPlanTask & { month: number };
@@ -522,9 +484,18 @@ export type StoredAiPlan = Omit<AiPlan, 'months'> & {
   months: { month: number; theme: string; goal: string }[];
   /** What `checkPlan()` changed in the model's answer. */
   notes: string[];
+  /** Staged plan (2026-11-24 prompt): Step 1 study, Step 2 checklist, Step 4 issues, Step 5 off-page, Step 3 fix sheet, Step 7 checks. */
+  study?: SiteStudy;
+  checklist?: ChecklistLine[];
+  issues?: PlanIssue[];
+  offpage?: OffpageItem[];
+  pageFixes?: PlanPageFix[];
+  validation?: ValidationLine[];
+  /** Business inputs the plan was written with (shown in plan.md and the files). */
+  business?: PlanBusiness;
 };
 
-const OWNER: Record<TaskDoer, string> = { automatic: 'Automatic (after approval)', automatic_no_approval: 'Automatic (no approval needed)', team: 'SEO team', client: 'Client' };
+const OWNER: Record<TaskDoer, string> = { automatic: 'Automatic (after approval)', automatic_no_approval: 'Automatic (no approval needed)', team: 'SEO team', developer: 'Developer', client: 'Client' };
 
 /** Untouched by a person: still to do, not approved, not moved, not applied, no exact changes attached. */
 const untouched = (a: ActionItem) =>
@@ -584,6 +555,9 @@ export function applyAiPlan(
           taskId: t.id, month: m.month, week: t.week, doer: t.doer, category: t.category, why: t.why, change: t.change,
           keywords: t.keywords.slice(0, 10), dependsOn: t.depends_on, successCheck: t.success_check, checkAfterDays: t.check_after_days,
           ...(t.site_wide_item !== 'none' ? { siteWideItem: t.site_wide_item, pageGroup: t.page_group } : {}),
+          ...(t.area ? { area: t.area } : {}),
+          ...(t.issue_ids?.length ? { issueIds: t.issue_ids } : {}),
+          ...(t.recurring ? { recurring: true } : {}),
         },
         createdAt: iso,
         updatedAt: iso,
@@ -658,17 +632,39 @@ function contentSummary(c: ContentAudit | null): PlanContent | null {
   };
 }
 
-/** Builds the input, asks the model, checks the answer and puts its tasks in the action plan. */
+/**
+ * Builds the input, runs the staged strategist prompt (plan-pipeline.ts), checks and repairs the answer
+ * (checkPlan + Step 7 validation) and puts its tasks in the action plan.
+ */
 export async function writeAiPlan(
   client: OpenAiClient,
   ws: ActionWorkspace,
   args: Parameters<typeof buildPlanInput>[0],
-  ctx: { newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; fresh?: boolean },
+  ctx: {
+    newId: () => string; now?: Date; report?: ReportModel | null; gsc?: { url: string; clicks: number; impressions: number }[] | null; fresh?: boolean;
+    /** Drafted alt text per page URL (Module 2 alt-text drafts). */
+    altDrafts?: Map<string, { image: string; alt: string }[]>;
+    onProgress?: (step: string) => void | Promise<void>;
+  },
 ): Promise<{ workspace: ActionWorkspace; tokens: number }> {
   const input = buildPlanInput(args);
-  const { plan, tokens, model } = await generateAiPlan(client, input);
-  const checked = checkPlan(plan, input.business, input.data.site_wide_pages as CleanupPage[], topUpCandidates({ report: args.report, extras: args.extras, prompts: input.data.ai_questions as string[], domain: args.domain }));
-  return { workspace: applyAiPlan(ws, checked, { model, tokens, business: input.business }, ctx), tokens };
+  const pages = input.data.site_wide_pages as CleanupPage[];
+  const run = await runPlanPipeline({ client, input, report: args.report, pages, altDrafts: ctx.altDrafts, onProgress: ctx.onProgress });
+  const topUp = topUpCandidates({ report: args.report, extras: args.extras, prompts: input.data.ai_questions as string[], domain: args.domain });
+  const checked = checkPlan(run.plan, input.business, pages, topUp, { issues: run.analysis.issues, offpage: run.analysis.offpage, pageFixes: run.pageFixes });
+  checked.notes.unshift(...run.notes);
+  const validation = validatePlan(checked.plan, {
+    issues: run.analysis.issues, pageFixes: run.pageFixes, indexableUrls: pages.filter((p) => p.indexable).map((p) => p.url),
+    minTasks: input.business.capacity.minTasks, local: input.business.businessType === 'local_service' || input.business.businessType === 'local_shop', banned: input.business.bannedWords ?? [],
+  });
+  const workspace = applyAiPlan(ws, checked, { model: run.model, tokens: run.tokens, business: input.business }, ctx);
+  workspace.aiPlan = {
+    ...workspace.aiPlan!,
+    study: run.analysis.study, checklist: run.analysis.checklist,
+    issues: run.analysis.issues.map((i) => ({ ...i, priority: Math.round(((i.impact * i.confidence) / Math.max(1, i.effort)) * 10) / 10 })),
+    offpage: run.analysis.offpage, pageFixes: run.pageFixes, validation, business: input.business,
+  };
+  return { workspace, tokens: run.tokens };
 }
 
 /** A plan this old is written again by autopilot (and customers may ask for a new one after a week). */

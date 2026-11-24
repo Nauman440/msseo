@@ -20,6 +20,7 @@ const Chip = ({ tone, children }: { tone: keyof typeof TONE_SOFT; children: Reac
 const DOER: Record<NonNullable<ActionItem['plan']>['doer'], string> = {
   automatic: 'Done by software after approval',
   automatic_no_approval: 'Done by software, no approval needed',
+  developer: 'Done by a developer',
   team: 'Done by the SEO team',
   client: 'Done by you',
 };
@@ -32,9 +33,10 @@ function PlanLine({ a }: { a: ActionItem }) {
     <div className="flex flex-col gap-1.5 text-[13.5px]">
       <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2">
         <Chip tone="info">Month {p.month}, week {p.week}</Chip>
-        <Chip tone={p.doer === 'team' || p.doer === 'client' ? 'info' : 'pass'}>{DOER[p.doer]}</Chip>
+        <Chip tone={p.doer === 'automatic' || p.doer === 'automatic_no_approval' ? 'pass' : 'info'}>{DOER[p.doer]}</Chip>
         {p.siteWideItem === 'weekly_check' && <Chip tone="info">Every week</Chip>}
         {p.siteWideItem && p.siteWideItem !== 'weekly_check' && <Chip tone="info">Whole site · {GROUP[p.pageGroup ?? 'other'] ?? 'Other pages'} · {a.urls.length} pages</Chip>}
+        {p.issueIds && p.issueIds.length > 0 && <span>fixes {p.issueIds.join(', ')}</span>}
         {p.dependsOn.length > 0 && <span>after task {p.dependsOn.join(', ')}</span>}
       </p>
       {p.change && <p className="[overflow-wrap:anywhere]"><span className="font-semibold">What changes: </span>{p.change}</p>}

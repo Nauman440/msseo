@@ -23,7 +23,7 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
   const regenerate = await regenerateEnabled();
   return (
     <SiteFrame s={s} tab="actions">
-      {preparing && <Preparing what="your 6-month plan" />}
+      {preparing && !ws.aiPlanStatus && <Preparing what="your 6-month plan" />}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-[24px] font-bold">Your action plan</h2>
@@ -36,7 +36,7 @@ export default async function CustomerActionsPage({ searchParams }: Props) {
         )}
       </div>
       <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="customer" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`}
-        ai={{ available: aiPlanAvailable(), preparing, regenerate, disabledReason: next ? `You can ask for a new plan from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}. Autopilot also updates it every month.` : null }}
+        ai={{ available: aiPlanAvailable(), preparing, regenerate, status: ws.aiPlanStatus ?? null, disabledReason: next ? `You can ask for a new plan from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}. Autopilot also updates it every month.` : null }}
       />
     </SiteFrame>
   );

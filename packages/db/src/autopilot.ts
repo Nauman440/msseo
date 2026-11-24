@@ -261,20 +261,25 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
         if (env.openai && aiDue) {
           try {
             const tier = site.tier ?? 'growth';
-            const [backlinks, local, aeo, content] = await Promise.all([
+            const [backlinks, local, aeo, content, alt] = await Promise.all([
               getSiteDocument<BacklinkWorkspace>('backlinks', domain).catch(() => null),
               getSiteDocument<LocalAudit>('local', domain).catch(() => null),
               getSiteDocument<AeoWorkspace>('aeo', domain).catch(() => null),
               getSiteDocument<ContentAudit>('content', domain).catch(() => null),
+              getSiteDocument<{ drafts: { page: string; src: string; alt: string }[] }>('alt-text', domain).catch(() => null),
             ]);
+            const pageKey = (u: string) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
+            const altDrafts = new Map<string, { image: string; alt: string }[]>();
+            for (const d of alt?.drafts ?? []) altDrafts.set(pageKey(d.page), [...(altDrafts.get(pageKey(d.page)) ?? []), { image: d.src, alt: d.alt }]);
+            const watched = competitors.competitors.filter((c) => c.shortlist !== 'none').map((c) => (c.name ? `${c.name} (${c.domain})` : c.domain));
             const written = await writeAiPlan(
               createOpenAiClient(env.openai),
               actions,
               {
                 domain, tier, capacity: capacityFor(await getSettings(), tier), keywords, mapping: plan, report: latest.report, country: keywords.country,
-                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }),
+                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
               },
-              { newId: randomUUID, now, report: latest.report, gsc: null },
+              { newId: randomUUID, now, report: latest.report, gsc: null, altDrafts },
             );
             tokens += written.tokens;
             await saveActionWorkspace(written.workspace);

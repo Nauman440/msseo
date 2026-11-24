@@ -1,4 +1,5 @@
-import type { StoredAiPlan } from '@seo/core';
+import { PLAN_FILES, type ActionWorkspace, type StoredAiPlan } from '@seo/core';
+import { PlanWriting } from './PlanWriting';
 import { RegeneratePlanButton, RewritePlanButton } from './forms';
 
 /**
@@ -18,7 +19,55 @@ const path = (u: string) => {
   }
 };
 
-export type AiPlanState = { available: boolean; disabledReason: string | null; preparing: boolean; /** Temporary "Regenerate plan" button (Settings switch). */ regenerate?: boolean };
+export type AiPlanState = {
+  available: boolean;
+  disabledReason: string | null;
+  preparing: boolean;
+  /** Temporary "Regenerate plan" button (Settings switch). */
+  regenerate?: boolean;
+  /** Background writer: current step, or why the last try failed. */
+  status?: ActionWorkspace['aiPlanStatus'];
+};
+
+/** Writing now (and not stalled), or the last try failed. */
+function StatusLine({ status }: { status: AiPlanState['status'] }) {
+  if (!status) return null;
+  if (status.state === 'writing' && Date.now() - Date.parse(status.startedAt) < 20 * 60_000) return <PlanWriting step={status.step} startedAt={status.startedAt} />;
+  if (status.state === 'failed') return <p role="alert" className="rounded-[14px] border border-fail-bg bg-fail-bg px-[18px] py-3.5 text-sm text-fail-text"><b>The plan could not be written.</b> {status.message ?? ''}</p>;
+  return null;
+}
+
+/** Step 7: the checks the plan passed, and the plan's files to download. */
+function ChecksAndFiles({ domain, plan, team }: { domain: string; plan: StoredAiPlan; team: boolean }) {
+  const v = plan.validation ?? [];
+  const passed = v.filter((x) => x.pass).length;
+  return (
+    <div className="flex flex-col gap-2">
+      {v.length > 0 && (
+        <details className={FOLD} open={team && passed < v.length}>
+          <summary className={SUMMARY}>Plan checks: {passed} of {v.length} pass</summary>
+          <ul className="flex flex-col gap-1.5 px-4 pb-4 text-sm">
+            {v.map((x) => (
+              <li key={x.check} className="flex gap-2">
+                <span className={`shrink-0 rounded-[6px] px-1.5 text-[11.5px] font-bold ${x.pass ? 'bg-pass-bg text-pass-text' : 'bg-fail-bg text-fail-text'}`}>{x.pass ? 'PASS' : 'FAIL'}</span>
+                <span><span className="font-semibold">{x.check}</span> <span className="text-ink-2">· {x.detail}</span></span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <details className={FOLD}>
+        <summary className={SUMMARY}>Download the plan and its working files</summary>
+        <div className="flex flex-wrap gap-2 px-4 pb-4">
+          <a href={`/api/action-plan/${domain}/files?file=all`} download className="inline-flex min-h-11 items-center rounded-button bg-primary px-4 text-sm font-bold text-primary-ink hover:bg-primary-hover">All files (.zip)</a>
+          {PLAN_FILES.map((f) => (
+            <a key={f} href={`/api/action-plan/${domain}/files?file=${f}`} download className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-3 font-mono text-[13px] hover:border-ink-3">{f}</a>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
 
 export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string; plan: StoredAiPlan | null | undefined; audience: 'team' | 'customer'; ai: AiPlanState }) {
   const regenerate = ai.regenerate ? (
@@ -27,7 +76,10 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
       <RegeneratePlanButton domain={domain} />
     </div>
   ) : null;
+  const status = <StatusLine status={ai.status} />;
+  const writing = ai.status?.state === 'writing' && Date.now() - Date.parse(ai.status.startedAt) < 20 * 60_000;
   if (!plan) {
+    if (writing || ai.status?.state === 'failed') return <div className="flex flex-col gap-3">{status}{!writing && regenerate}</div>;
     if (regenerate && !ai.preparing) return regenerate;
     if (!ai.available || ai.preparing) return null;
     return (
@@ -41,13 +93,14 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
   const team = audience === 'team';
   return (
     <section aria-labelledby="ai-plan" className="flex flex-col gap-5 rounded-[18px] border border-border bg-surface p-6">
+      {status}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 max-w-[760px] flex-col gap-1.5">
           <p className={EYEBROW}>Your 6-month plan · written {date(plan.generatedAt)}</p>
           <h2 id="ai-plan" className="font-display text-[22px] font-bold">What the next 6 months should achieve</h2>
           <p className="text-[15px] leading-relaxed text-ink-2">{plan.summary}</p>
         </div>
-        {ai.regenerate ? <RegeneratePlanButton domain={domain} /> : ai.available && <RewritePlanButton domain={domain} label="Rewrite the plan" disabledReason={ai.disabledReason} />}
+        {!writing && (ai.regenerate ? <RegeneratePlanButton domain={domain} /> : ai.available && <RewritePlanButton domain={domain} label="Rewrite the plan" disabledReason={ai.disabledReason} />)}
       </div>
 
       {plan.baseline_and_targets.length > 0 && (
@@ -85,6 +138,8 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
           </li>
         ))}
       </ol>
+
+      <ChecksAndFiles domain={domain} plan={plan} team={team} />
 
       <div className="flex flex-col gap-2">
         {plan.later.length > 0 && (

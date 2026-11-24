@@ -33,6 +33,10 @@ export type PlanTaskInfo = {
   /** Rules 20–23: a site-wide clean-up task (older plans have none). */
   siteWideItem?: SiteWideItem;
   pageGroup?: PageGroup;
+  /** Audit area A–Q, issue register ids and whether it repeats (plans from 2026-11-24 on). */
+  area?: string;
+  issueIds?: string[];
+  recurring?: boolean;
 };
 
 export type BeforeState = {
@@ -101,6 +105,8 @@ export type ActionWorkspace = {
   updatedAt: string | null;
   /** The AI-written 6-month plan (its tasks are the actions with `source.kind === 'ai'`). */
   aiPlan?: StoredAiPlan | null;
+  /** The AI plan being written in the background (step shown on the page), or why the last try failed. */
+  aiPlanStatus?: { state: 'writing' | 'failed'; step: string; startedAt: string; message?: string } | null;
 };
 export const emptyActions = (domain: string): ActionWorkspace => ({ domain, actions: [], updatedAt: null });
 

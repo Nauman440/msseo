@@ -28,7 +28,7 @@ function categoryOf(ruleId: string): TaskCategory {
 
 const task = (o: Partial<AiPlanTask> & Pick<AiPlanTask, 'title' | 'why' | 'change' | 'category' | 'success_check'>): AiPlanTask => ({
   id: 'topup', week: 2, urls: [], keywords: [], doer: 'team', impact: 3, confidence: 3, effort: 2, priority: 0, depends_on: [], check_after_days: 28,
-  site_wide_item: 'none', page_group: 'none', ...o,
+  site_wide_item: 'none', page_group: 'none', area: '', issue_ids: [], recurring: false, ...o,
 });
 
 export function topUpCandidates(args: { report: ReportModel | null; extras?: PlanExtras; prompts?: string[]; domain: string }): TopUpCandidate[] {

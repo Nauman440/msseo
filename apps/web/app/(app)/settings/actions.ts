@@ -118,6 +118,8 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'plan.growth.articles': form.get('plan.growth.articles'),
     'plan.autopilot.minTasks': form.get('plan.autopilot.minTasks'),
     'plan.growth.minTasks': form.get('plan.growth.minTasks'),
+    'plan.autopilot.outreach': form.get('plan.autopilot.outreach') === 'on',
+    'plan.growth.outreach': form.get('plan.growth.outreach') === 'on',
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const { saveSettings } = await import('@seo/db');

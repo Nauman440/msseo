@@ -158,6 +158,9 @@ export function cleanupTask(item: CleanupItem, group: Exclude<PageGroup, 'none'>
     check_after_days: 14,
     site_wide_item: item,
     page_group: group,
+    area: item === 'canonical' ? 'B' : item === 'meta_title' ? 'C' : item === 'meta_description' ? 'D' : item === 'h1' ? 'E' : item === 'alt_text' ? 'F' : 'K',
+    issue_ids: [],
+    recurring: false,
   };
 }
 
@@ -181,6 +184,9 @@ export const weeklyCheckTask = (): AiPlanTask => ({
   check_after_days: 7,
   site_wide_item: 'weekly_check',
   page_group: 'none',
+  area: 'A',
+  issue_ids: [],
+  recurring: true,
 });
 
 /** Title, description, H1, canonical or redirect changes always need the client's approval (rule 22). */

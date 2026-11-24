@@ -189,6 +189,14 @@ export default async function GeneralSettingsPage() {
                 )),
               )}
             </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+              {(['autopilot', 'growth'] as const).map((tier) => (
+                <label key={tier} className="flex items-center gap-3 text-sm">
+                  <input type="checkbox" name={`plan.${tier}.outreach`} defaultChecked={s[`plan.${tier}.outreach`]} className="size-4 accent-primary" />
+                  {tier === 'autopilot' ? 'Autopilot' : 'Growth'}: off-page outreach done by our team (else the client, with templates)
+                </label>
+              ))}
+            </div>
           </fieldset>
         </ActionForm>
       </section>

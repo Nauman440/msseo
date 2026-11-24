@@ -38,6 +38,9 @@ export const settingsSchema = z
     /** Fewest tasks the AI plan should hold in each month (topped up from the audit, content and AI search data). */
     'plan.autopilot.minTasks': z.coerce.number().int().min(0, 'At least 0').max(60, 'At most 60').default(15),
     'plan.growth.minTasks': z.coerce.number().int().min(0, 'At least 0').max(60, 'At most 60').default(20),
+    /** Off-page outreach is done by the SEO team (else the client, with methods and templates). */
+    'plan.autopilot.outreach': z.coerce.boolean().default(false),
+    'plan.growth.outreach': z.coerce.boolean().default(true),
   })
   .refine((s) => s['crawl.defaultLimit'] <= s['crawl.maxLimit'], { message: 'The default page limit cannot be above the maximum', path: ['crawl.defaultLimit'] });
 

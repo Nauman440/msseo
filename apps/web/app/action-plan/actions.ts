@@ -84,20 +84,26 @@ export async function approveActionAction(rawDomain: string, id: string): Promis
 export async function rewriteAiPlanAction(rawDomain: string): Promise<ActionState> {
   const { domain, customer } = await guard(rawDomain);
   const { getActions: load } = await import('@/lib/actions');
-  const { nextAiPlan, rewriteAiPlan } = await import('@/lib/ai-plan');
-  const next = nextAiPlan(await load(domain), customer ? 'customer' : 'team');
+  const { nextAiPlan, planWriting, startAiPlan } = await import('@/lib/ai-plan');
+  const ws = await load(domain);
+  if (planWriting(ws)) return { ok: 'The plan is being written now.' };
+  const next = nextAiPlan(ws, customer ? 'customer' : 'team');
   if (next) return { error: `A new plan can be written from ${next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}.` };
-  const r = await rewriteAiPlan(domain);
+  startAiPlan(domain);
   pathsFor(domain);
-  return 'ok' in r ? { ok: r.ok } : { error: r.error };
+  return { ok: WRITING };
 }
 
 /** Temporary "Regenerate plan" (Settings switch): a brand-new plan now, for anyone who can see the plan, no weekly limit. */
 export async function regeneratePlanAction(rawDomain: string): Promise<ActionState> {
   const { domain } = await guard(rawDomain);
-  const { regenerateEnabled, rewriteAiPlan } = await import('@/lib/ai-plan');
+  const { getActions: load } = await import('@/lib/actions');
+  const { planWriting, regenerateEnabled, startAiPlan } = await import('@/lib/ai-plan');
   if (!(await regenerateEnabled())) return { error: 'Regenerating plans is switched off.' };
-  const r = await rewriteAiPlan(domain, { fresh: true });
+  if (planWriting(await load(domain))) return { ok: 'The plan is being written now.' };
+  startAiPlan(domain, { fresh: true });
   pathsFor(domain);
-  return 'ok' in r ? { ok: r.ok } : { error: r.error };
+  return { ok: WRITING };
 }
+
+const WRITING = 'Writing the new plan: it takes about 5–10 minutes. This page shows each step and updates itself.';

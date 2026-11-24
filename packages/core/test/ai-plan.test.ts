@@ -3,7 +3,7 @@ import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, applyAiPlan, buildPlanInput, checkPl
 
 const t = (id: string, o: Partial<AiPlanTask> = {}): AiPlanTask => ({
   id, week: 1, title: `Task ${id}`, why: 'Because.', urls: ['https://shop.com/duvets/'], keywords: ['duvet covers'], change: 'Title A → Title B', category: 'on_page',
-  doer: 'automatic', impact: 4, confidence: 4, effort: 2, priority: 0, depends_on: [], success_check: 'Clicks up', check_after_days: 14, site_wide_item: 'none', page_group: 'none', ...o,
+  doer: 'automatic', impact: 4, confidence: 4, effort: 2, priority: 0, depends_on: [], success_check: 'Clicks up', check_after_days: 14, site_wide_item: 'none', page_group: 'none', area: '', issue_ids: [], recurring: false, ...o,
 });
 const plan = (o: Partial<AiPlan> = {}): AiPlan => ({
   summary: 'S', baseline_and_targets: [], removed_keywords: [], page_map: [], later: [], data_gaps: [],
@@ -41,8 +41,8 @@ describe('AI action plan', () => {
     // Ordered by week: the blocker moves from month 3 week 3 to month 1 week 2; its dependency keeps pointing at the renamed task.
     // The weekly check of new and changed pages (rule 23) is always added, last in month 1.
     expect(m1.map((x) => x.title)).toEqual(['Task 1.1', 'Remove noindex from category pages', 'Check new and changed pages every week']);
-    expect(m1[0]).toMatchObject({ impact: 5, effort: 1, priority: 20, id: '1.1' });
-    expect(m1[1]).toMatchObject({ week: 2, id: '1.2', depends_on: ['1.1'] });
+    expect(m1[0]).toMatchObject({ impact: 5, effort: 1, priority: 20, id: '1.01' });
+    expect(m1[1]).toMatchObject({ week: 2, id: '1.02', depends_on: ['1.01'] });
     expect(r.plan.months[2]!.tasks).toEqual([]);
     expect(r.notes.join(' ')).toMatch(/online shop/);
   });
