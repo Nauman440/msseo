@@ -25,4 +25,4 @@ pnpm dev
 
 ## Do Not Touch
 - `design-reference/` is read-only reference material.
-- Never push directly to `main` without being asked; work on `dev`.
+- Push automatically (user instruction, 2026-11-24): after each finished change passes `pnpm lint && pnpm typecheck && pnpm test`, commit and push to **both** `main` and `dev` (`git push origin main` and `git push origin main:dev`) without asking first.
