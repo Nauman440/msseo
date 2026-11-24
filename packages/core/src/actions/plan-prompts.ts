@@ -181,13 +181,29 @@ Task rules
     site_wide_item ("none" unless a clean-up batch) | page_group ("none" unless a clean-up batch).
 Write for a business owner: plain words, no jargon.`;
 
-export function analysisSystem(b: PlanBusiness): string {
-  return [ROLE, planInputs(b), STEP1, STEP2, STEP4, STEP5,
-    `# THIS CALL
-Do Steps 1, 2, 4 and 5, plus the keyword-to-page map from Step 2 L (keyword_map: one main keyword per URL,
-never the same keyword on two URLs; removed_keywords with a reason) and data_gaps. Evaluate every checklist line
-A–Q (several lines per area). The page fix sheet (Step 3) and the plan (Step 6) come in later calls that use your answer.
-The off-page programme lists at least 2 tasks for EACH month 1–6.`].join('\n\n');
+/** The audit runs as three calls so no single answer gets too long: study + checklist, keywords, issues + off-page. */
+export type AnalysisPart = 'audit' | 'keywords' | 'issues';
+const KEEP_SHORT = 'Keep every text field short: evidence and fixes are one sentence with counts and at most 3 example URLs.';
+
+export function analysisSystem(b: PlanBusiness, part: AnalysisPart): string {
+  if (part === 'audit') {
+    return [ROLE, planInputs(b), STEP1, STEP2, `# THIS CALL
+Only Steps 1 and 2: the site study and the A–Q checklist. Evaluate every area A–Q with 2–5 lines each (the most
+important checks of that area; Not applicable areas need one line). ${KEEP_SHORT} Later calls turn your Fail and
+Partial lines into the issue register, the page fix sheet and the plan.`].join('\n\n');
+  }
+  if (part === 'keywords') {
+    return [ROLE, planInputs(b), `# THIS CALL
+Only the keyword work of Step 2 L: validate the keywords in data.keyword_research (remove irrelevant ones, competitor
+brands not stocked, wrong intent, unsafe claims; removed_keywords with a one-line reason, at most 60), then the
+keyword-to-page map (keyword_map: one main keyword per URL, never the same keyword on two URLs, up to 5 supporting
+keywords; existing URLs from data.crawl_summary or clearly new URLs on the same domain; at most 60 rows), and
+data_gaps: every data source that is missing or marked "not connected" / "not checked" / "not run yet", with its effect.`].join('\n\n');
+  }
+  return [ROLE, planInputs(b), STEP4, STEP5, `# THIS CALL
+Only Steps 4 and 5. data.checklist holds the Step 2 results: every Fail and Partial line becomes an issue in the
+register (merge lines that describe the same problem; at most 45 issues, most severe first). Then the off-page
+programme: at least 2 tasks for EACH month 1–6. ${KEEP_SHORT}`].join('\n\n');
 }
 
 export function fixesSystem(b: PlanBusiness): string {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyActions, emptyKeywordWorkspace, planFile, planZip, writeAiPlan, type OpenAiClient, type ReportModel } from '../src';
+import { emptyActions, emptyKeywordWorkspace, OpenAiCutOffError, planFile, planZip, writeAiPlan, type OpenAiClient, type ReportModel } from '../src';
 
 const page = (path: string, o: Record<string, unknown> = {}) => ({
   url: `https://petbox.co.uk${path}`, title: `Pet treats ${path} | PetBox`, h1: 'Pet treats', words: 400, pageType: 'other', schemaTypes: [], links: [],
@@ -12,10 +12,11 @@ const report = {
 
 /** A fake OpenAI that answers each stage of the staged prompt and records what it was asked. */
 function fakeClient() {
-  const calls: { name: string; system: string; user: string }[] = [];
+  const calls: { name: string; system: string; user: string; maxOutputTokens?: number }[] = [];
+  let cutOnce = true;
   const answer = (name: string, user: string): unknown => {
-    if (name === 'seo_analysis') {
-      return {
+    if (name === 'seo_audit' || name === 'seo_keywords' || name === 'seo_issues') {
+      const all = {
         study: { business_type: 'ecommerce', sells: 'pet treats', buyers: 'dog owners', revenue_model: 'online sales', page_inventory: [{ type: 'product', count: 1 }], money_pages: ['https://petbox.co.uk/products/chews/'], top_impression_pages: [], platform: 'Shopify', platform_issues: ['title suffix'] },
         checklist: [{ area: 'A', item: 'robots.txt blocks', status: 'Pass', evidence: 'no blocks', severity: 'None' }, { area: 'C', item: 'duplicate titles', status: 'Fail', evidence: '3 pages', severity: 'High' }],
         issues: [
@@ -34,6 +35,8 @@ function fakeClient() {
         removed_keywords: [{ keyword: 'cat litter', reason: 'not sold' }],
         data_gaps: ['Search Console not connected'],
       };
+      const keys = name === 'seo_audit' ? ['study', 'checklist'] : name === 'seo_keywords' ? ['keyword_map', 'removed_keywords', 'data_gaps'] : ['issues', 'offpage'];
+      return Object.fromEntries(keys.map((k) => [k, all[k as keyof typeof all]]));
     }
     if (name === 'page_fixes' || name === 'page_fixes_retry') {
       const pages = (JSON.parse(user) as { pages: { url: string }[] }).pages;
@@ -60,8 +63,13 @@ function fakeClient() {
     return { summary: 'Four sentences.', baseline_and_targets: [{ metric: 'Audit score', now: '71', month_3_target: '80', month_6_target: '88' }] };
   };
   const client = {
-    async generateJson(req: { name: string; system: string; user: string }) {
-      calls.push({ name: req.name, system: req.system, user: req.user });
+    async generateJson(req: { name: string; system: string; user: string; maxOutputTokens?: number }) {
+      calls.push({ name: req.name, system: req.system, user: req.user, maxOutputTokens: req.maxOutputTokens });
+      // The first audit answer runs out of output tokens; the retry gets double the limit.
+      if (req.name === 'seo_audit' && cutOnce) {
+        cutOnce = false;
+        throw new OpenAiCutOffError('max_output_tokens');
+      }
       return { data: answer(req.name, req.user), tokens: 100, model: 'fake' };
     },
   } as unknown as OpenAiClient;
@@ -79,13 +87,17 @@ describe('staged 6-month plan (strategist prompt)', () => {
       { domain: 'petbox.co.uk', tier: 'growth', keywords: emptyKeywordWorkspace('petbox.co.uk', { businessType: 'shop', seeds: { services: ['dog chews'] } }), mapping: null, report, start: new Date('2026-12-01T00:00:00Z'), extras: { competitors: ['chewco.co.uk'] } },
       { newId: () => `id${++n}`, now: new Date('2026-12-01T00:00:00Z'), report, onProgress: (s) => void steps.push(s) },
     );
-    // Stages: analysis, one fix batch + its retry, months 1–6 one at a time, overview.
-    expect(calls.map((c) => c.name)).toEqual(['seo_analysis', 'page_fixes', 'page_fixes_retry', 'month_1', 'month_2', 'month_3', 'month_4', 'month_5', 'month_6', 'plan_overview']);
+    // Stages: audit (cut off once, then asked with double the limit) and keywords side by side, then issues,
+    // one fix batch + its retry, months 1–6 one at a time, overview.
+    expect(calls.map((c) => c.name)).toEqual(['seo_audit', 'seo_keywords', 'seo_audit', 'seo_issues', 'page_fixes', 'page_fixes_retry', 'month_1', 'month_2', 'month_3', 'month_4', 'month_5', 'month_6', 'plan_overview']);
+    expect(calls.filter((c) => c.name === 'seo_audit').map((c) => c.maxOutputTokens)).toEqual([32_000, 64_000]);
+    // The issue register is built from the checklist's Fail and Partial lines only.
+    expect(JSON.parse(calls.find((c) => c.name === 'seo_issues')!.user).checklist).toEqual([expect.objectContaining({ area: 'C', status: 'Fail' })]);
     // The inputs are filled in from the site's data.
     expect(calls[0]!.system).toContain('Website: petbox.co.uk');
     expect(calls[0]!.system).toContain('Plan start date: 2026-12-01');
     expect(calls[0]!.system).toContain('competitors: chewco.co.uk');
-    expect(calls[3]!.system).toContain('Write MONTH 1 ONLY');
+    expect(calls.find((c) => c.name === 'month_1')!.system).toContain('Write MONTH 1 ONLY');
     expect(steps.at(-1)).toMatch(/step 4 of 4/);
 
     const plan = workspace.aiPlan!;

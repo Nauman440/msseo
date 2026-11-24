@@ -30,7 +30,7 @@ export { brandStems, cleanKeywords, dedupeKey, HARD_KD, KEYWORD_QUALITY_VERSION,
 export { clusterKeywords, MAX_CLUSTER_SERPS, seasonality, sortClusters, trafficPotential, updateCluster } from './keywords/cluster';
 export { addPrompt, editPrompt, generatePrompts, isTracked, MAX_PROMPTS, mergePrompts, PROMPT_RANGE, setTrackedPrompts, templatePrompts } from './keywords/prompts';
 export { createKeywordClient, dataforseoBalance, type KeywordClient, type KeywordIntent, type KeywordMetrics } from './providers/dataforseo-keywords';
-export { createOpenAiClient, type OpenAiClient } from './providers/openai';
+export { createOpenAiClient, OpenAiCutOffError, type OpenAiClient } from './providers/openai';
 export { gscTotals, searchesFrom, weeklyPlan, type PlanAction, type PlanRow } from './customer/plan';
 export * from './mapping/mapping';
 export { draftableRows, writeDrafts } from './mapping/drafts';

@@ -52,6 +52,13 @@ export type JsonRequest<T> = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The answer hit max_output_tokens (reasoning tokens count too): ask again with a higher limit. */
+export class OpenAiCutOffError extends Error {
+  constructor(readonly reason: string) {
+    super(`OpenAI reply was cut off (${reason})`);
+  }
+}
 const DONE = new Set(['completed', 'failed', 'incomplete', 'cancelled']);
 
 export function createOpenAiClient(cfg: OpenAiConfig) {
@@ -75,7 +82,7 @@ export function createOpenAiClient(cfg: OpenAiConfig) {
     const res = req.background ? await inBackground(body, req.background, req.timeoutMs) : responseSchema.parse(await post(body, req.timeoutMs ?? 120_000));
     if (res.status === 'failed') throw new Error(`OpenAI could not finish: ${res.error?.message ?? 'no reason given'}`);
     if (res.status === 'cancelled') throw new Error('OpenAI cancelled the request');
-    if (res.status === 'incomplete') throw new Error(`OpenAI reply was cut off (${res.incomplete_details?.reason ?? 'incomplete'})`);
+    if (res.status === 'incomplete') throw new OpenAiCutOffError(res.incomplete_details?.reason ?? 'incomplete');
     const parts = res.output.filter((o) => o.type === 'message').flatMap((o) => o.content ?? []);
     const refusal = parts.find((p) => p.type === 'refusal');
     if (refusal) throw new Error(`OpenAI declined: ${refusal.refusal ?? 'no reason given'}`);

@@ -4,6 +4,7 @@ import type { ReportModel } from '../types';
 import type { AiPlan, AiPlanTask, PlanInput } from './ai-plan';
 import { TASK_CATEGORIES, TASK_DOERS } from './plan-constants';
 import { PAGE_GROUPS, SITE_WIDE_ITEMS, type CleanupPage } from './cleanup';
+import { OpenAiCutOffError } from '../providers/openai';
 import { analysisSystem, fixesSystem, monthSystem, overviewSystem } from './plan-prompts';
 
 /**
@@ -55,6 +56,9 @@ export const analysisZ = z.object({
   keyword_map: z.array(keywordMapZ), removed_keywords: z.array(z.object({ keyword: z.string(), reason: z.string() })), data_gaps: z.array(z.string()),
 });
 export type PlanAnalysis = z.infer<typeof analysisZ>;
+const auditZ = analysisZ.pick({ study: true, checklist: true });
+const keywordsZ = analysisZ.pick({ keyword_map: true, removed_keywords: true, data_gaps: true });
+const issuesZ = analysisZ.pick({ issues: true, offpage: true });
 const ANALYSIS_SCHEMA = obj({
   study: obj({ business_type: str, sells: str, buyers: str, revenue_model: str, page_inventory: arr(obj({ type: str, count: num })), money_pages: strs, top_impression_pages: strs, platform: str, platform_issues: strs }),
   checklist: arr(obj({ area: en(AUDIT_AREAS), item: str, status: en(STATUSES), evidence: str, severity: en(SEVERITIES) })),
@@ -64,6 +68,13 @@ const ANALYSIS_SCHEMA = obj({
   removed_keywords: arr(obj({ keyword: str, reason: str })),
   data_gaps: strs,
 });
+const partOf = (keys: string[]) => {
+  const full = ANALYSIS_SCHEMA as { properties: Record<string, unknown> };
+  return obj(Object.fromEntries(keys.map((k) => [k, full.properties[k]])));
+};
+const AUDIT_SCHEMA = partOf(['study', 'checklist']);
+const KEYWORDS_SCHEMA = partOf(['keyword_map', 'removed_keywords', 'data_gaps']);
+const ISSUES_SCHEMA = partOf(['issues', 'offpage']);
 
 const fixRowZ = z.object({
   url: z.string(), main_keyword: z.string(), new_title: z.string(), new_meta: z.string(), new_h1: z.string(), h1_fix: z.string(),
@@ -164,8 +175,10 @@ type Deps = {
 const BATCH = 20;
 /** Longest wait for one stage's answer (reasoning models can take several minutes on the audit). */
 export const STAGE_WAIT_MS = 15 * 60_000;
+/** Highest output limit a cut-off answer is retried with. */
+export const MAX_OUTPUT_TOKENS = 100_000;
 const STAGE_LABEL = (name: string) =>
-  name === 'seo_analysis' ? 'The site study and audit' : name.startsWith('page_fixes') ? 'The page fix sheet' : name.startsWith('month_') ? `Month ${name.slice(6)} of the plan` : name === 'plan_overview' ? 'The summary and targets' : name;
+  name === 'seo_audit' ? 'The site study and audit' : name === 'seo_keywords' ? 'The keyword map' : name === 'seo_issues' ? 'The issue register and off-page programme' : name.startsWith('page_fixes') ? 'The page fix sheet' : name.startsWith('month_') ? `Month ${name.slice(6)} of the plan` : name === 'plan_overview' ? 'The summary and targets' : name;
 async function pool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
@@ -187,23 +200,36 @@ export async function runPlanPipeline(d: Deps): Promise<PipelineResult> {
   const progress = async (s: string) => void (await d.onProgress?.(s));
   const ask = async <T,>(system: string, user: unknown, name: string, schema: Record<string, unknown>, parse: z.ZodType<T>, maxOutputTokens: number): Promise<T> => {
     let last: unknown;
-    // Background mode: no request stays open while the model writes; one retry for a stage that fails.
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    let limit = maxOutputTokens;
+    // Background mode: no request stays open while the model writes. An answer cut off at the output limit
+    // (reasoning tokens count too) is asked again with double the limit; any other failure is retried once.
+    for (let attempt = 1, failures = 0; attempt <= 4 && failures < 2; attempt++) {
       try {
-        const r = await client.generateJson({ system, user: JSON.stringify(user), name, jsonSchema: schema, parse, maxOutputTokens, timeoutMs: STAGE_WAIT_MS, background: { maxWaitMs: STAGE_WAIT_MS } });
+        const r = await client.generateJson({ system, user: JSON.stringify(user), name, jsonSchema: schema, parse, maxOutputTokens: limit, timeoutMs: STAGE_WAIT_MS, background: { maxWaitMs: STAGE_WAIT_MS } });
         tokens += r.tokens;
         model = r.model;
         return r.data;
       } catch (err) {
         last = err;
+        if (err instanceof OpenAiCutOffError && limit < MAX_OUTPUT_TOKENS) limit = Math.min(MAX_OUTPUT_TOKENS, limit * 2);
+        else failures++;
       }
     }
-    throw new Error(`${STAGE_LABEL(name)} failed twice: ${last instanceof Error ? last.message : String(last)}`);
+    throw new Error(`${STAGE_LABEL(name)} could not be written: ${last instanceof Error ? last.message : String(last)}`);
   };
 
   // Steps 1, 2, 4, 5 + keyword map.
   await progress('Studying the site and auditing it (step 1 of 4)');
-  const analysis = await ask(analysisSystem(b), input.data, 'seo_analysis', ANALYSIS_SCHEMA, analysisZ, 24_000);
+  const [audit, keywords] = await Promise.all([
+    ask(analysisSystem(b, 'audit'), input.data, 'seo_audit', AUDIT_SCHEMA, auditZ, 32_000),
+    ask(analysisSystem(b, 'keywords'), pick(input.data, ['keyword_research', 'topics', 'page_plan', 'crawl_summary', 'search_console_90_days', 'competitor_gaps', 'content_audit', 'ai_search', 'backlinks', 'business_profile']), 'seo_keywords', KEYWORDS_SCHEMA, keywordsZ, 24_000),
+  ]);
+  const failing = audit.checklist.filter((c) => c.status === 'Fail' || c.status === 'Partial');
+  const register = await ask(analysisSystem(b, 'issues'), {
+    study: audit.study, checklist: failing, audit_issues: input.data.audit_issues ?? [],
+    backlinks: input.data.backlinks ?? 'not checked', business_profile: input.data.business_profile ?? 'not checked', ai_search: input.data.ai_search ?? 'not checked',
+  }, 'seo_issues', ISSUES_SCHEMA, issuesZ, 32_000);
+  const analysis: PlanAnalysis = { ...audit, ...keywords, ...register };
   const issueIds = new Set<string>();
   analysis.issues = analysis.issues.filter((i) => (issueIds.has(i.issue_id) ? false : (issueIds.add(i.issue_id), true)));
 
