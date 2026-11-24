@@ -162,6 +162,10 @@ type Deps = {
 };
 
 const BATCH = 20;
+/** Longest wait for one stage's answer (reasoning models can take several minutes on the audit). */
+export const STAGE_WAIT_MS = 15 * 60_000;
+const STAGE_LABEL = (name: string) =>
+  name === 'seo_analysis' ? 'The site study and audit' : name.startsWith('page_fixes') ? 'The page fix sheet' : name.startsWith('month_') ? `Month ${name.slice(6)} of the plan` : name === 'plan_overview' ? 'The summary and targets' : name;
 async function pool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
@@ -182,10 +186,19 @@ export async function runPlanPipeline(d: Deps): Promise<PipelineResult> {
   const notes: string[] = [];
   const progress = async (s: string) => void (await d.onProgress?.(s));
   const ask = async <T,>(system: string, user: unknown, name: string, schema: Record<string, unknown>, parse: z.ZodType<T>, maxOutputTokens: number): Promise<T> => {
-    const r = await client.generateJson({ system, user: JSON.stringify(user), name, jsonSchema: schema, parse, maxOutputTokens, timeoutMs: 300_000 });
-    tokens += r.tokens;
-    model = r.model;
-    return r.data;
+    let last: unknown;
+    // Background mode: no request stays open while the model writes; one retry for a stage that fails.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const r = await client.generateJson({ system, user: JSON.stringify(user), name, jsonSchema: schema, parse, maxOutputTokens, timeoutMs: STAGE_WAIT_MS, background: { maxWaitMs: STAGE_WAIT_MS } });
+        tokens += r.tokens;
+        model = r.model;
+        return r.data;
+      } catch (err) {
+        last = err;
+      }
+    }
+    throw new Error(`${STAGE_LABEL(name)} failed twice: ${last instanceof Error ? last.message : String(last)}`);
   };
 
   // Steps 1, 2, 4, 5 + keyword map.

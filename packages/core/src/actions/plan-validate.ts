@@ -13,6 +13,10 @@ export type ValidationLine = { check: string; pass: boolean; detail: string };
 type MonthTask = AiPlanTask & { month: number };
 
 export const MIN_TASKS = 12;
+/** A plan writer that has reported no progress for this long has stopped (server restart). */
+export const PLAN_STALL_MS = 35 * 60_000;
+export const planStillWriting = (s: { state: string; startedAt: string; updatedAt?: string } | null | undefined, now = Date.now()) =>
+  s?.state === 'writing' && now - Date.parse(s.updatedAt ?? s.startedAt) < PLAN_STALL_MS;
 export const MAX_RECURRING_COUNTED = 3;
 /** The prompt's per-month minimums; AI visibility counts as content, tracking as technical. */
 const MINIMUMS: { key: 'technical' | 'on_page' | 'content' | 'off_page' | 'local'; label: string; min: number; of: TaskCategory[] }[] = [

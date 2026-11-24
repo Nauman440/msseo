@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { AI_PLAN_CUSTOMER_COOLDOWN_DAYS, AI_PLAN_EVERY_DAYS, capacityFor, createOpenAiClient, planExtrasFrom, providerConfig, writeAiPlan, type ActionWorkspace, type PlanTier } from '@seo/core';
+import { planStillWriting, AI_PLAN_CUSTOMER_COOLDOWN_DAYS, AI_PLAN_EVERY_DAYS, capacityFor, createOpenAiClient, planExtrasFrom, providerConfig, writeAiPlan, type ActionWorkspace, type PlanTier } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { getActions, planContext, saveActions } from './actions';
 import { getAeo } from './aeo';
@@ -48,7 +48,7 @@ const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/[#?]
 /** Saves where the background writer is (or why it failed) on the latest copy of the workspace. */
 async function setStatus(domain: string, status: ActionWorkspace['aiPlanStatus']): Promise<void> {
   const ws = await getActions(domain);
-  await saveActions({ ...ws, aiPlanStatus: status });
+  await saveActions({ ...ws, aiPlanStatus: status ? { ...status, updatedAt: new Date().toISOString() } : null });
 }
 
 /**
@@ -115,4 +115,4 @@ export function startAiPlan(domain: string, opts: { fresh?: boolean } = {}): boo
   return prepare(`aiplan:${domain}`, () => rewriteAiPlan(domain, opts), 0);
 }
 /** A writer that has said nothing for 20 minutes has stopped (server restart): it no longer blocks. */
-export const planWriting = (ws: ActionWorkspace) => ws.aiPlanStatus?.state === 'writing' && Date.now() - Date.parse(ws.aiPlanStatus.startedAt) < 20 * 60_000;
+export const planWriting = (ws: ActionWorkspace) => planStillWriting(ws.aiPlanStatus);

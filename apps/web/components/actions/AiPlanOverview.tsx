@@ -1,4 +1,4 @@
-import { PLAN_FILES, type ActionWorkspace, type StoredAiPlan } from '@seo/core';
+import { PLAN_FILES, planStillWriting, type ActionWorkspace, type StoredAiPlan } from '@seo/core';
 import { PlanWriting } from './PlanWriting';
 import { RegeneratePlanButton, RewritePlanButton } from './forms';
 
@@ -32,7 +32,7 @@ export type AiPlanState = {
 /** Writing now (and not stalled), or the last try failed. */
 function StatusLine({ status }: { status: AiPlanState['status'] }) {
   if (!status) return null;
-  if (status.state === 'writing' && Date.now() - Date.parse(status.startedAt) < 20 * 60_000) return <PlanWriting step={status.step} startedAt={status.startedAt} />;
+  if (planStillWriting(status)) return <PlanWriting step={status.step} startedAt={status.startedAt} />;
   if (status.state === 'failed') return <p role="alert" className="rounded-[14px] border border-fail-bg bg-fail-bg px-[18px] py-3.5 text-sm text-fail-text"><b>The plan could not be written.</b> {status.message ?? ''}</p>;
   return null;
 }
@@ -77,7 +77,7 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
     </div>
   ) : null;
   const status = <StatusLine status={ai.status} />;
-  const writing = ai.status?.state === 'writing' && Date.now() - Date.parse(ai.status.startedAt) < 20 * 60_000;
+  const writing = planStillWriting(ai.status);
   if (!plan) {
     if (writing || ai.status?.state === 'failed') return <div className="flex flex-col gap-3">{status}{!writing && regenerate}</div>;
     if (regenerate && !ai.preparing) return regenerate;

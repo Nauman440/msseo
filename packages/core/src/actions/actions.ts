@@ -106,7 +106,8 @@ export type ActionWorkspace = {
   /** The AI-written 6-month plan (its tasks are the actions with `source.kind === 'ai'`). */
   aiPlan?: StoredAiPlan | null;
   /** The AI plan being written in the background (step shown on the page), or why the last try failed. */
-  aiPlanStatus?: { state: 'writing' | 'failed'; step: string; startedAt: string; message?: string } | null;
+  aiPlanStatus?: { state: 'writing' | 'failed'; step: string; startedAt: string; /** Last progress update; a writer silent for 35 minutes has stopped. */ updatedAt?: string; message?: string } | null;
+
 };
 export const emptyActions = (domain: string): ActionWorkspace => ({ domain, actions: [], updatedAt: null });
 

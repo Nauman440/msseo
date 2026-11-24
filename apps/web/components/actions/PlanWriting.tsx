@@ -3,14 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-/** "Writing your plan · step …": shown while the plan is written in the background; refreshes every 10 s for up to 20 minutes. */
+/** "Writing your plan · step …": shown while the plan is written in the background; refreshes every 10 s for up to an hour. */
 export function PlanWriting({ step, startedAt }: { step: string; startedAt: string }) {
   const router = useRouter();
   useEffect(() => {
     let n = 0;
     const t = setInterval(() => {
       n++;
-      if (n > 120) clearInterval(t);
+      if (n > 360) clearInterval(t);
       router.refresh();
     }, 10_000);
     return () => clearInterval(t);
