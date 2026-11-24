@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, applyAiPlan, buildPlanInput, checkPlan, emptyActions, emptyKeywordWorkspace, PLAN_CAPACITY, type AiPlan, type AiPlanTask, type ActionItem, cleanupPages, type ReportPage } from '../src';
+import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, applyAiPlan, buildPlanInput, checkPlan, emptyActions, emptyKeywordWorkspace, PLAN_CAPACITY, type AiPlan, type AiPlanTask, type ActionItem, cleanupPages, planExtrasFrom, topUpCandidates, type ReportPage } from '../src';
 
 const t = (id: string, o: Partial<AiPlanTask> = {}): AiPlanTask => ({
   id, week: 1, title: `Task ${id}`, why: 'Because.', urls: ['https://shop.com/duvets/'], keywords: ['duvet covers'], change: 'Title A → Title B', category: 'on_page',
@@ -122,6 +122,44 @@ describe('AI action plan', () => {
     const out = applyAiPlan(emptyActions('shop.com'), r, { model: 'm', tokens: 1, business }, { newId: () => `a${++n}` });
     expect(out.actions.find((a) => a.plan?.siteWideItem === 'alt_text')).toMatchObject({ approval: 'none', owner: 'Automatic (no approval needed)', plan: { pageGroup: 'products' } });
     expect(out.actions.find((a) => a.plan?.siteWideItem === 'canonical')).toMatchObject({ approval: 'client' });
+  });
+
+  it('tops up a short month from content, AI search and audit findings (rule 31) and sends that data to the model', () => {
+    const extras = planExtrasFrom({
+      content: {
+        domain: 'shop.com', runAt: '', tokens: 0, usedSearchConsole: true, usedAnalytics: false, counts: { keep: 0, improve: 1, merge: 0, remove: 0 }, topicGap: [], coverage: null, pillars: [], quality: [], calendar: [], notes: [],
+        inventory: [{ url: 'https://shop.com/duvets/', title: null, words: 200, pageType: null, inSitemapOnly: false, clicks: 40, impressions: 900, position: 7, prevClicks: 60, change: -33, sessions: null, conversions: null, verdict: 'improve', reason: 'Clicks down 33%' }],
+        decay: [],
+      },
+      aeo: {
+        domain: 'shop.com', history: [],
+        audit: {
+          domain: 'shop.com', runAt: '2026-11-20T00:00:00Z', costUsd: 0, tokens: 0, firewall: null, sources: [{ domain: 'reddit.com', count: 3 }], entity: [{ id: 'sameas', label: 'Profiles linked', ok: false, detail: 'No sameAs links' }],
+          crawlers: [{ bot: 'PerplexityBot', label: 'Perplexity', purpose: 'Shows your pages in Perplexity answers', allowed: false, rule: 'Disallow: /' }],
+          answers: [{ assistant: 'chatgpt', prompt: 'best duvet covers uk', shown: false, mentioned: ['rival.com'], cited: [] }],
+          share: { all: [{ domain: 'rival.com', you: false, mentions: 2, share: 100 }, { domain: 'shop.com', you: true, mentions: 0, share: 0 }], chatgpt: [], perplexity: [], google: [] },
+          answerReady: [], accuracy: null, controls: [], thirdParty: [], notes: [],
+        },
+      },
+    });
+    expect(extras.aiSearch).toMatchObject({ your_share_of_voice: 0, blocked_crawlers: ['PerplexityBot (Shows your pages in Perplexity answers)'], questions_where_you_are_not_named: ['best duvet covers uk'] });
+    const input = buildPlanInput({ domain: 'shop.com', tier: 'autopilot', keywords: emptyKeywordWorkspace('shop.com', { businessType: 'shop' }), mapping: null, report: null, start: new Date('2026-12-01T00:00:00Z'), extras });
+    expect(input.data.ai_search).toBe(extras.aiSearch);
+    expect(input.business.capacity.minTasks).toBe(15);
+
+    const candidates = topUpCandidates({ report: null, extras, domain: 'shop.com' });
+    const r = checkPlan(plan(), { ...shop, capacity: { ...PLAN_CAPACITY.autopilot, minTasks: 3 } }, [], candidates);
+    const m1 = r.plan.months[0]!.tasks;
+    // Month 1: the model's task, the weekly check and the crawler fix (allowed from month 1).
+    expect(m1.map((x) => x.title)).toContain('Let AI search crawlers read the site');
+    expect(m1.length).toBeGreaterThanOrEqual(3);
+    // Later months take content optimisation and AI visibility tasks; each finding is used once.
+    const all = r.plan.months.flatMap((m) => m.tasks.map((x) => x.title));
+    expect(all).toContain('Improve the content of /duvets/');
+    expect(all).toContain('Get the business mentioned on reddit.com');
+    expect(new Set(all).size).toBe(all.length);
+    expect(r.plan.months.flatMap((m) => m.tasks).filter((x) => x.id.includes('topup'))).toEqual([]);
+    expect(r.notes.join(' ')).toMatch(/at least 3 tasks/);
   });
 
   it('regenerating starts over: only finished work and changes applied to the site stay', () => {

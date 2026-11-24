@@ -116,6 +116,8 @@ export async function saveSettingsAction(_prev: ActionState, form: FormData): Pr
     'plan.growth.automatic': form.get('plan.growth.automatic'),
     'plan.growth.newPages': form.get('plan.growth.newPages'),
     'plan.growth.articles': form.get('plan.growth.articles'),
+    'plan.autopilot.minTasks': form.get('plan.autopilot.minTasks'),
+    'plan.growth.minTasks': form.get('plan.growth.minTasks'),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const { saveSettings } = await import('@seo/db');

@@ -171,7 +171,7 @@ export default async function GeneralSettingsPage() {
           </fieldset>
           <fieldset className="flex flex-col gap-3 border-t border-border pt-5">
             <legend className="font-display text-lg font-bold">AI action plan: work per month</legend>
-            <p className={HINT}>The 6-month plan never schedules more than this in a month; the rest is listed as “later”. Team client sites use the Growth numbers.</p>
+            <p className={HINT}>Automatic changes, new pages and articles are the most a month may hold (the rest is listed as “later”); “tasks at least” is the fewest tasks each month gets, topped up from the audit, content and AI search findings when the AI writes fewer. Team client sites use the Growth numbers.</p>
             <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" name="plan.regenerateButton" defaultChecked={s['plan.regenerateButton']} className="mt-1 size-4 accent-primary" />
               <span>
@@ -179,12 +179,12 @@ export default async function GeneralSettingsPage() {
                 <span className={`block ${HINT}`}>On every action plan, for the team and customers: writes a brand-new plan straight away, keeping only finished work and changes already made on the website. Switch it off before going live.</span>
               </span>
             </label>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(['autopilot', 'growth'] as const).flatMap((tier) =>
-                ([['automatic', 'automatic changes'], ['newPages', 'new pages'], ['articles', 'articles']] as const).map(([k, label]) => (
+                ([['automatic', 'automatic changes'], ['newPages', 'new pages'], ['articles', 'articles'], ['minTasks', 'tasks at least']] as const).map(([k, label]) => (
                   <label key={`${tier}.${k}`} className={LABEL}>
                     {tier === 'autopilot' ? 'Autopilot' : 'Growth'}: {label}
-                    <input name={`plan.${tier}.${k}`} type="number" min={0} max={100} defaultValue={s[`plan.${tier}.${k}`]} className={`${INPUT} tabular`} />
+                    <input name={`plan.${tier}.${k}`} type="number" min={0} max={k === 'minTasks' ? 60 : 100} defaultValue={s[`plan.${tier}.${k}`]} className={`${INPUT} tabular`} />
                   </label>
                 )),
               )}

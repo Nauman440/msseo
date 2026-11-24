@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { AI_PLAN_CUSTOMER_COOLDOWN_DAYS, AI_PLAN_EVERY_DAYS, capacityFor, createOpenAiClient, planExtrasFrom, providerConfig, writeAiPlan, type ActionWorkspace, type PlanTier } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { getActions, planContext, saveActions } from './actions';
+import { getAeo } from './aeo';
 import { getBacklinks } from './backlinks';
+import { getContent } from './content';
 import { usingDatabase } from './audit-store';
 import { freshKeywords, gscQueryPages } from './keywords';
 import { getLocal } from './local';
@@ -42,7 +44,7 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
   const openai = providerConfig().env?.openai;
   if (!openai) return { error: 'The AI plan needs an OpenAI key on this server.' };
   const keywords = await freshKeywords(domain);
-  const [mapping, ctx, settings, who, gscRows, backlinks, local, ws] = await Promise.all([
+  const [mapping, ctx, settings, who, gscRows, backlinks, local, ws, aeo, content] = await Promise.all([
     freshMapping(domain),
     planContext(domain, true),
     appSettings(),
@@ -51,6 +53,8 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
     getBacklinks(domain).catch(() => null),
     getLocal(domain).catch(() => null),
     getActions(domain),
+    getAeo(domain).catch(() => null),
+    getContent(domain).catch(() => null),
   ]);
   if (!ctx.report) return { error: 'Run an audit first: the plan is built from its findings.' };
   try {
@@ -60,7 +64,7 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
       ws,
       {
         domain, tier: who.tier, capacity: capacityFor(settings, who.tier), keywords, mapping, report: ctx.report, country: keywords.country, priorities: who.priorities, start: now,
-        extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local }),
+        extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }),
       },
       { newId: randomUUID, now, report: ctx.report, gsc: ctx.gsc, fresh: opts.fresh },
     );

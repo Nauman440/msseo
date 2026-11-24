@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type BacklinkWorkspace, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
   discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
@@ -261,13 +261,18 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
         if (env.openai && aiDue) {
           try {
             const tier = site.tier ?? 'growth';
-            const [backlinks, local] = await Promise.all([getSiteDocument<BacklinkWorkspace>('backlinks', domain).catch(() => null), getSiteDocument<LocalAudit>('local', domain).catch(() => null)]);
+            const [backlinks, local, aeo, content] = await Promise.all([
+              getSiteDocument<BacklinkWorkspace>('backlinks', domain).catch(() => null),
+              getSiteDocument<LocalAudit>('local', domain).catch(() => null),
+              getSiteDocument<AeoWorkspace>('aeo', domain).catch(() => null),
+              getSiteDocument<ContentAudit>('content', domain).catch(() => null),
+            ]);
             const written = await writeAiPlan(
               createOpenAiClient(env.openai),
               actions,
               {
                 domain, tier, capacity: capacityFor(await getSettings(), tier), keywords, mapping: plan, report: latest.report, country: keywords.country,
-                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local }),
+                priorities: site.primary ? site.services.slice(0, 5) : [], start: now, extras: planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }),
               },
               { newId: randomUUID, now, report: latest.report, gsc: null },
             );
