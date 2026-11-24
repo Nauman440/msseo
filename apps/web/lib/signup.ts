@@ -16,7 +16,7 @@ export const FINISHED = 6;
 
 export const stepPath = (n: number) => (n >= FINISHED ? '/my' : `/signup/${STEPS[Math.max(0, n - 1)]!.slug}`);
 
-export type FreeAuditSummary = { id: string; domain: string; score: number; issues: number; critical: number };
+export type FreeAuditSummary = { id: string; domain: string; url: string; score: number; issues: number; critical: number };
 
 /** A completed free audit, for the sidebar and step 2 (null for anything else). */
 export async function freeAuditSummary(id: string | null | undefined): Promise<FreeAuditSummary | null> {
@@ -25,7 +25,7 @@ export async function freeAuditSummary(id: string | null | undefined): Promise<F
   const report = audit?.report;
   if (!audit || audit.input.source !== 'public' || audit.status !== 'completed' || !report) return null;
   const issues = (report.issues ?? []).filter((i) => i.status === 'fail' || i.status === 'warn').length;
-  return { id, domain: report.project.domain, score: report.overall.score, issues, critical: report.severityCounts.critical };
+  return { id, domain: report.project.domain, url: report.url, score: report.overall.score, issues, critical: report.severityCounts.critical };
 }
 
 /**
@@ -43,11 +43,15 @@ export async function requireOnboardingStep(n: number): Promise<{ account: Accou
   return { account, name: user.name };
 }
 
-/** Same-site URL of a website (origin only), or null. */
-export function websiteOrigin(input: string): string | null {
+/**
+ * A website's address as entered, without query or #part, or null. Kept with its folder: a website that
+ * lives in a folder (example.com/srm/) is audited from there, because the domain root may not be it.
+ */
+export function websiteAddress(input: string): string | null {
   try {
     const url = new URL(/^https?:\/\//i.test(input.trim()) ? input.trim() : `https://${input.trim()}`);
-    return url.hostname.includes('.') ? `${url.origin}/` : null;
+    if (!url.hostname.includes('.')) return null;
+    return `${url.origin}${url.pathname.replace(/\/+$/, '')}/`;
   } catch {
     return null;
   }

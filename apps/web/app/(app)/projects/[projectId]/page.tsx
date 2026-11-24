@@ -50,7 +50,7 @@ export default async function ProjectPage({ params }: Props) {
           <Link href={`/keywords/${project.domain}`} className="inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3">
             Keywords
           </Link>
-        <Link href={`/audits/new?url=${encodeURIComponent(`https://${project.domain}/`)}`} className={BUTTON}>
+        <Link href={`/audits/new?url=${encodeURIComponent(latest?.url ?? `https://${project.domain}/`)}`} className={BUTTON}>
           Re-audit
         </Link>
         </div>

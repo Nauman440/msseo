@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { newAuditSchema } from '@seo/core';
 import { revalidatePath } from 'next/cache';
 import { accountSites, domainOf, getAccountByUserId, PLANS, updateAccount } from '@/lib/accounts';
-import { websiteOrigin } from '@/lib/signup';
+import { websiteAddress } from '@/lib/signup';
 import { ConfigError, startAudit } from '@/lib/audit-runner';
 import { hit } from '@/lib/rate-limit';
 import { requireCustomer } from '@/lib/session';
@@ -42,7 +42,7 @@ export async function addWebsiteAction(_prev: RunState, form: FormData): Promise
   const limit = PLANS[account.plan].websites;
   const sites = accountSites(account);
   if (sites.length >= limit) return { error: account.plan === 'growth' ? `The Growth plan covers up to ${limit} websites.` : 'Your plan covers one website. Ask us about the Growth plan for up to 3.' };
-  const website = websiteOrigin(String(form.get('website') ?? ''));
+  const website = websiteAddress(String(form.get('website') ?? ''));
   if (!website) return { error: 'Enter a website address, for example https://yourbusiness.com' };
   if (sites.some((w) => domainOf(w) === domainOf(website))) return { error: 'That website is already on your account.' };
   await updateAccount(user.id, { extraWebsites: [...account.extraWebsites, website] });
@@ -61,6 +61,27 @@ export async function removeWebsiteAction(site: string): Promise<void> {
   await updateAccount(user.id, { extraWebsites: account.extraWebsites.filter((w) => domainOf(w) !== domainOf(site)) });
   revalidatePath('/my');
   redirect('/my/sites');
+}
+
+/**
+ * Corrects a website's address on the same domain, e.g. https://example.com/ → https://example.com/srm/
+ * for a site that lives in a folder, then audits it again. Everything stored for the website is kept
+ * (it is keyed by the domain).
+ */
+export async function changeWebsiteAddressAction(site: string, _prev: RunState, form: FormData): Promise<RunState> {
+  const user = await requireCustomer();
+  const account = await getAccountByUserId(user.id);
+  if (!account) return { error: 'Account not found.' };
+  const current = accountSites(account).find((w) => domainOf(w) === domainOf(site));
+  const next = websiteAddress(String(form.get('address') ?? ''));
+  if (!current || !next) return { error: 'Enter the full address, for example https://example.com/shop/' };
+  if (domainOf(next) !== domainOf(current)) return { error: `Keep the same domain (${domainOf(current)}). To audit another website, add it as a new website.` };
+  if (next === current) return { error: 'That is already the address.' };
+  await updateAccount(user.id, account.website === current ? { website: next } : { extraWebsites: account.extraWebsites.map((w) => (w === current ? next : w)) });
+  const input = newAuditSchema.parse({ url: next, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
+  const audit = await startAudit(input, user.id).catch(() => null);
+  revalidatePath('/my', 'layout');
+  redirect(audit ? `/my/reports/${audit.id}` : `/my/sites`);
 }
 
 /** Journey: skip "Connect Google" or "Connect your website" for now (they can still be connected later). */

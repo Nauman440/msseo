@@ -5,7 +5,8 @@ export type ProjectRow = {
   id: string;
   domain: string;
   audits: number;
-  latest: { id: string; createdAt: Date; overallScore: number | null; status: string } | null;
+  /** url: the address the last audit started from (a website in a folder keeps its folder). */
+  latest: { id: string; createdAt: Date; overallScore: number | null; status: string; url?: string } | null;
 };
 
 const scoreTone = (s: number) => (s >= 90 ? 'bg-pass-bg text-pass-text' : s >= 70 ? 'bg-warn-bg text-warn-text' : 'bg-high-bg text-high-text');
@@ -72,7 +73,7 @@ export function ProjectList({ projects }: { projects: ProjectRow[] }) {
             <Link href={`/monitor/${p.domain}`} className={TOOL}>
               Monitoring
             </Link>
-            <Link href={`/audits/new?url=${encodeURIComponent(`https://${p.domain}/`)}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
+            <Link href={`/audits/new?url=${encodeURIComponent(p.latest?.url ?? `https://${p.domain}/`)}`} className="inline-flex min-h-10 items-center rounded-button border border-border-strong px-4 text-sm font-semibold hover:border-ink-3">
               Re-audit
             </Link>
           </nav>

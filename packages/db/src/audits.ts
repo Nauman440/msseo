@@ -140,7 +140,7 @@ export async function listAuditRecords(limit = 20): Promise<AuditRecord[]> {
 export async function listProjects(limit = 50) {
   const projects = await prisma.project.findMany({
     take: limit,
-    include: { _count: { select: { audits: true } }, audits: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, createdAt: true, overallScore: true, status: true } } },
+    include: { _count: { select: { audits: true } }, audits: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, createdAt: true, overallScore: true, status: true, url: true } } },
   });
   return projects
     .map((p) => ({ id: p.id, domain: p.domain, name: p.name, audits: p._count.audits, latest: p.audits[0] ?? null }))

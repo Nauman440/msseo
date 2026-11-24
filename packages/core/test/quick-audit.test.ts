@@ -25,7 +25,7 @@ describe('quick audit', () => {
   it('picks the homepage first, then nav links, then sitemap URLs, without duplicates or other hosts', () => {
     const picked = pickPages(
       {
-        homepage: { status: 200, finalUrl: 'https://example.com/' },
+        homepage: { status: 200, finalUrl: 'https://example.com/', base: 'https://example.com/' },
         candidates: ['https://example.com/', 'https://www.example.com/a', 'https://example.com/a/', 'https://cdn.other.com/b', 'https://example.com/c', 'https://example.com/d'],
       },
       3,

@@ -171,7 +171,7 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Step 2 · the website from the free audit is pre-filled.
   await expect(page).toHaveURL(/\/signup\/website$/);
   await expect(page.getByRole('heading', { name: 'Hi Ghazanfar, is this your website?' })).toBeVisible();
-  await expect(page.getByLabel('Website address')).toHaveValue('https://summitairhvac.com/');
+  await expect(page.getByLabel('Website address')).toHaveValue('https://www.summitairhvac.com/'); // as audited (keeps www and any folder)
   await expect(page.getByText(/Your free audit found \d+ issues?/)).toBeVisible();
   await page.getByRole('button', { name: 'Continue' }).click();
 

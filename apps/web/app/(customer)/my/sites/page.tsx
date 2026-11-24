@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { removeWebsiteAction } from '../actions';
 import { AddWebsiteForm } from '@/components/customer/AddWebsiteForm';
+import { ChangeAddressForm } from '@/components/customer/ChangeAddressForm';
 import { accountSites, domainOf, getAccountByUserId, PLANS } from '@/lib/accounts';
 import { customerAudits } from '@/lib/customer-data';
 import { requireCustomer } from '@/lib/session';
@@ -40,9 +41,12 @@ export default async function SitesPage() {
             return (
               <li key={d} className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-4">
                 <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-night font-display text-lg font-extrabold text-primary-tint">{d.charAt(0).toUpperCase()}</span>
-                <Link href={`/my?site=${encodeURIComponent(d)}`} className="min-w-0 flex-1 break-all text-[17px] font-semibold hover:text-primary-text hover:underline">
-                  {d}
-                </Link>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <Link href={`/my?site=${encodeURIComponent(d)}`} className="break-all text-[17px] font-semibold hover:text-primary-text hover:underline">
+                    {d}
+                  </Link>
+                  {new URL(w).pathname !== '/' && <span className="break-all text-[13px] text-ink-2">Starts at {new URL(w).pathname}</span>}
+                </span>
                 {score !== null && score !== undefined ? <span className={cn('rounded-pill px-2.5 py-1 text-sm font-bold tabular', scoreTone(score))}>{score}</span> : <span className="text-[13px] text-ink-3">No score yet</span>}
                 {w !== account.website && (
                   <form action={removeWebsiteAction.bind(null, d)}>
@@ -51,6 +55,7 @@ export default async function SitesPage() {
                     </button>
                   </form>
                 )}
+                <ChangeAddressForm site={d} address={w} />
               </li>
             );
           })}

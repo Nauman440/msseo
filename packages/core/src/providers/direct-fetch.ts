@@ -45,7 +45,8 @@ export type Preflight = {
 
 /** What the audit needs to start checking pages, known a few seconds into preflight. */
 export type Discovery = {
-  homepage: { status: number; finalUrl: string };
+  /** base: where the website lives (the domain root, or its folder when the root serves no site). */
+  homepage: { status: number; finalUrl: string; base: string };
   /** Same-site page URLs: homepage links first (navigation), then sitemap URLs. */
   candidates: string[];
 };
@@ -142,8 +143,12 @@ export function parseSitemap(xml: string): { isIndex: boolean; urls: string[]; v
   return { isIndex, urls, valid };
 }
 
-/** Sitemaps from robots.txt first; the conventional paths only when none of those is valid. */
-async function fetchSitemaps(fromRobots: string[], origin: string, opts: Opts): Promise<SitemapInfo[]> {
+/**
+ * Sitemaps from robots.txt first; the conventional paths only when none of those is valid: inside the
+ * website's own folder first (a site at example.com/shop/ keeps its sitemap there), then at the domain
+ * root, each as sitemap.xml, sitemap_index.xml (SEO plugins) and wp-sitemap.xml (WordPress without one).
+ */
+async function fetchSitemaps(fromRobots: string[], origin: string, opts: Opts, base = `${origin}/`): Promise<SitemapInfo[]> {
   const out: SitemapInfo[] = [];
   const seen = new Set<string>();
 
@@ -162,7 +167,8 @@ async function fetchSitemaps(fromRobots: string[], origin: string, opts: Opts): 
 
   await Promise.all(fromRobots.map((url) => visit(url, 0)));
   if (!out.some((s) => s.valid)) {
-    for (const url of [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`]) {
+    const roots = [...new Set([base, `${origin}/`])];
+    for (const url of roots.flatMap((r) => [`${r}sitemap.xml`, `${r}sitemap_index.xml`, `${r}wp-sitemap.xml`])) {
       await visit(url, 0);
       if (out.some((s) => s.valid)) break;
     }
@@ -191,6 +197,42 @@ async function checkUrls(urls: string[], opts: Opts): Promise<UrlCheck[]> {
   return results;
 }
 
+/** The folder an address is in: "https://x.com/shop/" for "https://x.com/shop/" or "https://x.com/shop/page". */
+export function siteBase(url: string): string {
+  const u = new URL(url);
+  const path = u.pathname.endsWith('/') ? u.pathname : u.pathname.replace(/\/[^/]*$/, '/');
+  return `${u.origin}${path || '/'}`;
+}
+
+/** Whether an address is inside the website's folder (any host spelling: www or not). */
+export function inFolder(url: string, base: string): boolean {
+  try {
+    const u = new URL(url);
+    const b = new URL(base);
+    return u.hostname.replace(/^www\./, '') === b.hostname.replace(/^www\./, '') && (u.pathname + '/').startsWith(b.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where the website lives. Normally the domain root, even when a page deeper down was entered. Only when
+ * the root itself does not serve a website (an error, like a 403 on a shared host) is the site the folder
+ * of the entered address, e.g. example.com/srm/ for a WordPress install in /srm/.
+ */
+async function websiteBase(finalUrl: string, opts: Opts): Promise<string> {
+  const folder = siteBase(finalUrl);
+  const origin = new URL(finalUrl).origin;
+  if (folder === `${origin}/`) return folder;
+  try {
+    const root = await get(`${origin}/`, opts, { method: 'HEAD' });
+    if (root.status > 0 && root.status < 400) return `${origin}/`;
+  } catch {
+    // An unreachable root counts as no website there.
+  }
+  return folder;
+}
+
 export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<Preflight> {
   const start = new URL(inputUrl);
   const bare = start.hostname.replace(/^www\./, '');
@@ -198,6 +240,9 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
   const home = await get(start.toString(), opts, { retries: 1 });
   const finalUrl = home.url || start.toString();
   const origin = new URL(finalUrl).origin;
+  // A website can live in a folder (example.com/shop/): its own address, sitemaps and pages are under it.
+  const base = await websiteBase(finalUrl, opts);
+  const path = new URL(base).pathname;
   const headers: Record<string, string> = {};
   home.headers.forEach((v, k) => (headers[k] = v));
   const html = home.ok ? (await home.text()).slice(0, 500_000) : '';
@@ -205,7 +250,7 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
   const robotsDirectives = parseRobotsDirectives(html, headers['x-robots-tag']);
 
   const variantsP = Promise.all(
-    [`http://${bare}/`, `http://www.${bare}/`, `https://${bare}/`, `https://www.${bare}/`].map(async (url) => {
+    [`http://${bare}${path}`, `http://www.${bare}${path}`, `https://${bare}${path}`, `https://www.${bare}${path}`].map(async (url) => {
       try {
         const res = await get(url, opts, { manual: true, method: 'HEAD' });
         return { url, status: res.status, location: res.headers.get('location') ?? undefined };
@@ -218,7 +263,7 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
   const botAccessP = Promise.all(
     (['browser', 'googlebot'] as const).map(async (ua) => {
       try {
-        const res = await get(origin + '/', opts, { ua: ua === 'googlebot' ? GOOGLEBOT_UA : BROWSER_UA, method: 'HEAD' });
+        const res = await get(base, opts, { ua: ua === 'googlebot' ? GOOGLEBOT_UA : BROWSER_UA, method: 'HEAD' });
         return { ua, status: res.status };
       } catch {
         return { ua, status: 0 };
@@ -235,11 +280,12 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
     // unreachable robots.txt stays "not found"
   }
 
-  const sitemaps = await fetchSitemaps(robots.sitemaps, origin, opts);
-  const allUrls = [...new Set(sitemaps.flatMap((s) => s.urls))];
+  const sitemaps = await fetchSitemaps(robots.sitemaps, origin, opts, base);
+  // Pages outside the website's folder belong to other sites on the same domain.
+  const allUrls = [...new Set(sitemaps.flatMap((s) => s.urls))].filter((u) => inFolder(u, base));
   opts.onDiscovery?.({
-    homepage: { status: home.status, finalUrl },
-    candidates: [...new Set([finalUrl, ...internalLinks(html, finalUrl), ...allUrls.filter((u) => !NON_PAGE.test(new URL(u, origin).pathname))])],
+    homepage: { status: home.status, finalUrl, base },
+    candidates: [...new Set([finalUrl, ...internalLinks(html, finalUrl).filter((u) => inFolder(u, base)), ...allUrls.filter((u) => !NON_PAGE.test(new URL(u, origin).pathname))])],
   });
   const sitemapUrlChecks = await checkUrls(allUrls.slice(0, opts.maxSitemapUrlChecks ?? 30), opts);
   const [variants, botAccess] = await Promise.all([variantsP, botAccessP]);

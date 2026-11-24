@@ -38,7 +38,12 @@ const CITIES = 'atlanta austin baltimore boston charlotte chicago cincinnati cle
 export const KNOWN_CITIES: readonly string[] = CITIES.split(' ').map((c) => c.replace(/-/g, ' '));
 const CITY_RE = new RegExp(`(^|-)(${CITIES.split(' ').join('|')})(-|$)`);
 
-const segments = (url: string) => new URL(url).pathname.split('/').filter(Boolean).map((s) => decodeURIComponent(s).toLowerCase());
+/** Path segments, without the website's folder ("/srm/") when the site lives in one. */
+const segments = (url: string, base = '/') => {
+  const path = new URL(url).pathname;
+  const rel = base !== '/' && (path + '/').startsWith(base) ? path.slice(base.length - 1) : path;
+  return rel.split('/').filter(Boolean).map((s) => { try { return decodeURIComponent(s).toLowerCase(); } catch { return s.toLowerCase(); } });
+};
 
 /** The city named in a location URL (slug words after a location segment, or a known city), for rule 2.1.5. */
 export function cityOf(url: string): string | undefined {
@@ -52,8 +57,9 @@ export function cityOf(url: string): string | undefined {
   return undefined;
 }
 
-export function classifyPage(url: string, c?: PageContent): PageType {
-  const segs = segments(url);
+/** `base`: the folder the website lives in ("/srm/"), so its first page counts as the homepage. */
+export function classifyPage(url: string, c?: PageContent, base = '/'): PageType {
+  const segs = segments(url, base);
   const path = `/${segs.join('/')}`;
   if (!segs.length) return 'home';
   if (/^\/(category|tag|tags|author)\//.test(path)) return 'category';
@@ -83,12 +89,13 @@ const PRIORITY: PageType[] = ['home', 'service', 'location', 'service_location',
  * Groups pages into templates. `inlinks` counts internal links pointing at each URL
  * (the crawl's count in deep mode, links between the checked pages in quick mode).
  */
-export function buildTemplates(pages: { url: string; content?: PageContent }[], inlinks: Map<string, number>): Template[] {
+export function buildTemplates(pages: { url: string; content?: PageContent }[], inlinks: Map<string, number>, base = '/'): Template[] {
   const groups = new Map<string, { type: PageType; label: string; urls: string[] }>();
   for (const p of pages) {
-    const type = classifyPage(p.url, p.content);
-    const key = type === 'other' ? `other:${segments(p.url)[0] ?? ''}` : type;
-    const label = type === 'other' ? `Other: /${segments(p.url)[0] ?? ''}/` : TYPE_LABEL[type];
+    const type = classifyPage(p.url, p.content, base);
+    const first = segments(p.url, base)[0] ?? '';
+    const key = type === 'other' ? `other:${first}` : type;
+    const label = type === 'other' ? `Other: /${first}/` : TYPE_LABEL[type];
     const g = groups.get(key) ?? { type, label, urls: [] };
     g.urls.push(p.url);
     groups.set(key, g);

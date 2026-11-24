@@ -8,7 +8,7 @@ import { CONNECTIONS, createAccount, domainOf, getAccountByUserId, isPlan, PLANS
 import { startAudit } from '@/lib/audit-runner';
 import { signIn } from '@/lib/auth';
 import { authEnabled, getSessionUser } from '@/lib/session';
-import { FINISHED, freeAuditSummary, stepPath, websiteOrigin } from '@/lib/signup';
+import { FINISHED, freeAuditSummary, stepPath, websiteAddress } from '@/lib/signup';
 import { startAutopilot } from '@/lib/autopilot';
 import { emailLayout, notifyTeam, sendMail } from '@/lib/mailer';
 import { createUser, UserExistsError } from '@/lib/users';
@@ -57,7 +57,7 @@ export async function createAccountAction(_prev: SignupState, form: FormData): P
     businessName: parsed.data.businessName,
     phone: parsed.data.phone || null,
     plan,
-    website: audit ? `https://${audit.domain}/` : null,
+    website: audit ? websiteAddress(audit.url) : null,
     sourceAuditId: audit?.id ?? null,
   });
   const base = (process.env.APP_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || '').replace(/\/$/, '');
@@ -86,7 +86,7 @@ export async function createAccountAction(_prev: SignupState, form: FormData): P
 /** Step 2: the website all work focuses on. */
 export async function saveWebsiteAction(_prev: SignupState, form: FormData): Promise<SignupState> {
   const { user, account } = await currentCustomer();
-  const website = websiteOrigin(String(form.get('website') ?? ''));
+  const website = websiteAddress(String(form.get('website') ?? ''));
   if (!website) return { error: 'Enter your website address, for example https://yourbusiness.com' };
   await updateAccount(user.id!, { website, onboardingStep: Math.max(account.onboardingStep, 3) });
   redirect(stepPath(3));

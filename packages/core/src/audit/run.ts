@@ -185,7 +185,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     const contentP = fetchPageContents(pickPages(found, input.pageLimit), env.log);
     const probesP = contentP.then((c) => probeUrlVariants(c, env.log));
     const linksP = contentP.then((c) => checkLinks(c, new Map(c.map((p) => [p.url, p.status])), env.log));
-    const templatesP = contentP.then((c) => templatesOf(c, inlinksFromContent(c)));
+    const templatesP = contentP.then((c) => templatesOf(c, inlinksFromContent(c), found.homepage.base));
     const lighthouseP = templatesP.then((t) => measure(t, true));
     aiP = Promise.all([templatesP, contentP]).then(([t, c]) => judge(t, c, true));
     parityP = Promise.all([templatesP, contentP]).then(([t, c]) => parityOf(t, c));
@@ -203,7 +203,7 @@ export async function runAudit(auditId: string, input: NewAuditInput, env: Audit
     const okUrls = crawl.pages.filter((p) => p.resource_type === 'html' && p.status_code === 200).map((p) => p.url);
     content = await fetchPageContents(okUrls.slice(0, input.pageLimit), env.log);
     const known = new Map(crawl.pages.map((p) => [p.url, p.status_code]));
-    templates = templatesOf(content, new Map(crawl.pages.map((p) => [p.url, p.meta?.inbound_links_count ?? 0])));
+    templates = templatesOf(content, new Map(crawl.pages.map((p) => [p.url, p.meta?.inbound_links_count ?? 0])), found.homepage.base);
     inspectList(inspectOrder(templates, okUrls));
     aiP = judge(templates, content, false);
     parityP = parityOf(templates, content);
@@ -312,9 +312,10 @@ async function rivalWordCounts(rivals: Record<string, string[]> | undefined, log
   return out;
 }
 
-function templatesOf(content: PageContent[], inlinks: Map<string, number>): Template[] {
+/** `base`: where the website lives; a website in a folder (example.com/srm/) has its pages typed from there. */
+function templatesOf(content: PageContent[], inlinks: Map<string, number>, base: string): Template[] {
   const pages = content.filter((c) => c.status === 200 && !/noindex|none/.test(c.robots ?? ''));
-  return buildTemplates(pages.map((c) => ({ url: c.url, content: c })), inlinks);
+  return buildTemplates(pages.map((c) => ({ url: c.url, content: c })), inlinks, new URL(base).pathname);
 }
 
 function aiErrorText(err: unknown): string {
