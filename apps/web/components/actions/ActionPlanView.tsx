@@ -73,9 +73,10 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         ))}
       </dl>
 
-      {approvals.length > 0 && (
+      {/* Customers approve each to-do in its month below (and under Approvals in the sidebar). */}
+      {audience === 'team' && approvals.length > 0 && (
         <section aria-labelledby="approvals" className="flex flex-col gap-3 rounded-[18px] border border-high-bg bg-surface p-6">
-          <h2 id="approvals" className="font-display text-xl font-bold">{audience === 'customer' ? 'Waiting for your approval' : 'Waiting for approval'}</h2>
+          <h2 id="approvals" className="font-display text-xl font-bold">Waiting for approval</h2>
           <ul className="flex flex-col gap-4">
             {approvals.map((a) => (
               <li key={a.id} className="flex flex-col gap-2 border-b border-border pb-4 last:border-0 last:pb-0">
