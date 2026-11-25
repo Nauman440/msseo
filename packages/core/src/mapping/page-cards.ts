@@ -1,4 +1,5 @@
 import { normTerm } from '../keywords/clean';
+import { isInformational } from '../keywords/roles';
 import type { KeywordRecord } from '../keywords/types';
 import type { ReportPage } from '../types';
 import { normUrl, pathOf, topicKeywords, type MappingRow, type MappingWorkspace } from './mapping';
@@ -42,8 +43,6 @@ export function sameSearch(a: string, b: string): boolean {
   return shared / Math.min(x.length, y.size) >= 0.75;
 }
 
-const QUESTION = /^(how|what|why|when|where|which|who|can|does|do|is|are|should|will)\b|\b(vs|versus|guide|ideas|tips|meaning|difference|benefits?)\b/;
-export const isInformational = (term: string, intent?: string | null) => intent === 'informational' || QUESTION.test(normTerm(term));
 
 /** Order of the pages every site has, then the rest (new pages always last). */
 const RANK: [RegExp, number][] = [[/^\/?$/, 0], [/\/(about|about-us|our-story|who-we-are)\b/, 1], [/\/(shop|store|collections\/all|collections|products)\/?$/, 2], [/\/(collections?|categor(y|ies)|product-category)\//, 3], [/\/products?\//, 4], [/\/(services?)\//, 3], [/\/(contact|contact-us)\b/, 6], [/\/(blogs?|news|articles?|guides?)\//, 7]];

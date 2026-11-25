@@ -120,16 +120,33 @@ export function opportunity(k: KeywordRecord, ctx: { local: boolean; locations: 
 }
 
 const isTyped = (k: KeywordRecord, typed: Set<string>) => typed.has(normTerm(k.term));
-const protectedKw = (k: KeywordRecord, typed: Set<string>) =>
-  k.statusLocked ||
-  k.sources.some((s) => s === 'manual' || s === 'import') ||
-  isTyped(k, typed) ||
-  (k.gscClicks ?? 0) > 0 ||
-  (k.position !== null && k.position <= 20);
+/** Chosen by a person: never removed by this step. */
+const byPerson = (k: KeywordRecord, typed: Set<string>) => k.statusLocked || k.sources.some((s) => s === 'manual' || s === 'import') || isTyped(k, typed);
+const protectedKw = (k: KeywordRecord, typed: Set<string>) => byPerson(k, typed) || (k.gscClicks ?? 0) > 0 || (k.position !== null && k.position <= 20);
+
+/**
+ * Closely about one service (2026-11-25, user request "no irrelevant keywords"). Either it contains all
+ * the distinctive words of a one- or two-word service (two thirds of a longer one; synonyms count):
+ * "dog food" keeps "dry dog food", or it shares half of them and every other word is one the site's own
+ * pages, services or places use: a bedding shop whose pages mention sheets keeps "tencel sheets", a
+ * dog food shop that sells no collars drops "dog collar". Half the words alone was too loose.
+ */
+const MODIFIERS = new Set(['buy', 'cheap', 'online', 'uk', 'usa', 'best', 'sale', 'shop', 'store', 'near', 'me', 'for', 'the', 'a', 'an', 'and', 'of', 'in', 'on', 'with', 'to', 'cost', 'price', 'prices', 'deal', 'deals', 'discount', 'luxury', 'top', 'review', 'reviews', 'local', 'my']);
+export function aboutAService(term: string, topics: string[], known: Iterable<string> = []): boolean {
+  const allowed = new Set([...known, ...topics.flatMap((t) => dedupeKey(t).split(' '))]);
+  const own = dedupeKey(term).split(' ').filter(Boolean);
+  return topics.some((t) => {
+    const need = dedupeKey(t).split(' ').filter((w) => w && !GENERIC.has(w)).length;
+    if (!need) return false;
+    const f = fit(term, t);
+    if (f >= (need <= 2 ? 1 : 0.66)) return true;
+    return f >= 0.5 && own.every((w) => MODIFIERS.has(w) || GENERIC.has(w) || allowed.has(w) || [...allowed].some((a) => sameWord(a, w)));
+  });
+}
 
 const remove = (k: KeywordRecord, reason: string): KeywordRecord => ({ ...k, status: 'removed', removeReason: reason, clusterId: null });
 
-export function focusPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'seeds' | 'businessType'>): KeywordRecord[] {
+export function focusPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'seeds' | 'businessType' | 'siteWords'> & { domain?: string }): KeywordRecord[] {
   const topics = [...ws.seeds.services, ...ws.seeds.extra].map((t) => t.trim()).filter((t) => dedupeKey(t).split(' ').some((w) => w && !GENERIC.has(w)));
   const typed = new Set([...ws.seeds.services, ...ws.seeds.extra].map(normTerm));
   const locations = ws.seeds.locations;
@@ -138,12 +155,19 @@ export function focusPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'see
   const lowLocal = (k: KeywordRecord) => local && localLowOk(k, ws.seeds);
 
   // 1–3: hard rules, one keyword at a time.
+  const brand = ws.domain ? normTerm(ws.domain.replace(/^www\./, '').split('.')[0] ?? '').replace(/[^a-z0-9]/g, '') : '';
+  const namesBrand = (k: KeywordRecord) => brand.length >= 3 && normTerm(k.term).replace(/[^a-z0-9]/g, '').includes(brand);
+  // Words the site itself uses (page titles and H1s) and the places it serves.
+  const known = [...(ws.siteWords ?? []), ...locations.flatMap((l) => dedupeKey(l).split(' '))];
   const ruled = list.map((k) => {
-    if (k.status !== 'kept' || protectedKw(k, typed)) return k;
+    if (k.status !== 'kept' || byPerson(k, typed)) return k;
+    // Even a search the site already shows up for must be about its services (or name the brand):
+    // ranking for an unrelated search brings the wrong visitors.
+    if (topics.length && !k.sources.includes('seed') && !namesBrand(k) && !aboutAService(k.term, topics, known)) return remove(k, 'Not closely about one of your services');
+    if (protectedKw(k, typed)) return k;
     const showsUp = k.position !== null && k.position <= 50;
     if (k.volume !== null && k.volume < MIN_VOLUME && !showsUp && !lowLocal(k)) return remove(k, `Too few searches (under ${MIN_VOLUME} a month)`);
     // Phrases built from the research inputs are on topic by construction; tool finds must fit a service.
-    if (topics.length && !k.sources.includes('seed') && bestService(k.term, topics).fit < 0.5) return remove(k, 'Not closely about one of your services');
     if (local && (k.volume ?? 0) >= BROAD_VOLUME && k.intent !== 'informational' && !isLocalSearch(k.term, locations) && !showsUp) {
       return remove(k, 'Too broad for a local business (no place in the search)');
     }

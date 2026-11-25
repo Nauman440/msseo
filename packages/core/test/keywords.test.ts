@@ -165,7 +165,7 @@ describe('keyword research', () => {
     const added = addKeywords(ws, ['Heat Pump Install', 'ac repair', '=cmd'], 'import');
     expect(added.added).toEqual(['heat pump install', 'cmd']);
     const csv = keywordsToCsv(added.workspace);
-    expect(csv.split('\r\n')[0]).toContain('keyword,status,reason');
+    expect(csv.split('\r\n')[0]).toContain('keyword,type,status,reason');
     expect(parseKeywordCsv('Top queries,Clicks\r\n"ac repair, dallas",4\r\nfurnace tune up,2\r\n')).toEqual(['ac repair dallas', 'furnace tune up']);
     expect(parseKeywordCsv('heat pump\nboiler service')).toEqual(['heat pump', 'boiler service']);
   });

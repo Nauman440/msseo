@@ -1,4 +1,4 @@
-import { LOW_VOLUME, normDomain, queryKeywords, type KeywordFrom, type KeywordSort } from '@seo/core';
+import { KEYWORD_ROLES, LOW_VOLUME, normDomain, queryKeywords, type KeywordFrom, type KeywordRole, type KeywordSort } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
 import { getKeywordWorkspace } from '@/lib/keywords';
 
@@ -17,10 +17,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ domain: 
   const sort = sp.get('sort') as KeywordSort | null;
   const show = sp.get('show') as (typeof SHOWS)[number] | null;
   const from = sp.get('from') as KeywordFrom | null;
+  const role = sp.get('role') as KeywordRole | null;
   const result = queryKeywords(await getKeywordWorkspace(domain), {
     q: sp.get('q') ?? undefined,
     show: show && SHOWS.includes(show) ? show : 'kept',
     intent: sp.get('intent') || undefined,
+    role: role && KEYWORD_ROLES.includes(role) ? role : undefined,
     topic: sp.get('topic') || undefined,
     from: from && FROMS.includes(from) ? from : undefined,
     sort: sort && SORTS.includes(sort) ? sort : 'volume',

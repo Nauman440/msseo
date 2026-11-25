@@ -1,4 +1,4 @@
-import { keywordStats, LOW_VOLUME, queryKeywords, type KeywordFrom, type KeywordWorkspace } from '@seo/core';
+import { keywordStats, LOW_VOLUME, queryKeywords, type KeywordFrom, type KeywordRole, type KeywordWorkspace } from '@seo/core';
 import { MappingSection, type MappingParams } from '@/components/mapping/MappingSection';
 import { Term } from '@/components/ui/Term';
 import { cn } from '@/lib/tones';
@@ -10,6 +10,7 @@ import { QuestionsView } from './QuestionsView';
 import { KeywordTabs, viewHref, type KeywordOpen, type KeywordView } from './KeywordTabs';
 import type { TopicOrder } from './labels';
 import { TopTopics } from './TopTopics';
+import { KeywordTypes } from './KeywordTypes';
 
 /**
  * Keywords (Module 4) and the page plan (Module 5), written for someone who knows nothing about SEO.
@@ -21,7 +22,7 @@ const EYEBROW = 'text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-i
 const FOLD = 'group rounded-card border border-border bg-surface';
 const FOLD_SUMMARY = 'flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-[22px] py-4 [&::-webkit-details-marker]:hidden';
 
-export type KeywordPageState = { view: KeywordView; open: KeywordOpen; order: TopicOrder; allTopics: boolean; from?: KeywordFrom; mapping?: MappingParams };
+export type KeywordPageState = { view: KeywordView; open: KeywordOpen; order: TopicOrder; allTopics: boolean; from?: KeywordFrom; role?: KeywordRole; mapping?: MappingParams };
 
 const list = (items: string[], max = 3) => (items.length > max ? `${items.slice(0, max).join(', ')} and ${items.length - max} more` : items.join(', '));
 
@@ -95,6 +96,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             </dl>
           )}
 
+          <KeywordTypes ws={ws} href={(role) => `${viewHref(base, 'keywords', { open: 'all', role })}#all-keywords`} />
+
           <TopTopics clusters={ws.clusters} />
 
           {/* Team only: the topic scores. Customers see the best topics under "Start here"; autopilot handles the rest. */}
@@ -110,7 +113,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
               editable
             />
           )}
-          <details id="all-keywords" open={state.open === 'all' || Boolean(state.from)} className={FOLD}>
+          <details id="all-keywords" open={state.open === 'all' || Boolean(state.from) || Boolean(state.role)} className={FOLD}>
             <summary className={FOLD_SUMMARY}>
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-[17px] font-bold">{stats.kept + stats.removed > 0 ? `See every keyword (${stats.kept.toLocaleString('en-US')})` : 'Add keywords yourself'}</span>
@@ -124,8 +127,9 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
                 domain={ws.domain}
                 business={ws.businessType ?? 'services'}
                 topics={ws.clusters.map((c) => ({ id: c.id, name: c.name }))}
-                initial={queryKeywords(ws, { from: state.from, minVolume: LOW_VOLUME })}
+                initial={queryKeywords(ws, { from: state.from, role: state.role, minVolume: LOW_VOLUME })}
                 initialFrom={state.from ?? ''}
+                initialRole={state.role ?? ''}
               />
               <section aria-labelledby="add-keywords" className="flex flex-col gap-3.5 border-t border-border pt-5">
                 <div>

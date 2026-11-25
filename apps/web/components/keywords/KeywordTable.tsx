@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import type { BusinessType, KeywordRow, KeywordSort } from '@seo/core';
+import { KEYWORD_ROLES, type BusinessType, type KeywordRow, type KeywordSort } from '@seo/core';
 import { setKeywordStatusAction } from '@/app/keywords/actions';
 import { INPUT } from '@/components/competitors/forms';
 import { cn } from '@/lib/tones';
-import { CHIP, difficultyBar, INTENT_CHIP, intentLabel, positionChip } from './labels';
+import { CHIP, difficultyBar, INTENT_CHIP, intentLabel, positionChip, ROLE_CHIP, ROLE_LABEL } from './labels';
 import { Term } from '@/components/ui/Term';
 
 const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
@@ -16,8 +16,8 @@ const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
   { key: 'position', label: 'You on Google' },
 ];
 const PAGE = 100;
-type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; topic: string; from: string; sort: KeywordSort; desc: boolean; low: boolean };
-const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', topic: '', from: '', sort: 'volume', desc: true, low: false };
+type Filters = { q: string; show: 'kept' | 'removed' | 'all'; intent: string; role: string; topic: string; from: string; sort: KeywordSort; desc: boolean; low: boolean };
+const DEFAULTS: Filters = { q: '', show: 'kept', intent: '', role: '', topic: '', from: '', sort: 'volume', desc: true, low: false };
 const TH = 'whitespace-nowrap px-2.5 py-2.5 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-ink-2';
 const TD = 'border-t border-border px-2.5 py-3 align-middle';
 const BUTTON = 'inline-flex min-h-10 items-center rounded-control border border-border-strong bg-surface px-5 text-[15px] font-semibold hover:border-ink-3 disabled:opacity-50';
@@ -26,8 +26,8 @@ const BUTTON = 'inline-flex min-h-10 items-center rounded-control border border-
  * Sortable, filterable keyword list with keep/remove per row (4.4 manual override). The server
  * sends one page at a time (`/api/keywords/<domain>`); the first page comes with the HTML.
  */
-export function KeywordTable({ domain, business, topics, initial, initialFrom = '' }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number }; initialFrom?: string }) {
-  const [filters, setFilters] = useState<Filters>({ ...DEFAULTS, from: initialFrom });
+export function KeywordTable({ domain, business, topics, initial, initialFrom = '', initialRole = '' }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number }; initialFrom?: string; initialRole?: string }) {
+  const [filters, setFilters] = useState<Filters>({ ...DEFAULTS, from: initialFrom, role: initialRole });
   const [data, setData] = useState(initial);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
     async (f: Filters, from: number) => {
       const id = ++request.current;
       setLoading(true);
-      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, topic: f.topic, from: f.from, sort: f.sort, desc: f.desc ? '1' : '0', low: f.low ? '1' : '0', offset: String(from) });
+      const qs = new URLSearchParams({ q: f.q, show: f.show, intent: f.intent, role: f.role, topic: f.topic, from: f.from, sort: f.sort, desc: f.desc ? '1' : '0', low: f.low ? '1' : '0', offset: String(from) });
       try {
         const res = await fetch(`/api/keywords/${domain}?${qs}`, { cache: 'no-store' });
         if (!res.ok || id !== request.current) return;
@@ -85,6 +85,15 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
             <option value="kept">Searches we target</option>
             <option value="removed">Left out (and why)</option>
             <option value="all">Both</option>
+          </select>
+        </label>
+        <label className={field}>
+          Type
+          <select value={filters.role} onChange={(e) => set({ role: e.target.value })} className={`${INPUT} text-sm text-ink`}>
+            <option value="">All types</option>
+            {KEYWORD_ROLES.map((r) => (
+              <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+            ))}
           </select>
         </label>
         <label className={field}>
@@ -135,11 +144,12 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
           <Term k="volume">Searches / mo</Term>
           <Term k="difficulty">How hard</Term>
           <Term k="position">You on Google</Term>
+          <span>Type: intent (main buying search), supporting, informational (questions)</span>
           <Term k="intent">What they want</Term>
           <Term k="topic">Topic</Term>
         </p>
         <div className="relative overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr>
                 {COLUMNS.map((c) => (
@@ -150,6 +160,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                     </button>
                   </th>
                 ))}
+                <th className={TH}>Type</th>
                 <th className={TH}>Topic</th>
                 <th className={TH}>What they want</th>
                 <th className={TH}><span className="sr-only">Actions</span></th>
@@ -184,6 +195,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                     <td className={TD}>
                       {r.position === null ? <span className="text-ink-2">Not showing</span> : <span className={cn('rounded-[8px] px-[9px] py-[3px] text-[13px] font-extrabold tabular', positionChip(r.position))}>#{r.position}</span>}
                     </td>
+                    <td className={TD}>{r.role ? <span className={cn(CHIP, ROLE_CHIP[r.role])}>{ROLE_LABEL[r.role]}</span> : '–'}</td>
                     <td className={TD}>{r.cluster ?? '–'}</td>
                     <td className={TD}>{intent && r.intent ? <span className={cn(CHIP, INTENT_CHIP[r.intent])}>{intent}</span> : '–'}</td>
                     <td className={cn(TD, 'text-right')}>

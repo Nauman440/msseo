@@ -1,4 +1,4 @@
-import type { BusinessType, KeywordCluster } from '@seo/core';
+import type { BusinessType, KeywordCluster, KeywordRole } from '@seo/core';
 
 /** Keyword design labels and chip colours (design-reference/Keywords tab *.zip), shared by server and client components. */
 export const PAGE_TYPE: Record<KeywordCluster['pageType'], string> = {
@@ -52,3 +52,13 @@ export const TOPIC_ORDERS: { value: TopicOrder; label: string }[] = [
   { value: 'quick', label: 'Quick wins first' },
   { value: 'season', label: 'Season' },
 ];
+
+/** Keyword types (2026-11-25): what each kept keyword is used for. */
+export const ROLE_LABEL: Record<KeywordRole, string> = { intent: 'Intent', supporting: 'Supporting', informational: 'Informational' };
+export const ROLE_TITLE: Record<KeywordRole, string> = { intent: 'Intent keywords', supporting: 'Supporting keywords', informational: 'Informational keywords' };
+export const ROLE_HINT: Record<KeywordRole, string> = {
+  intent: 'The main buying search of each topic. One page is built around each.',
+  supporting: 'Other ways people ask for the same thing. They go in the titles, headings and text of that page.',
+  informational: 'Questions and research searches. Answered in the page text, FAQs and blog posts.',
+};
+export const ROLE_CHIP: Record<KeywordRole, string> = { intent: 'bg-primary-chip text-primary-heading', supporting: 'bg-teal-chip text-teal-text', informational: 'bg-violet-bg text-violet-text' };

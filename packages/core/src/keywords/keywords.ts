@@ -1,3 +1,4 @@
+import { keywordRoles, type KeywordRole } from './roles';
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, normDomain } from '../competitors/competitors';
 import { csvCell } from '../report/csv';
 import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale } from '../providers/dataforseo-keywords';
@@ -346,10 +347,12 @@ export type KeywordRow = {
   gap: boolean;
   /** Google features on page 1, in plain words ("Map pack", "Videos"). */
   features: string[];
+  /** Kept keywords: intent (a topic's main buying search), supporting or informational. */
+  role: KeywordRole | null;
 };
 export type KeywordSort = 'term' | 'volume' | 'difficulty' | 'cpc' | 'position';
 export type KeywordFrom = 'gap' | 'pages' | 'ranked' | 'gsc' | 'ideas';
-export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; /** Cluster id. */ topic?: string; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number; /** Leave out searches with fewer than this many a month (unknown volume counts as 0). */ minVolume?: number };
+export type KeywordQuery = { q?: string; show?: 'kept' | 'removed' | 'all'; intent?: string; from?: KeywordFrom; /** Cluster id. */ topic?: string; sort?: KeywordSort; desc?: boolean; offset?: number; limit?: number; /** Leave out searches with fewer than this many a month (unknown volume counts as 0). */ minVolume?: number; role?: KeywordRole };
 /** Below this many searches a month a keyword is hidden by default ("show low-volume searches" brings it back). */
 export const LOW_VOLUME = 10;
 /** Keywords a person typed in or imported always show, whatever their volume. */
@@ -370,6 +373,7 @@ export const KEYWORD_PAGE = 100;
 /** Filters, sorts and pages the keyword list on the server, so the browser never gets all 1,500 rows. */
 export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows: KeywordRow[]; total: number } {
   const names = new Map(ws.clusters.map((c) => [c.id, c.name]));
+  const roles = keywordRoles(ws);
   const needle = (query.q ?? '').trim().toLowerCase().slice(0, 80);
   const show = query.show ?? 'kept';
   const sort = query.sort ?? 'volume';
@@ -380,9 +384,10 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
       cluster: k.clusterId ? names.get(k.clusterId) ?? null : null,
       gap: isGap(k),
       features: featureLabels(k.serpFeatures),
+      role: roles.get(k) ?? null,
       _k: k,
     }))
-    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && (!query.topic || r._k.clusterId === query.topic) && fromMatches(r._k, query.from) && (!query.minVolume || (r.volume ?? 0) >= query.minVolume || typedByHand(r._k)) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
+    .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && (!query.role || r.role === query.role) && (!query.topic || r._k.clusterId === query.topic) && fromMatches(r._k, query.from) && (!query.minVolume || (r.volume ?? 0) >= query.minVolume || typedByHand(r._k)) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))
     .map(({ _k, ...r }) => r)
     .sort((a, b) => {
       if (sort === 'term') return a.term.localeCompare(b.term) * dir;
@@ -399,12 +404,13 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
 
 // ---- CSV ----------------------------------------------------------------------------------
 
-const HEADER = ['keyword', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources', 'competitor_gap', 'serp_features', 'competitor_pages'];
+const HEADER = ['keyword', 'type', 'status', 'reason', 'cluster', 'volume', 'difficulty', 'cpc', 'intent', 'position', 'url', 'gsc_clicks', 'gsc_impressions', 'sources', 'competitor_gap', 'serp_features', 'competitor_pages'];
 
 export function keywordsToCsv(ws: KeywordWorkspace): string {
   const names = new Map(ws.clusters.map((c) => [c.id, c.name]));
+  const roles = keywordRoles(ws);
   const rows = ws.keywords.map((k) => [
-    k.term, k.status, k.removeReason ?? '', k.clusterId ? names.get(k.clusterId) ?? '' : '', k.volume ?? '', k.difficulty ?? '', k.cpc === null ? '' : k.cpc.toFixed(2),
+    k.term, roles.get(k) ?? '', k.status, k.removeReason ?? '', k.clusterId ? names.get(k.clusterId) ?? '' : '', k.volume ?? '', k.difficulty ?? '', k.cpc === null ? '' : k.cpc.toFixed(2),
     k.intent ?? '', k.position ?? '', k.url ?? '', k.gscClicks ?? '', k.gscImpressions ?? '', k.sources.join(' '), isGap(k) ? 'yes' : '', (k.serpFeatures ?? []).join(' '), (k.fromPages ?? []).join(' '),
   ]);
   return `﻿${[HEADER, ...rows].map((r) => r.map((v) => csvCell(v)).join(',')).join('\r\n')}\r\n`;

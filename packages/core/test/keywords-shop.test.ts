@@ -6,7 +6,7 @@ const rec = (term: string, extra: Partial<KeywordRecord> = {}): KeywordRecord =>
   term, volume: 1000, trend: null, trendFrom: null, difficulty: 10, cpc: 1, intent: 'transactional', position: null, url: null, gscClicks: null, gscImpressions: null,
   sources: ['suggestion'], status: 'kept', removeReason: null, statusLocked: false, serpUrls: null, clusterId: null, addedAt: '2026-11-17T00:00:00.000Z', ...extra,
 });
-const shop = () => emptyKeywordWorkspace('foldandfeel.co.uk', { country: 'United Kingdom', seeds: { services: ['bed linen', 'duvet covers', 'tencel bedding'], extra: ['cooling bedding'] } });
+const shop = () => ({ ...emptyKeywordWorkspace('foldandfeel.co.uk', { country: 'United Kingdom', seeds: { services: ['bed linen', 'duvet covers', 'tencel bedding'], extra: ['cooling bedding'] } }), siteWords: ['tencel', 'sheet', 'sheets', 'bedding', 'duvet', 'cover', 'linen', 'egyptian', 'cotton'] });
 
 describe('keyword research for an online shop', () => {
   it('builds product seeds without "emergency" or "how much does … cost"', () => {
