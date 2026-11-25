@@ -139,6 +139,24 @@ function msscore_apply_image_alt( $t, $new ) {
 		if ( ! current_user_can( 'edit_post', $pid ) ) {
 			continue;
 		}
+		// Bricks image elements can carry their own alt text, which wins over the Media Library's.
+		$els = msscore_bricks_elements( $pid );
+		if ( $els ) {
+			$touched = false;
+			foreach ( $els as &$el ) {
+				if ( isset( $el['name'], $el['settings']['image']['id'] ) && 'image' === $el['name'] && (int) $el['settings']['image']['id'] === $aid && isset( $el['settings']['altText'] ) && '' !== $el['settings']['altText'] ) {
+					$el['settings']['altText'] = $alt;
+					$touched                   = true;
+				}
+			}
+			unset( $el );
+			if ( $touched ) {
+				$before['bricks'][ $pid ] = get_post_meta( $pid, '_bricks_page_content_2', true );
+				update_post_meta( $pid, '_bricks_page_content_2', $els );
+				clean_post_cache( $pid );
+				$hashes[ 'bricks-' . $pid ] = md5( wp_json_encode( get_post_meta( $pid, '_bricks_page_content_2', true ) ) );
+			}
+		}
 		$html = (string) get_post_field( 'post_content', $pid, 'raw' );
 		$next = preg_replace_callback(
 			'/<img\b[^>]*\bwp-image-' . $aid . '\b[^>]*>/i',
@@ -174,6 +192,15 @@ function msscore_apply_image_alt( $t, $new ) {
 function msscore_rollback_image_alt( $t, $before, $after ) {
 	update_post_meta( $t['id'], '_wp_attachment_image_alt', (string) $before['alt'] );
 	$skipped = 0;
+	foreach ( isset( $before['bricks'] ) ? (array) $before['bricks'] : array() as $pid => $els ) {
+		$cur = md5( wp_json_encode( get_post_meta( (int) $pid, '_bricks_page_content_2', true ) ) );
+		if ( isset( $after['hashes'][ 'bricks-' . $pid ] ) && $cur === $after['hashes'][ 'bricks-' . $pid ] ) {
+			update_post_meta( (int) $pid, '_bricks_page_content_2', $els );
+			clean_post_cache( (int) $pid );
+		} else {
+			++$skipped;
+		}
+	}
 	foreach ( (array) $before['contents'] as $pid => $html ) {
 		$cur = (string) get_post_field( 'post_content', (int) $pid, 'raw' );
 		if ( isset( $after['hashes'][ $pid ] ) && md5( $cur ) === $after['hashes'][ $pid ] ) {

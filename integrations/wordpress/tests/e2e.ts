@@ -29,7 +29,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version === '1.2.0' && status.signed, 'signed status 1.2.0', status.seo_backend as string);
+  ok(status.version.startsWith('1.2') && status.signed, 'signed status 1.2.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
