@@ -144,10 +144,10 @@ export function createKeywordClient(cfg: DfsConfig) {
 
   return {
     /** Organic keywords a domain ranks for, most searched first. */
-    async rankedKeywords(target: string, l: Locale, limit = 300): Promise<{ keywords: RankedKeyword[]; cost: number }> {
+    async rankedKeywords(target: string, l: Locale, limit = 300, timeoutMs?: number): Promise<{ keywords: RankedKeyword[]; cost: number }> {
       const { items, cost } = await live('/v3/dataforseo_labs/google/ranked_keywords/live', rankedItem, {
         target, ...where(l), item_types: ['organic'], limit, order_by: ['keyword_data.keyword_info.search_volume,desc'],
-      });
+      }, timeoutMs ? { timeoutMs, retries: 0 } : {});
       return {
         cost,
         keywords: items.map((i) => ({
@@ -169,6 +169,21 @@ export function createKeywordClient(cfg: DfsConfig) {
     /** Long-tail keywords that contain the seed. */
     async suggestions(keyword: string, l: Locale, limit = 100): Promise<{ keywords: KeywordMetrics[]; cost: number }> {
       const { items, cost } = await live('/v3/dataforseo_labs/google/keyword_suggestions/live', keywordData, { keyword: keyword.toLowerCase(), ...where(l), limit, include_seed_keyword: true });
+      return { cost, keywords: items.map(metrics) };
+    },
+
+    /**
+     * Keyword ideas for many seeds in ONE request (Labs keyword_ideas/live; fast keyword pipeline 2026-11-25).
+     * NOT yet checked against docs.dataforseo.com (the docs host was unreachable from the build session):
+     * written from the Labs response shape shared with keyword_suggestions (`keywords` array, `limit`,
+     * items with keyword / keyword_info / keyword_properties / search_intent_info), parsed defensively.
+     */
+    async keywordIdeas(seeds: string[], l: Locale, limit = 700, timeoutMs = 20_000): Promise<{ keywords: KeywordMetrics[]; cost: number }> {
+      const keywords = [...new Set(seeds.map((s) => s.toLowerCase().trim()).filter(validKeyword))].slice(0, 200);
+      if (!keywords.length) return { keywords: [], cost: 0 };
+      const { items, cost } = await live('/v3/dataforseo_labs/google/keyword_ideas/live', keywordData, {
+        keywords, ...where(l), limit: Math.min(1000, limit), order_by: ['keyword_info.search_volume,desc'],
+      }, { timeoutMs, retries: 0 });
       return { cost, keywords: items.map(metrics) };
     },
 
@@ -195,10 +210,10 @@ export function createKeywordClient(cfg: DfsConfig) {
     },
 
     /** 4.2 Keyword gap: keywords the competitor ranks for and the site does not (Labs domain_intersection, intersections: false). */
-    async keywordGap(competitor: string, own: string, l: Locale, limit = 150): Promise<{ keywords: RankedKeyword[]; cost: number }> {
+    async keywordGap(competitor: string, own: string, l: Locale, limit = 150, timeoutMs?: number): Promise<{ keywords: RankedKeyword[]; cost: number }> {
       const { items, cost } = await live('/v3/dataforseo_labs/google/domain_intersection/live', gapItem, {
         target1: competitor, target2: own, intersections: false, ...where(l), item_types: ['organic'], limit, order_by: ['keyword_data.keyword_info.search_volume,desc'],
-      });
+      }, timeoutMs ? { timeoutMs, retries: 0 } : {});
       return {
         cost,
         // position/url are the competitor's, kept only to say where they rank.

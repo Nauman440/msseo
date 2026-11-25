@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
-  addPrompt, editPrompt, generatePrompts, seedsKey, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
+  addKeywords, applyFastResult, fastProfileFrom, runFastKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
+  addPrompt, editPrompt, generatePrompts, seedsKey, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
+import { httpStatuses } from '@seo/core/server';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
 import { customerAudits } from '@/lib/customer-data';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from '@/lib/keywords';
@@ -72,6 +73,9 @@ export async function saveKeywordSeedsAction(rawDomain: string, _prev: KeywordSt
     locations: businessType === 'shop' ? [] : list(form, 'locations', SEED_LIMITS.locations),
     brands: list(form, 'brands', SEED_LIMITS.brands),
     extra: list(form, 'extra', SEED_LIMITS.extra),
+    ownBrands: list(form, 'ownBrands', 20),
+    notOffered: list(form, 'notOffered', 40),
+    bannedClaims: list(form, 'bannedClaims', 40),
   };
   if (!seeds.services.length) return { error: businessType === 'shop' ? 'Add at least one product or category (press Enter after each).' : 'Add at least one service (press Enter after each).' };
   const ws = await getKeywordWorkspace(domain);
@@ -80,27 +84,60 @@ export async function saveKeywordSeedsAction(rawDomain: string, _prev: KeywordSt
   return { ok: 'Saved.' };
 }
 
-/** 4.2–4.6 Collect, measure, clean, then group into clusters, in one click. Customers: once a day per site. */
-export async function researchKeywordsAction(rawDomain: string): Promise<KeywordState> {
+/**
+ * The fast keyword pipeline (2026-11-25): data in parallel (cached 30 days per site), a code filter, one
+ * AI call and code checks; under a minute, a few seconds when nothing needs fetching again.
+ * Customers: 3 runs a day per site (cached runs included).
+ */
+async function runFast(rawDomain: string, force: boolean): Promise<KeywordState> {
   const { domain, customer } = await guard(rawDomain);
   const ws = await getKeywordWorkspace(domain);
   if (!ws.seeds.services.length) return { error: ws.businessType === 'shop' ? 'Add your products first, then save.' : 'Add your services first, then save.' };
-  if (!(await allowed(customer, `keywords-research:${domain}`, 1))) return { error: 'Keyword research runs once a day. Please try again tomorrow.' };
+  if (!(await allowed(customer, `keywords-research:${domain}`, 3))) return { error: 'Keywords can be checked 3 times a day. Please try again tomorrow.' };
+  const { env } = providerConfig();
   const c = await dfs();
-  if (!c) return { error: 'Keyword research is not available right now.' };
-  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
-  // The site's own pages (titles and H1s) keep the list about what this website really covers.
-  const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
-  const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });
-  const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
-  const cl = kept ? await clusterKeywords(c.api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
-  await saveKeywordWorkspace(cl?.workspace ?? r.workspace);
-  await logUsage('dataforseo', c.calls(), await c.charged(r.cost + (cl?.cost ?? 0)));
+  if (!env || !c) return { error: 'Keyword research is not available right now.' };
+  const [competitors, audits] = await Promise.all([researchCompetitors(domain), customerAudits(`https://${domain}/`)]);
+  const profile = fastProfileFrom(ws, { report: audits.latest ?? null, competitors: competitors.domains, rivalNames: competitors.names });
+  const { result, cache } = await runFastKeywords(
+    profile,
+    { kw: c.api, ai: env.openai ? createOpenAiClient(env.openai) : null, gsc: () => gscQueries(domain), checkStatus: (u) => httpStatuses(u) },
+    { cache: ws.fastCache, force },
+  );
+  await saveKeywordWorkspace(applyFastResult(ws, result, cache));
+  if (c.calls()) await logUsage('dataforseo', c.calls(), await c.charged(result.costUsd));
+  if (result.aiTokens) await logUsage('openai', result.aiTokens);
   pathsFor(domain);
-  if (!r.workspace.keywords.length && r.errors.length) return { error: customer ? 'Keyword research is not available right now. Please try again later.' : `Research did not work: ${r.errors[0]}` };
-  const errors = [...r.errors, ...(cl?.errors ?? [])];
-  const reused = !customer && r.reused ? ` ${r.reused} sources reused from the last 7 days.` : '';
-  return { ok: `${r.added} new keywords, ${kept} kept after cleaning, ${cl?.workspace.clusters.length ?? 0} topics.${gsc.length ? ` Search Console: ${gsc.length} searches.` : ''}${reused}${problems(errors, customer, 'checks could not be read')}` };
+  const kept = result.topics.reduce((sum, t) => sum + t.keywords.length, 0);
+  const secs = Math.max(1, Math.round(result.totalMs / 1000));
+  const extra = customer ? '' : ` ${result.warm ? 'Saved data reused (no cost).' : `Cost $${result.costUsd.toFixed(2)}, ${result.aiTokens.toLocaleString('en-US')} AI tokens.`}${result.notes.length ? ` ${result.notes.join(' ')}` : ''}`;
+  return { ok: `${result.topics.length} topics and ${kept} keywords in ${secs} s.${extra}` };
+}
+
+/** "Check for new keywords now": reuses data fetched in the last 30 days. */
+export async function researchKeywordsAction(rawDomain: string): Promise<KeywordState> {
+  return runFast(rawDomain, false);
+}
+
+/** Team: fetch everything again, ignoring the 30-day cache. */
+export async function refreshKeywordsAction(rawDomain: string): Promise<KeywordState> {
+  const { customer } = await guard(rawDomain);
+  if (customer) return { error: 'Not allowed.' };
+  return runFast(rawDomain, true);
+}
+
+/** A Yes/No answer to one of the pipeline's questions ("Is X your own brand?"): it changes the next run's filters. */
+export async function answerKeywordQuestionAction(rawDomain: string, keyword: string, answer: 'yes' | 'no'): Promise<KeywordState> {
+  const { domain } = await guard(rawDomain);
+  const ws = await getKeywordWorkspace(domain);
+  const q = ws.fast?.askClient.find((a) => a.keyword === keyword);
+  if (!q) return { error: 'That question is no longer open.' };
+  const answers = [...(ws.fastAnswers ?? []).filter((a) => a.keyword !== keyword), { keyword, question: q.question, answer, at: new Date().toISOString() }].slice(-50);
+  // The answer leaves the list; the saved AI answer is dropped so the next check reads the new filters.
+  const fast = ws.fast ? { ...ws.fast, askClient: ws.fast.askClient.filter((a) => a.keyword !== keyword) } : ws.fast;
+  await saveKeywordWorkspace({ ...ws, fastAnswers: answers, fast, fastCache: ws.fastCache ? { ...ws.fastCache, ai: undefined } : ws.fastCache });
+  pathsFor(domain);
+  return { ok: answer === 'yes' ? 'Thanks: it will be kept as your own.' : 'Thanks: it will be left out from now on.' };
 }
 
 /** 4.5–4.6 Group by shared Google results and score. Customers: twice a day. */

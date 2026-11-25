@@ -301,3 +301,23 @@ export async function runPreflight(inputUrl: string, opts: Opts = {}): Promise<P
     botAccess,
   };
 }
+
+/**
+ * HTTP status of up to 30 addresses (HEAD, redirects not followed, 6 s each, all at once). Used by the
+ * fast keyword pipeline to find ranking pages that are gone (404) or moved (3xx) for the redirect list.
+ * An address that does not answer is left out.
+ */
+export async function httpStatuses(urls: string[], timeoutMs = 6_000): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  await Promise.all(
+    [...new Set(urls)].slice(0, 30).map(async (u) => {
+      try {
+        const res = await fetch(u, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(timeoutMs), headers: { 'user-agent': BROWSER_UA } });
+        out[u] = res.status;
+      } catch {
+        // No answer: unknown status, so no redirect is suggested for it.
+      }
+    }),
+  );
+  return out;
+}

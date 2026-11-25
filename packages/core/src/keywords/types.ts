@@ -1,4 +1,5 @@
 import type { KeywordIntent } from '../providers/dataforseo-keywords';
+import type { FastCache, FastResult } from './fast-run';
 
 /**
  * Module 4 · Keyword research (spec §16.2). One workspace per website (keyed by domain),
@@ -84,7 +85,11 @@ export type AiPrompt = {
   custom?: boolean;
 };
 
-export type KeywordSeeds = { services: string[]; locations: string[]; brands: string[]; extra: string[] };
+export type KeywordSeeds = {
+  services: string[]; locations: string[]; brands: string[]; extra: string[];
+  /** Fast pipeline (2026-11-25): the business's own brand names, what it does NOT sell, and claims it must never make. */
+  ownBrands?: string[]; notOffered?: string[]; bannedClaims?: string[];
+};
 /** services: visits, repairs and bookings in an area. shop: products sold online (no places; product and category pages). */
 export type BusinessType = 'services' | 'shop';
 
@@ -113,4 +118,9 @@ export type KeywordWorkspace = {
   siteWords?: string[];
   /** Version of the quality rules the list was last cleaned with (`KEYWORD_QUALITY_VERSION`). */
   qualityVersion?: number;
+  /** The fast pipeline's last result (Keywords tab and Page plan read it) and its 30-day data cache. */
+  fast?: FastResult;
+  fastCache?: FastCache;
+  /** Yes/No answers to the fast pipeline's client questions ("is X your brand?"): they change the next run's filters. */
+  fastAnswers?: { keyword: string; question: string; answer: 'yes' | 'no'; at: string }[];
 };

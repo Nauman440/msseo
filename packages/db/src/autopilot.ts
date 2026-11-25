@@ -1,7 +1,8 @@
+import { httpStatuses } from '@seo/core/server';
 import { randomUUID } from 'node:crypto';
 import {
-  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
-  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
+  AI_PLAN_EVERY_DAYS, applyFastResult, fastProfileFrom, runFastKeywords, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
 import { getActionWorkspace, saveActionWorkspace } from './actions';
@@ -230,12 +231,15 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       gsc.push(...seen.values());
       const kc = createKeywordClient(env.dataforseo);
       const audited = await latestPages(domain);
-      const pageTitles = (audited?.report.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
-      const r = await researchKeywords(kc, keywords, { competitors: rivals.map((c) => c.domain), competitorNames: [...rivals.map((c) => c.domain), ...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors], gsc, now, pageTitles });
-      reported += r.cost;
-      const cl = await clusterKeywords(kc, r.workspace, { now });
-      reported += cl.cost;
-      keywords = cl.workspace;
+      // Fast keyword pipeline (2026-11-25): seeds → data (cached 30 days) → code filter → one AI call → checks.
+      const profile = fastProfileFrom(keywords, {
+        report: audited?.report ?? null, competitors: rivals.map((c) => c.domain), name: site.businessName,
+        rivalNames: [...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors],
+      });
+      const fast = await runFastKeywords(profile, { kw: kc, ai: env.openai ? createOpenAiClient(env.openai) : null, gsc: async () => gsc, checkStatus: (u) => httpStatuses(u) }, { cache: keywords.fastCache });
+      reported += fast.result.costUsd;
+      tokens += fast.result.aiTokens;
+      keywords = applyFastResult(keywords, fast.result, fast.cache);
       steps.push(`keywords: ${keywords.keywords.filter((k) => k.status === 'kept').length}`, `topics: ${keywords.clusters.length}`);
 
       // 5. AI questions, refreshed monthly (only services and places are sent).
