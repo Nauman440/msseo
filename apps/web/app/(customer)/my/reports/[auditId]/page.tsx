@@ -68,7 +68,7 @@ export default async function CustomerReportPage({ params, searchParams }: Props
           </>
         )}
         {competitors && <CompetitorSummary ws={competitors} href={`/my/competitors?site=${competitors.domain}`} />}
-        <ActionPlanSummary ws={actions} href={`/my/actions?site=${actions.domain}`} />
+        <ActionPlanSummary ws={actions} href={`/my/actions?site=${actions.domain}`} showTop={false} />
       </div>
     </>
   );

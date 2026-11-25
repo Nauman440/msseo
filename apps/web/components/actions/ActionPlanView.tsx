@@ -45,16 +45,17 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
     );
   }
 
+  // Customers see what is to do and done; the approval count and the "Top 10" list are for the team.
   const stats = [
     { label: 'To do', value: sum.open },
-    { label: 'Waiting for approval', value: sum.waitingApproval },
+    ...(audience === 'team' ? [{ label: 'Waiting for approval', value: sum.waitingApproval }] : []),
     { label: 'Done', value: sum.done },
     { label: 'Checked and verified', value: sum.verified },
   ];
   return (
     <div className="flex flex-col gap-6">
       {overview}
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <dl className={cn('grid grid-cols-2 gap-3', stats.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
         {stats.map((s) => (
           <div key={s.label} className="rounded-[14px] border border-border bg-surface p-4">
             <dt className="text-[13px] text-ink-2">{s.label}</dt>
@@ -78,7 +79,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         </section>
       )}
 
-      <Card title="Top 10 to do now">
+      {audience === 'team' && <Card title="Top 10 to do now">
         {top.length ? (
           <ol className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-5">
             {top.map((a, i) => (
@@ -92,7 +93,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         ) : (
           <p className="text-sm text-ink-2">Everything in the plan is done.</p>
         )}
-      </Card>
+      </Card>}
       <Card title="6-month roadmap">
         <Roadmap ws={ws} columns={3} />
       </Card>

@@ -139,10 +139,11 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
         ))}
       </ol>
 
-      <ChecksAndFiles domain={domain} plan={plan} team={team} />
+      {/* Plan checks, downloads, "later" and "needs a developer" are working notes for the team only. */}
+      {team && <ChecksAndFiles domain={domain} plan={plan} team={team} />}
 
       <div className="flex flex-col gap-2">
-        {plan.later.length > 0 && (
+        {team && plan.later.length > 0 && (
           <details className={FOLD}>
             <summary className={SUMMARY}>Planned for later ({plan.later.length})</summary>
             <ul className="flex flex-col gap-1.5 px-4 pb-4 text-sm">
@@ -152,7 +153,7 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
             </ul>
           </details>
         )}
-        {(plan.needsDeveloper ?? []).length > 0 && (
+        {team && (plan.needsDeveloper ?? []).length > 0 && (
           <details className={FOLD}>
             <summary className={SUMMARY}>Needs a developer: left out of the plan ({plan.needsDeveloper!.length})</summary>
             <ul className="flex flex-col gap-1.5 px-4 pb-4 text-sm">

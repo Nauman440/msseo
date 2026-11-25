@@ -377,8 +377,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Module 12 for customers: the audit's findings become an action plan with a roadmap.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Action plan' }).click();
   // The audit's findings are already a 6-month plan: nothing to click.
-  await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '6-month roadmap' })).toBeVisible();
+  // The "Top 10" list and the approval count are for the team only.
+  await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toHaveCount(0);
+  await expect(page.getByText('Waiting for approval', { exact: true })).toHaveCount(0);
   await page.waitForLoadState('networkidle');
   await page.locator('select[name="status"]').first().selectOption('done');
   await expect(page.getByText('Marked done. We will check the results after 7, 14 and 28 days.')).toBeVisible();
