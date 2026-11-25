@@ -78,3 +78,8 @@ export * from './local/gbp-drafts';
 export * from './content/alt-text';
 export * from './keywords/site-seeds';
 export * from './support/support';
+export * from './autopilot/work-items';
+export * from './autopilot/quality';
+export * from './autopilot/redirects';
+export * from './autopilot/ai-drafts';
+export * from './autopilot/generate';

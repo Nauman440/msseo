@@ -1,0 +1,176 @@
+import { describe, expect, it } from 'vitest';
+import {
+  checkAlt,
+  checkBlock,
+  checkDescription,
+  generateWorkItems,
+  matchRedirects,
+  textProblems,
+  workItemId,
+  type ActionItem,
+  type BusinessProfile,
+  type InventoryItem,
+  type OpenAiClient,
+  type SiteInventory,
+  type WpStatus,
+} from '../src';
+import { parsePageContent } from '../src/audit/page-content';
+
+const site = 'https://shop.test';
+const profile: BusinessProfile = { name: 'Paws Beds', places: ['Leeds'], brands: [], services: ['dog beds'], bannedWords: ['cheap'], competitors: ['Barkly'] };
+
+const item = (id: number, path: string, o: Partial<InventoryItem> = {}): InventoryItem => ({
+  id, url: `${site}${path}`, type: 'page', name: o.name ?? `Page ${id}`, titleTag: null, seoTitle: null, metaDescription: null, canonical: null,
+  noindex: false, nofollow: false, h1s: [], images: [], wordCount: 300, schemaTypes: [], builder: 'gutenberg', isFrontPage: path === '/', modified: null, ...o,
+});
+const status = { home_url: `${site}/`, sitemap: { url: `${site}/sitemap.xml`, by: 'msscore' } } as unknown as WpStatus;
+const inventory = (items: InventoryItem[]): SiteInventory => ({ accountId: 'acc', domain: 'shop.test', platform: 'wordpress', refreshedAt: '', status, items, totals: {}, truncated: false, errors: [] });
+const page = (path: string, head: string, body: string) => parsePageContent(`<html><head>${head}</head><body>${body}</body></html>`, `${site}${path}`);
+
+let n = 0;
+const action = (title: string, plan: Partial<NonNullable<ActionItem['plan']>> = {}, extra: Partial<ActionItem> = {}): ActionItem => ({
+  id: `act-${++n}`, source: { kind: 'ai' } as ActionItem['source'], title, detail: '', severity: 'high', impact: 3, confidence: 3, effort: 2, priority: 4,
+  urls: [], owner: null, dueDate: null, approval: 'none', approvedAt: null, approvedBy: null, status: 'todo', bucket: 'd30', bucketLocked: false,
+  before: null, doneAt: null, checkpoints: [], createdAt: '', updatedAt: '',
+  plan: { taskId: `1.${n}`, month: 1, week: 2, doer: 'automatic', category: 'on_page', why: '', change: '', keywords: [], dependsOn: [], successCheck: '', checkAfterDays: 14, ...plan },
+  ...extra,
+} as ActionItem);
+
+/** A fake model: answers from a queue of replies, keyed by schema name. */
+function fakeAi(replies: Record<string, unknown[]>): OpenAiClient & { calls: string[] } {
+  const calls: string[] = [];
+  return {
+    model: 'fake',
+    calls,
+    async generateJson(req: { name: string; parse: { parse: (v: unknown) => unknown } }) {
+      calls.push(req.name);
+      const next = replies[req.name]?.shift();
+      if (next === undefined) throw new Error(`no reply for ${req.name}`);
+      return { data: req.parse.parse(next), model: 'fake', tokens: 100 };
+    },
+  } as unknown as OpenAiClient & { calls: string[] };
+}
+
+const GOOD_TITLE = 'Orthopaedic Dog Beds Handmade in Leeds | Paws Beds UK';
+const GOOD_DESC = 'Orthopaedic dog beds handmade in Leeds with washable covers and memory foam for older dogs. Order online today for delivery across the UK in 3 days.';
+
+describe('quality gate', () => {
+  it('flags claims, banned words, competitors and entities', () => {
+    expect(textProblems('Guaranteed to cure anxiety, unlike Barkly — so cheap!', profile).join(' ')).toMatch(/claim.*Guaranteed.*banned: cheap.*competitor: Barkly/s);
+    expect(textProblems('Dogs &amp; cats', profile)).toContain('contains HTML entities');
+  });
+  it('accepts a service list or a place as the concrete fact', () => {
+    const d = 'Maritime risk advisory, voyage risk assessment, intelligence and voyage planning support for ships in high-risk waters. Discuss your requirements with SRM.';
+    expect(checkDescription(d, { others: new Set(), current: null, profile, pageText: '' })).toEqual([]);
+    expect(checkDescription(GOOD_DESC, { others: new Set(), current: null, profile, pageText: '' })).toEqual([]);
+  });
+  it('checks alt text and blocks', () => {
+    expect(checkAlt('Grey orthopaedic dog bed on a wooden floor', profile)).toEqual([]);
+    expect(checkAlt('image of IMG_2041.jpg', profile).length).toBeGreaterThan(1);
+    expect(checkBlock('We have served 5,000 dogs since 1999.', { kind: 'faq', profile, sourceText: 'served dogs since 2001' })[0]).toMatch(/numbers that are not on the site: 5,000, 1999/);
+  });
+});
+
+describe('generateWorkItems', () => {
+  it('keeps passing values, uses the plan draft, re-asks once, then hands failures to a person', async () => {
+    const home = item(1, '/', { seoTitle: GOOD_TITLE });
+    const beds = item(2, '/dog-beds/');
+    const toys = item(3, '/toys/');
+    const live = [
+      page('/', `<title>${GOOD_TITLE}</title><meta name="description" content="${GOOD_DESC}">`, '<h1>Paws Beds</h1><p>Handmade in Leeds.</p>'),
+      page('/dog-beds/', '<title>Beds</title>', '<h1>Dog beds</h1><p>Orthopaedic dog beds handmade in Leeds.</p>'),
+      page('/toys/', '<title>Toys</title>', '<h1>Toys</h1><p>Rope toys.</p>'),
+    ];
+    const titles = action('New titles for 3 pages', { siteWideItem: 'meta_title', pages: [
+      { url: `${site}/`, name: 'Homepage', before: '', after: 'Paws Beds' },
+      { url: `${site}/dog-beds/`, name: 'Dog beds', before: 'Beds', after: GOOD_TITLE.replace('Orthopaedic', 'Comfy Orthopaedic').slice(0, 59) },
+      { url: `${site}/toys/`, name: 'Toys', before: 'Toys', after: 'Toys' },
+    ] });
+    const ai = fakeAi({ page_meta: [
+      { pages: [{ url: `${site}/toys/`, title: 'Cheap Rope Dog Toys Handmade in Leeds for Every Dog Size', description: '' }] },
+      { pages: [{ url: `${site}/toys/`, title: 'Cheap Rope Dog Toys Handmade in Leeds for Big and Small Dogs', description: '' }] },
+    ] });
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [titles], inventory: inventory([home, beds, toys]), live, profile, keywords: new Map(), deadUrls: [], ai });
+    const by = (p: string) => r.items.find((i) => i.url === `${site}${p}`)!;
+    expect(by('/')).toMatchObject({ status: 'keep', type: 'meta_title' });
+    expect(by('/dog-beds/')).toMatchObject({ status: 'draft', target: { post_id: 2 } });
+    expect(by('/toys/')).toMatchObject({ status: 'needs_human' });
+    expect(by('/toys/').reason).toMatch(/banned: cheap/);
+    expect(ai.calls).toEqual(['page_meta', 'page_meta']);
+  });
+
+  it('handles H1s from the content, the theme and page builders', async () => {
+    const a = action('One main heading (H1)', { siteWideItem: 'h1' });
+    const items = [
+      item(1, '/', { h1s: [] }),
+      item(2, '/two/', { h1s: ['A', 'B'] }),
+      item(3, '/theme/', { h1s: ['Content H1'] }),
+      item(4, '/none/', { builder: 'bricks' }),
+      item(5, '/themeonly/', { h1s: [] }),
+    ];
+    const live = [
+      page('/', '', '<h1>Home</h1>'),
+      page('/two/', '', '<h1>A</h1><h1>B</h1>'),
+      page('/theme/', '', '<h1>Theme title</h1><h1>Content H1</h1>'),
+      page('/none/', '', '<p>no heading</p>'),
+      page('/themeonly/', '', '<h1>One</h1><h1>Two</h1>'),
+    ];
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory(items), live, profile, keywords: new Map(), deadUrls: [] });
+    const v = (p: string) => r.items.find((i) => i.url === `${site}${p}`)!;
+    expect(v('/').status).toBe('keep');
+    expect(v('/two/')).toMatchObject({ status: 'draft', newValue: { action: 'demote_extra_h1', keep: 1 } });
+    expect(v('/theme/')).toMatchObject({ status: 'draft', newValue: { action: 'demote_extra_h1', keep: 0 } });
+    expect(v('/none/')).toMatchObject({ status: 'needs_human' });
+    expect(v('/themeonly/')).toMatchObject({ status: 'needs_human' });
+  });
+
+  it('drafts a direct answer, but leaves it to a person on a Bricks page', async () => {
+    const answer = 'Paws Beds makes orthopaedic dog beds by hand in Leeds, with memory foam and washable covers for older dogs and dogs with sore joints. Every bed is cut to size for your dog, and you can order online for delivery across the UK.';
+    const ai = fakeAi({ content_block: [{ answer, faq: [] }, { answer, faq: [] }] });
+    const live = [page('/', '', `<h1>Paws Beds</h1><p>${answer}</p>`), page('/b/', '', `<h1>B</h1><p>${answer}</p>`)];
+    const r = await generateWorkItems({
+      accountId: 'acc', domain: 'shop.test',
+      actions: [action('Direct answer at the top of Homepage', {}, { urls: [`${site}/`, `${site}/b/`] })],
+      inventory: inventory([item(1, '/'), item(2, '/b/', { builder: 'bricks' })]), live, profile, keywords: new Map(), deadUrls: [], ai,
+    });
+    expect(r.items[0]).toMatchObject({ type: 'content_block', status: 'draft', newValue: { kind: 'answer', position: 'after_h1' } });
+    expect(r.items[1]).toMatchObject({ status: 'needs_human' });
+    expect(r.items[1]!.reason).toMatch(/bricks/);
+  });
+
+  it('maps dead addresses to the closest live page, or asks a person', () => {
+    const m = matchRedirects(
+      [{ url: `${site}/old-orthopaedic-dog-beds/`, why: 'clicks' }, { url: `${site}/xyz-123/`, why: 'links' }],
+      [{ url: `${site}/dog-beds/`, name: 'Orthopaedic dog beds' }, { url: `${site}/toys/`, name: 'Toys' }],
+    );
+    expect(m[0]).toMatchObject({ to: `${site}/dog-beds/` });
+    expect(m[1]!.to).toBeNull();
+  });
+
+  it('makes redirects in week 1, canonicals before titles, and stable ids', async () => {
+    const items = [item(1, '/'), item(2, '/beds/')];
+    const live = [page('/', '<title>Home</title>', '<h1>Home</h1>'), page('/beds/', `<title>Beds</title><link rel="canonical" href="${site}/other/">`, '<h1>Beds</h1>')];
+    const actions = [
+      action('Canonical tags', { siteWideItem: 'canonical', week: 1 }, { urls: [`${site}/beds/`] }),
+      action('New titles', { siteWideItem: 'meta_title', pages: [{ url: `${site}/beds/`, name: 'Beds', before: 'Beds', after: GOOD_TITLE }] }),
+    ];
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions, inventory: inventory(items), live, profile, keywords: new Map(), deadUrls: [{ url: `${site}/bed/`, why: '404 with links' }] });
+    const canonical = r.items.find((i) => i.type === 'canonical')!;
+    const title = r.items.find((i) => i.type === 'meta_title')!;
+    const redirect = r.items.find((i) => i.type === 'redirect_301')!;
+    expect(canonical).toMatchObject({ status: 'draft', newValue: `${site}/beds/` });
+    expect(title.dependsOn).toEqual([canonical.id]);
+    expect(redirect).toMatchObject({ status: 'draft', week: 1, newValue: { to: `${site}/beds/` } });
+    expect(workItemId('shop.test', 'a', 'meta_title', { post_id: 1 }, 'x')).toBe(workItemId('shop.test', 'a', 'meta_title', { post_id: 1 }, 'x'));
+    expect(workItemId('shop.test', 'a', 'meta_title', { post_id: 1 }, 'x')).not.toBe(workItemId('shop.test', 'a', 'meta_title', { post_id: 1 }, 'y'));
+  });
+
+  it('turns team, client and developer tasks into notes, not website changes', async () => {
+    const r = await generateWorkItems({
+      accountId: 'acc', domain: 'shop.test',
+      actions: [action('Verify font loading', { doer: 'developer' }), action('Add your phone number', { doer: 'client' }), action('Submit the verified sitemap')],
+      inventory: inventory([item(1, '/')]), live: [], profile, keywords: new Map(), deadUrls: [],
+    });
+    expect(r.items.map((i) => [i.type, i.status])).toEqual(expect.arrayContaining([['manual', 'developer'], ['manual', 'client'], ['gsc_sitemap_submit', 'draft']]));
+  });
+});
