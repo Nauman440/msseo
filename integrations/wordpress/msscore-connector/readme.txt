@@ -3,7 +3,7 @@ Contributors: morosoft
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
 Lets MS SCORE apply SEO changes you have approved.
@@ -24,3 +24,13 @@ Only editors and administrators can use it, through an Application Password you 
 
 1. Plugins → Add New → Upload Plugin, choose msscore-connector.zip, Install, Activate.
 2. In MS SCORE, open Connections and press "Connect WordPress".
+
+== Changelog ==
+
+= 1.1.0 =
+* Signed requests: once MS SCORE has set its key, every request must carry a signature that expires after 5 minutes.
+* Site status: WordPress, PHP, theme, SEO plugin, page builder, cache plugin, WooCommerce, sitemap, robots.txt.
+* Inventory: every published page, post, product and category with its title tag, description, canonical, robots, H1s, images, word count and schema types.
+
+= 1.0.0 =
+* First version.

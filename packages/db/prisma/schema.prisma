@@ -291,3 +291,18 @@ model SiteDocument {
 
   @@id([kind, domain])
 }
+
+/// Autopilot phase 1: the connected WordPress site's own inventory (every published page, post,
+/// product and category with its SEO fields), read from the Connector plugin and refreshed weekly.
+/// `accountId` is the customer account's id, or "team" for agency client sites.
+model SiteInventory {
+  accountId   String
+  domain      String
+  data        Json
+  refreshedAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([accountId, domain])
+  @@index([domain])
+}

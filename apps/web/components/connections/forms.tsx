@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { applyToSiteAction, checkConnectionAction, disconnectSiteAction, undoOnSiteAction, type ConnectionState } from '@/app/connections/actions';
+import { applyToSiteAction, checkConnectionAction, disconnectSiteAction, refreshInventoryAction, undoOnSiteAction, type ConnectionState } from '@/app/connections/actions';
 import { Message, Submit } from '@/components/competitors/forms';
 
 /** Site connection controls (client): check, disconnect, apply and undo. */
@@ -39,6 +39,16 @@ export function UndoButton({ domain, id }: { domain: string; id: string }) {
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <Submit label="Undo on the website" busy="Undoing…" tone="secondary" />
+      <Message state={state} />
+    </form>
+  );
+}
+
+export function RefreshInventoryButton({ domain }: { domain: string }) {
+  const [state, action] = useActionState<ConnectionState>(refreshInventoryAction.bind(null, domain), {});
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <Submit label="Read the site again" busy="Reading every page… (up to a minute)" tone="secondary" />
       <Message state={state} />
     </form>
   );

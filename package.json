@@ -14,7 +14,8 @@
     "pdf:sample": "pnpm --filter @seo/worker pdf:sample",
     "test:e2e": "pnpm --filter @seo/web test:e2e",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "test:wp": "php integrations/wordpress/tests/signing-test.php"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

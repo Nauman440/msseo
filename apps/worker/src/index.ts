@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
-import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, runWeeklyAiTracking, runDueActionChecks, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_MONITOR, MONTHLY_REPORTS, WEEKLY_AI_TRACKING, WEEKLY_MONITOR, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, type AuditJobData } from '@seo/db/queue';
+import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, refreshDueInventories, runWeeklyAiTracking, runDueActionChecks, saveAuditRecord } from '@seo/db';
+import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_MONITOR, MONTHLY_REPORTS, WEEKLY_AI_TRACKING, WEEKLY_MONITOR, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, WEEKLY_WP_INVENTORY, type AuditJobData } from '@seo/db/queue';
 import { customerAutopilot, dailyAutopilot } from './autopilot';
 import { refreshCompetitors } from './competitors';
 import { dailyMonitoring, monthlyReporting, weeklyMonitoring } from './monitor';
@@ -89,6 +89,12 @@ const scheduler = new Worker(
     }
     if (job.name === DAILY_ACTION_CHECKS) {
       for (const r of await runDueActionChecks()) log.info(r, 'action checks');
+      return;
+    }
+    if (job.name === WEEKLY_WP_INVENTORY) {
+      // A site set to "Discourage search engines" is logged as critical; emails come with phase 5.
+      const r = await refreshDueInventories(new Date(), (m) => log.info(m, 'wp inventory'));
+      for (const x of r.filter((y) => y.critical)) log.warn(x, 'wp site hidden from search engines');
       return;
     }
     if (job.name === DAILY_AUTOPILOT) {

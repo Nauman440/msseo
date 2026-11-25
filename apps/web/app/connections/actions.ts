@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { applyChanges, checkVisible, fetchLivePage, normDomain, undoChanges, updateAction } from '@seo/core';
 import { getActions, saveActions } from '@/lib/actions';
 import { competitorAccess } from '@/lib/competitors';
-import { adapterFor, checkConnection, deleteConnection, getConnection } from '@/lib/connections';
+import { adapterFor, checkConnection, clearSigningKey, deleteConnection, getConnection } from '@/lib/connections';
+import { refreshInventory } from '@/lib/inventory';
 
 /** Site connection actions (spec §16.5), shared by the team and customers. */
 export type ConnectionState = { error?: string; ok?: string };
@@ -33,9 +34,27 @@ export async function checkConnectionAction(rawDomain: string): Promise<Connecti
 
 export async function disconnectSiteAction(rawDomain: string): Promise<ConnectionState> {
   const { domain } = await guard(rawDomain);
+  const c = await getConnection(domain);
+  // The plugin forgets our signing key, so connecting again later starts fresh.
+  if (c?.platform === 'wordpress') await clearSigningKey(c).catch(() => undefined);
   await deleteConnection(domain);
   paths(domain);
   return { ok: 'Disconnected. Nothing on your website was changed. You can also delete the MS SCORE application password (WordPress) or uninstall the app (Shopify).' };
+}
+
+/** Reads the WordPress site's status and every published page again (the weekly refresh, now). */
+export async function refreshInventoryAction(rawDomain: string): Promise<ConnectionState> {
+  const { domain } = await guard(rawDomain);
+  try {
+    const { inventory, alerts } = await refreshInventory(domain);
+    paths(domain);
+    const crit = alerts.find((a) => a.level === 'critical');
+    const read = `Read ${inventory.items.length.toLocaleString('en-GB')} pages, posts, products and categories.`;
+    return crit ? { error: `${read} ${crit.message}` } : { ok: `${read}${inventory.errors.length ? ` Some could not be read: ${inventory.errors.join('; ')}` : ''}` };
+  } catch (err) {
+    paths(domain);
+    return { error: err instanceof Error ? err.message.slice(0, 240) : 'The site did not answer.' };
+  }
 }
 
 /** Applies an approved action's changes to the connected site, then checks the live page. */

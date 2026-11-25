@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       MS SCORE Connector
  * Description:       Lets MS SCORE apply SEO changes you have approved: SEO titles and meta descriptions (Yoast, Rank Math, SEOPress, AIOSEO or its own), page titles, 301 redirects and draft pages. Every change can be undone from MS SCORE.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 5.6
  * Requires PHP:      7.4
  * Author:            Morosoft Technologies
@@ -16,8 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MSSCORE_CONNECTOR_VERSION', '1.0.0' );
+define( 'MSSCORE_CONNECTOR_VERSION', '1.1.0' );
 define( 'MSSCORE_REDIRECTS_OPTION', 'msscore_redirects' );
+
+require_once __DIR__ . '/includes/signing.php';
+require_once __DIR__ . '/includes/detect.php';
+require_once __DIR__ . '/includes/inventory.php';
 
 /**
  * Which SEO plugin stores titles and descriptions on this site.
@@ -169,13 +173,43 @@ function msscore_register_routes() {
 		'/status',
 		array(
 			'methods'             => 'GET',
-			'permission_callback' => 'msscore_can_use',
-			'callback'            => function () {
-				return array(
-					'version' => MSSCORE_CONNECTOR_VERSION,
-					'seo'     => msscore_seo_backend(),
-				);
-			},
+			'permission_callback' => 'msscore_can_use_maybe_signed',
+			'callback'            => 'msscore_site_status',
+		)
+	);
+
+	register_rest_route(
+		$ns,
+		'/key',
+		array(
+			'methods'             => 'POST',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
+			'callback'            => 'msscore_rest_set_key',
+		)
+	);
+
+	register_rest_route(
+		$ns,
+		'/key/clear',
+		array(
+			'methods'             => 'DELETE',
+			'permission_callback' => 'msscore_can_use_signed',
+			'callback'            => 'msscore_rest_clear_key',
+		)
+	);
+
+	register_rest_route(
+		$ns,
+		'/inventory',
+		array(
+			'methods'             => 'GET',
+			'permission_callback' => 'msscore_can_use_signed',
+			'callback'            => 'msscore_rest_inventory',
+			'args'                => array(
+				'type'     => array( 'required' => true ),
+				'page'     => array( 'default' => 1 ),
+				'per_page' => array( 'default' => 50 ),
+			),
 		)
 	);
 
@@ -184,7 +218,7 @@ function msscore_register_routes() {
 		'/resolve',
 		array(
 			'methods'             => 'GET',
-			'permission_callback' => 'msscore_can_use',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
 			'args'                => array(
 				'url' => array(
 					'required'          => true,
@@ -213,7 +247,7 @@ function msscore_register_routes() {
 		'/seo',
 		array(
 			'methods'             => 'POST',
-			'permission_callback' => 'msscore_can_use',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
 			'callback'            => function ( WP_REST_Request $req ) {
 				$post_id = absint( $req->get_param( 'id' ) );
 				if ( ! $post_id || ! get_post( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
@@ -233,7 +267,7 @@ function msscore_register_routes() {
 		'/title',
 		array(
 			'methods'             => 'POST',
-			'permission_callback' => 'msscore_can_use',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
 			'callback'            => function ( WP_REST_Request $req ) {
 				$post_id = absint( $req->get_param( 'id' ) );
 				$title   = sanitize_text_field( (string) $req->get_param( 'title' ) );
@@ -261,7 +295,7 @@ function msscore_register_routes() {
 		'/redirects',
 		array(
 			'methods'             => 'POST',
-			'permission_callback' => 'msscore_can_use',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
 			'callback'            => function ( WP_REST_Request $req ) {
 				$from = msscore_norm_path( (string) $req->get_param( 'from' ) );
 				$to   = msscore_norm_path( (string) $req->get_param( 'to' ) );
@@ -285,7 +319,7 @@ function msscore_register_routes() {
 		'/redirects/(?P<id>[a-z0-9]{1,32})',
 		array(
 			'methods'             => 'DELETE',
-			'permission_callback' => 'msscore_can_use',
+			'permission_callback' => 'msscore_can_use_maybe_signed',
 			'callback'            => function ( WP_REST_Request $req ) {
 				$redirects = get_option( MSSCORE_REDIRECTS_OPTION, array() );
 				unset( $redirects[ $req->get_param( 'id' ) ] );
@@ -347,4 +381,17 @@ function msscore_meta_description() {
 	if ( '' !== $desc ) {
 		echo '<meta name="description" content="' . esc_attr( $desc ) . '">' . "\n";
 	}
+}
+
+/*
+ * Deactivating the plugin forgets MS SCORE's signing key, so a site owner can always start the
+ * connection fresh (deactivate, activate, connect again in MS SCORE).
+ */
+register_deactivation_hook( __FILE__, 'msscore_on_deactivate' );
+
+/**
+ * Removes the signing key.
+ */
+function msscore_on_deactivate() {
+	delete_option( MSSCORE_KEY_OPTION );
 }

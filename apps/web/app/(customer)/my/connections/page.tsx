@@ -4,6 +4,8 @@ import { disconnectGoogleAction } from '../connect/actions';
 import { ConnectGoogleCard } from '@/components/customer/ConnectGoogle';
 import { SiteFrame } from '@/components/customer/SiteFrame';
 import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard';
+import { SiteInventoryCard } from '@/components/connections/SiteInventoryCard';
+import { inventoryFor } from '@/lib/inventory';
 import { connectionsReady, getConnection, shopifyApp, viewOf } from '@/lib/connections';
 import { loadCustomerSite } from '@/lib/customer-site';
 
@@ -17,7 +19,7 @@ const shown = (p: string) => (p.startsWith('sc-domain:') ? `${p.slice('sc-domain
 export default async function ConnectionsPage({ searchParams }: Props) {
   const { site, error, disconnected, connected } = await searchParams;
   const s = await loadCustomerSite(site);
-  const conn = await getConnection(s.domain);
+  const [conn, inv] = await Promise.all([getConnection(s.domain), inventoryFor(s.domain)]);
   const g = s.google;
   return (
     
@@ -56,6 +58,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
 
       <div id="website" className="scroll-mt-6" />
       <SiteConnectionCard domain={s.domain} connection={viewOf(conn)} back={`/my/connections?site=${encodeURIComponent(s.domain)}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="customer" />
+      {conn && <SiteInventoryCard domain={s.domain} connection={viewOf(conn)!} inventory={inv.inventory} refreshing={inv.refreshing} audience="customer" />}
     </SiteFrame>
   );
 }

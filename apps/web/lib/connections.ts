@@ -2,8 +2,8 @@ import 'server-only';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createWordPressClient, normDomain, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
-import { createShopifyClient, decryptSecret, encryptionKeyValid, encryptSecret, refreshShopifyToken, shopifyTokenStale, type ShopifyApp } from '@seo/core/server';
+import { createWordPressClient, normDomain, pluginSupportsSigning, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
+import { createShopifyClient, decryptSecret, encryptionKeyValid, encryptSecret, refreshShopifyToken, shopifyTokenStale, wordpressSession, type ShopifyApp } from '@seo/core/server';
 import { usingDatabase } from './audit-store';
 
 /**
@@ -101,7 +101,7 @@ async function shopifyToken(domain: string): Promise<string> {
 export function adapterFor(c: SiteConnection): SiteAdapter & { kind: 'wordpress' | 'shopify' } {
   if (c.platform === 'wordpress') {
     const s = JSON.parse(decryptSecret(c.secret)) as WordPressSecret;
-    return Object.assign(createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password }), { kind: 'wordpress' as const });
+    return Object.assign(createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password, signingKey: s.signingKey }), { kind: 'wordpress' as const });
   }
   return Object.assign(createShopifyClient({ shop: c.account, token: () => shopifyToken(c.domain) }), { kind: 'shopify' as const });
 }
@@ -112,11 +112,13 @@ export async function checkConnection(c: SiteConnection): Promise<SiteConnection
   try {
     if (c.platform === 'wordpress') {
       const s = JSON.parse(decryptSecret(c.secret)) as WordPressSecret;
-      const wp = createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password });
+      const wp = createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password, signingKey: s.signingKey });
       const me = await wp.me();
       if (!me.canEdit) throw new Error('This WordPress user cannot edit pages. Connect with an editor or administrator.');
       const next = { ...c, plugin: await wp.plugin(), status: 'ok' as const, error: null, checkedAt: now };
       await saveConnection(next);
+      // Plugin 1.1.0+: hand it a signing key the first time; from then on every request is signed.
+      if (pluginSupportsSigning(next.plugin?.version)) return (await wordpressSession(next, { save: saveConnection })).connection;
       return next;
     }
     const shop = await createShopifyClient({ shop: c.account, token: () => shopifyToken(c.domain) }).shop();
@@ -129,4 +131,12 @@ export async function checkConnection(c: SiteConnection): Promise<SiteConnection
     await saveConnection(next);
     return next;
   }
+}
+
+/** Asks the WordPress plugin to forget MS SCORE's signing key (before disconnecting). */
+export async function clearSigningKey(c: SiteConnection): Promise<void> {
+  if (c.platform !== 'wordpress') return;
+  const s = JSON.parse(decryptSecret(c.secret)) as WordPressSecret;
+  if (!s.signingKey) return;
+  await createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password, signingKey: s.signingKey }).clearKey();
 }

@@ -15,3 +15,9 @@ export async function saveSiteConnection(c: SiteConnection): Promise<void> {
 export async function deleteSiteConnection(domain: string): Promise<void> {
   await prisma.siteConnection.deleteMany({ where: { domain } });
 }
+
+/** Every connected site (for the worker's weekly jobs). */
+export async function listSiteConnections(): Promise<SiteConnection[]> {
+  const rows = await prisma.siteConnection.findMany();
+  return rows.map((r) => r.data as unknown as SiteConnection);
+}

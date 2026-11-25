@@ -23,7 +23,8 @@ export type SiteConnection = {
   checkedAt: string;
 };
 
-export type WordPressSecret = { password: string };
+/** `signingKey`: the key the Connector plugin (1.1.0+) checks request signatures with. */
+export type WordPressSecret = { password: string; signingKey?: string };
 export type ShopifySecret = { accessToken: string; refreshToken: string | null; expiresAt: string | null };
 
 /** A page on the connected site, as the platform sees it. */

@@ -14,6 +14,8 @@ export * from './analysis';
 // The job queue is a separate entry point (@seo/db/queue) so BullMQ is only loaded
 // where audits are queued or run, not in every route that touches the database.
 export * from './connections';
+export * from './inventory';
+export * from './wp-inventory';
 export * from './site-documents';
 export * from './aeo-weekly';
 export * from './google-access';
