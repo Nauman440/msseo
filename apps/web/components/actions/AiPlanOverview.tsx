@@ -129,15 +129,7 @@ export function AiPlanOverview({ domain, plan, audience, ai }: { domain: string;
         </div>
       )}
 
-      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {plan.months.map((m) => (
-          <li key={m.month} className="flex flex-col gap-1 rounded-[14px] bg-sunken p-4">
-            <span className={EYEBROW}>Month {m.month}</span>
-            <span className="font-semibold">{m.theme || '—'}</span>
-            {m.goal && <span className="text-[13.5px] text-ink-2">{m.goal}</span>}
-          </li>
-        ))}
-      </ol>
+      {/* Month themes and goals head each month's to-dos under "Your 6-month plan". */}
 
       {/* Plan checks, downloads, "later" and "needs a developer" are working notes for the team only. */}
       {team && <ChecksAndFiles domain={domain} plan={plan} team={team} />}

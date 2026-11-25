@@ -378,6 +378,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Action plan' }).click();
   // The audit's findings are already a 6-month plan: nothing to click.
   await expect(page.getByRole('heading', { name: '6-month roadmap' })).toBeVisible();
+  // The to-dos sit month by month under the 6-month plan.
+  await expect(page.getByRole('heading', { name: 'Your 6-month plan' })).toBeVisible();
   // The "Top 10" list and the approval count are for the team only.
   await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toHaveCount(0);
   await expect(page.getByText('Waiting for approval', { exact: true })).toHaveCount(0);

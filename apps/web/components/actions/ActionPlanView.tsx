@@ -1,4 +1,4 @@
-import { actionKey, actionSummary, needsApproval, openActions, type ActionWorkspace, type Suggestion } from '@seo/core';
+import { ACTION_BUCKETS, actionKey, actionSummary, needsApproval, openActions, type ActionItem, type ActionWorkspace, type Suggestion } from '@seo/core';
 import { Card } from '@/components/ui/Card';
 import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
@@ -23,8 +23,17 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
   const sum = actionSummary(ws);
   const top = openActions(ws).slice(0, 10);
   const approvals = ws.actions.filter((a) => needsApproval(a, audience === 'customer' ? 'client' : undefined));
-  const shown = ws.actions.filter((a) => a.status !== 'dismissed').sort((a, b) => b.priority - a.priority);
+  const shown = ws.actions.filter((a) => a.status !== 'dismissed');
   const dismissed = ws.actions.filter((a) => a.status === 'dismissed');
+  // Each to-do sits in its plan month (AI plan), else in its roadmap month.
+  const monthOf = (a: ActionItem) => a.plan?.month ?? Math.max(1, ACTION_BUCKETS.indexOf(a.bucket) + 1);
+  const themes = new Map((ws.aiPlan?.months ?? []).map((m) => [m.month, m]));
+  const months = [1, 2, 3, 4, 5, 6]
+    .map((month) => {
+      const list = shown.filter((a) => monthOf(a) === month).sort((a, b) => (a.plan?.week ?? 0) - (b.plan?.week ?? 0) || b.priority - a.priority);
+      return { month, theme: themes.get(month)?.theme ?? '', goal: themes.get(month)?.goal ?? '', list, done: list.filter((a) => a.status === 'done' || a.status === 'verified').length };
+    })
+    .filter((m) => m.list.length || m.theme);
 
   // With an AI plan, it decides what is in the plan; the leftover findings list is for the team only.
   const showSuggested = suggested.length > 0 && (!ws.aiPlan || audience === 'team');
@@ -98,26 +107,28 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
         <Roadmap ws={ws} columns={3} />
       </Card>
 
-      <section aria-labelledby="all-actions" className="flex flex-col gap-3">
-        <h2 id="all-actions" className="font-display text-xl font-bold">All actions</h2>
-        {/* 12.2 Grouped by severity, highest priority first inside each group. */}
-        {(['critical', 'high', 'medium', 'low'] as const).map((sev) => {
-          const group = shown.filter((a) => a.severity === sev);
-          if (!group.length) return null;
-          return (
-            <div key={sev} className="flex flex-col gap-2">
-              <h3 className="flex items-center gap-2 text-[15px] font-bold">
-                <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-bold', TONE_SOFT[SEVERITY_TONE[sev]])}>{SEVERITY_LABEL[sev]}</span>
-                <span className="text-ink-2 tabular">{group.length} {group.length === 1 ? 'action' : 'actions'}</span>
-              </h3>
-              <ul aria-label={`${SEVERITY_LABEL[sev]} actions`} className="divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-surface">
-                {group.map((a) => (
+      <section aria-labelledby="six-months" className="flex flex-col gap-3">
+        <h2 id="six-months" className="font-display text-xl font-bold">Your 6-month plan</h2>
+        {/* The to-dos month by month (week order, then priority); Month 1 starts open. */}
+        {months.map((m) => (
+          <details key={m.month} open={m.month === 1} className="group rounded-[18px] border border-border bg-surface">
+            <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-4">
+              <span className="text-[12px] font-bold uppercase tracking-wide text-primary-text">Month {m.month}</span>
+              <span className="font-semibold">{m.theme || `${m.list.length} ${m.list.length === 1 ? 'to-do' : 'to-dos'}`}</span>
+              <span className="text-[13px] text-ink-2 tabular">{m.done} of {m.list.length} done</span>
+            </summary>
+            {m.goal && <p className="px-5 pb-3 text-[14px] text-ink-2">{m.goal}</p>}
+            {m.list.length > 0 ? (
+              <ul aria-label={`Month ${m.month} to-dos`} className="divide-y divide-border border-t border-border">
+                {m.list.map((a) => (
                   <ActionRow key={a.id} domain={domain} action={a} audience={audience} site={site} connectHref={connectHref} />
                 ))}
               </ul>
-            </div>
-          );
-        })}
+            ) : (
+              <p className="border-t border-border px-5 py-3 text-sm text-ink-2">Nothing planned for this month yet.</p>
+            )}
+          </details>
+        ))}
         {dismissed.length > 0 && (
           <details className="rounded-[18px] border border-border bg-surface">
             <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">Dismissed ({dismissed.length})</summary>
