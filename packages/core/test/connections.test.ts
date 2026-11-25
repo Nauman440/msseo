@@ -149,6 +149,19 @@ describe('applying approved changes', () => {
     expect(missing.results[0]).toMatchObject({ status: 'failed', note: '/gone/ was not found on the site.' });
   });
 
+  it('applies a site-wide batch page by page: each change names its own page', async () => {
+    const { site, page } = fakeSite();
+    const batch = action([
+      { id: 'title', label: 'Title tag · /services/heat-pumps/', now: 'Old title', suggested: 'Heat Pumps in Dallas | MyHVAC', data: { url: 'https://myhvac.com/services/heat-pumps/' } },
+      { id: 'meta', label: 'Meta description · /gone/', now: '', suggested: 'X', data: { url: 'https://myhvac.com/gone/' } },
+    ], ['https://myhvac.com/']);
+    const rec = await applyChanges(batch, site, 'Client', NOW);
+    expect(rec.results.map((r) => [r.status, r.url])).toEqual([['applied', 'https://myhvac.com/services/heat-pumps/'], ['failed', 'https://myhvac.com/gone/']]);
+    expect(page.seoTitle).toBe('Heat Pumps in Dallas | MyHVAC');
+    await undoChanges(rec, batch, site, NOW);
+    expect(page.seoTitle).toBe('Old title');
+  });
+
   it('escapes the brief skeleton and keeps secrets encrypted', () => {
     expect(briefHtml({ h1: 'x', outline: ['Cost <2026>'], faq: [], mustHave: ['a'] })).toContain('<h2>Cost &lt;2026&gt;</h2>');
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');

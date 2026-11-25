@@ -4,10 +4,10 @@ import type { StoredAiPlan } from './ai-plan';
 import { validationText } from './plan-validate';
 
 /**
- * The plan's files, built from the saved plan: plan.md, plan.json, issue_register.csv, keyword_map.csv,
+ * The plan's files, built from the saved plan: plan.md, plan.json, page_meta.csv (rule 11), issue_register.csv, keyword_map.csv,
  * needs_developer.md, data_gaps.md and validation.txt, one at a time or together as a .zip.
  */
-export const PLAN_FILES = ['plan.md', 'plan.json', 'issue_register.csv', 'keyword_map.csv', 'needs_developer.md', 'data_gaps.md', 'validation.txt'] as const;
+export const PLAN_FILES = ['plan.md', 'plan.json', 'page_meta.csv', 'issue_register.csv', 'keyword_map.csv', 'needs_developer.md', 'data_gaps.md', 'validation.txt'] as const;
 export type PlanFile = (typeof PLAN_FILES)[number];
 
 // CSV cells never start a formula (=, +, -, @) and quote commas, quotes and line breaks.
@@ -61,6 +61,9 @@ export function planFile(ws: ActionWorkspace, name: PlanFile): string | null {
       if (plan.later.length) out.push('## Later', '', ...plan.later.map((l) => `- ${l.title}: ${l.reason_deferred}`), '');
       return out.filter((l) => l !== '').join('\n').replace(/\n(## )/g, '\n\n$1') + '\n';
     }
+    case 'page_meta.csv':
+      return csv(['url', 'new_title', 'title_length', 'new_meta_description', 'meta_length'],
+        (plan.pageMeta ?? []).map((r) => [r.url, r.title, /^keep$/i.test(r.title) ? '' : r.title.length, r.description, /^keep$/i.test(r.description) ? '' : r.description.length]));
     case 'issue_register.csv':
       return csv(
         ['issue_id', 'issue', 'severity', 'affected_url_count', 'example_urls', 'fix', 'scheduled_in'],

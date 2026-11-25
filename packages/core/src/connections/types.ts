@@ -55,6 +55,8 @@ export type ChangeResult = {
   label: string;
   status: 'applied' | 'manual' | 'failed' | 'undone';
   note: string;
+  /** The page this change was made on, when it is not the action's first page (site-wide batches). */
+  url?: string;
   /** What was there before (for undo), and what the change touched. */
   before?: string | null;
   ref?: string | null;

@@ -25,17 +25,19 @@ const MANUAL_NOTE: Record<string, string> = {
 
 export async function applyChanges(action: ActionItem, adapter: SiteAdapter, by: string, now = new Date()): Promise<ApplyRecord> {
   const results: ChangeResult[] = [];
-  const page = action.urls[0] ?? null;
-  const target = page ? await adapter.find(page).catch(() => null) : null;
+  const finder = pageFinder(adapter);
   for (const c of action.changes ?? []) {
+    // A change may name its own page (the plan's site-wide title and description batches); else the action's first page.
+    const page = c.data?.url ?? action.urls[0] ?? null;
+    const target = page ? await finder(page) : null;
     if (!canApply(c)) {
       results.push({ id: c.id, label: c.label, status: 'manual', note: MANUAL_NOTE[c.id] ?? 'Do this by hand.' });
       continue;
     }
     try {
-      results.push(await applyOne(c, action, adapter, target, page));
+      results.push({ ...(await applyOne(c, action, adapter, target, page)), ...(c.data?.url ? { url: c.data.url } : {}) });
     } catch (err) {
-      results.push({ id: c.id, label: c.label, status: 'failed', note: err instanceof Error ? err.message.slice(0, 200) : 'Failed' });
+      results.push({ id: c.id, label: c.label, status: 'failed', note: err instanceof Error ? err.message.slice(0, 200) : 'Failed', ...(c.data?.url ? { url: c.data.url } : {}) });
     }
   }
   return { at: now.toISOString(), by: by.slice(0, 80), platform: adapter.platform, results };
@@ -73,10 +75,18 @@ async function applyOne(c: PageChange, action: ActionItem, adapter: SiteAdapter,
   return { ...base, status: 'applied', note: 'Page title (H1) updated.', before, ref: target.id };
 }
 
+/** Looks each page up once. */
+function pageFinder(adapter: SiteAdapter) {
+  const seen = new Map<string, Promise<Awaited<ReturnType<SiteAdapter['find']>> | null>>();
+  return (url: string) => {
+    if (!seen.has(url)) seen.set(url, adapter.find(url).catch(() => null));
+    return seen.get(url)!;
+  };
+}
+
 /** Puts back what was there before each applied change. */
 export async function undoChanges(record: ApplyRecord, action: ActionItem, adapter: SiteAdapter, now = new Date()): Promise<ApplyRecord> {
-  const page = action.urls[0] ?? null;
-  const target = page ? await adapter.find(page).catch(() => null) : null;
+  const finder = pageFinder(adapter);
   const results: ChangeResult[] = [];
   for (const r of record.results) {
     if (r.status !== 'applied') {
@@ -84,6 +94,8 @@ export async function undoChanges(record: ApplyRecord, action: ActionItem, adapt
       continue;
     }
     try {
+      const page = r.url ?? action.urls[0] ?? null;
+      const target = page && ['title', 'meta', 'h1'].includes(r.id) ? await finder(page) : null;
       if (r.id === 'brief' && r.ref) await adapter.deleteDraft(r.ref);
       else if (r.id === 'retarget' && r.ref) for (const id of r.ref.split(',')) await adapter.deleteRedirect(id);
       else if (target && r.id === 'title') await adapter.setSeo(target, { title: r.before ?? '' });
@@ -112,7 +124,8 @@ export function checkVisible(record: ApplyRecord, action: ActionItem, live: Page
   return {
     ...record,
     results: record.results.map((r) => {
-      if (r.status !== 'applied' || !['title', 'meta', 'h1'].includes(r.id)) return r;
+      // Only the action's own page was fetched; changes made on other pages are not checked here.
+      if (r.status !== 'applied' || r.url || !['title', 'meta', 'h1'].includes(r.id)) return r;
       const v = want.get(r.id) ?? '';
       const visible = r.id === 'title' ? has(live.title, v) : r.id === 'meta' ? has(live.description, v) : live.h1.some((h) => has(h, v));
       return { ...r, visible, note: visible ? `${r.note} Live on the page.` : `${r.note} Not visible yet: a cache, or the theme may show a different heading.` };

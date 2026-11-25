@@ -28,9 +28,15 @@ export const PLAN_PROMPT_RULES = `RULES
 9. Dependencies only on earlier tasks. Stay within capacity. Never use banned words.
 10. Plain English for a business owner. Keep each text field under 25 words.`;
 
+/**
+ * Added 2026-11-25 (user request): a new title and description for every page in Month 1, written out in
+ * full so they can be approved and applied page by page. The pages are listed in <pages>.
+ */
+export const PLAN_PROMPT_PAGE_META = `11. Month 1 page titles and meta descriptions: in "page_meta", write a NEW meta title and a NEW meta description for EVERY page listed in <pages>, one row per page. Title: 50–60 characters including the CMS title suffix, main keyword near the start, no brand repeat, unique across the site. Description: 140–155 characters, unique, with the main keyword, a benefit and a call to action. Write "keep" only when the current one already meets these rules. The Month 1 meta title and meta description tasks apply these rows.`;
+
 /** How the answer is laid out (the JSON schema enforces the fields; this says what goes in them). */
 const PLAN_PROMPT_OUTPUT = `OUTPUT
-Answer in the JSON schema. Task id "<month>.<nn>" (e.g. "1.01"), week 1–4. doer: auto = software applies it with no approval (alt text, schema); approve = software applies it after the client says yes (titles, metas, H1s, canonicals, redirects); team = the SEO team; client = the business owner. category "aeo" for AI-visibility work. site_wide_item marks the Month 1 batches of rule 4 (meta_title, meta_description, canonical, alt_text, h1, schema), else "none"; page_group = the batch's page type, else "none". issue_ids = the issue_ids and site_check ids (SC-…) the task fixes. urls: up to 5 examples. impact, confidence, effort 1–5. check_after_days 7, 14 or 28. summary: 3–4 sentences. baseline_and_targets: 4–6 rows. later: work that does not fit the capacity, with the reason. data_gaps: data that was missing.`;
+Answer in the JSON schema. Task id "<month>.<nn>" (e.g. "1.01"), week 1–4. doer: auto = software applies it with no approval (alt text, schema); approve = software applies it after the client says yes (titles, metas, H1s, canonicals, redirects); team = the SEO team; client = the business owner. category "aeo" for AI-visibility work. site_wide_item marks the Month 1 batches of rule 4 (meta_title, meta_description, canonical, alt_text, h1, schema), else "none"; page_group = the batch's page type, else "none". issue_ids = the issue_ids and site_check ids (SC-…) the task fixes. page_meta: one row per page in <pages> (url exactly as listed). urls: up to 5 examples. impact, confidence, effort 1–5. check_after_days 7, 14 or 28. summary: 3–4 sentences. baseline_and_targets: 4–6 rows. later: work that does not fit the capacity, with the reason. data_gaps: data that was missing.`;
 
 // ---- Issues: the audit plus the fresh site check --------------------------------------------
 
@@ -56,7 +62,7 @@ const RULE_ITEM: [RegExp, CleanupItem][] = [
 ];
 export const itemOfRule = (ruleId: string): CleanupItem | undefined => RULE_ITEM.find(([re]) => re.test(ruleId))?.[1];
 
-const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
+export const normPlanUrl = (u: string) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
 const short = (s: string, n = 140) => (s.length > n ? `${s.slice(0, n - 1)}…` : s).replace(/\s+/g, ' ').replace(/\|/g, '/');
 
 /** The site check: totals from the crawl, as findings with ids "SC-nn" (only problems that exist). */
@@ -86,8 +92,8 @@ export function siteCheck(report: ReportModel | null, pages: CleanupPage[]): { l
     for (const [url, v] of vals) if (v?.trim()) m.set(v.trim().toLowerCase(), [...(m.get(v.trim().toLowerCase()) ?? []), url]);
     return [...m.values()].filter((u) => u.length > 1).flat();
   };
-  const rawOf = new Map(raw.map((p) => [norm(p.url), p]));
-  const r = (p: CleanupPage): ReportPage | undefined => rawOf.get(norm(p.url));
+  const rawOf = new Map(raw.map((p) => [normPlanUrl(p.url), p]));
+  const r = (p: CleanupPage): ReportPage | undefined => rawOf.get(normPlanUrl(p.url));
   const known = idx.filter((p) => p.h1_count !== null);
   const urls = (f: (p: CleanupPage) => boolean) => known.filter(f).map((p) => p.url);
 
@@ -132,12 +138,12 @@ export function siteCheck(report: ReportModel | null, pages: CleanupPage[]): { l
 
   // Homepage and the top 5 money pages (by links from other checked pages).
   const inlinks = new Map<string, number>();
-  for (const p of raw) for (const l of new Set(p.links.map(norm))) if (l !== norm(p.url)) inlinks.set(l, (inlinks.get(l) ?? 0) + 1);
-  const money = pages.filter((p) => p.group === 'money_pages' && p.indexable && (!home || norm(p.url) !== norm(home.url)))
-    .sort((a, b) => (inlinks.get(norm(b.url)) ?? 0) - (inlinks.get(norm(a.url)) ?? 0)).slice(0, 5).map((p) => rawOf.get(norm(p.url))).filter((p): p is ReportPage => Boolean(p));
+  for (const p of raw) for (const l of new Set(p.links.map(normPlanUrl))) if (l !== normPlanUrl(p.url)) inlinks.set(l, (inlinks.get(l) ?? 0) + 1);
+  const money = pages.filter((p) => p.group === 'money_pages' && p.indexable && (!home || normPlanUrl(p.url) !== normPlanUrl(home.url)))
+    .sort((a, b) => (inlinks.get(normPlanUrl(b.url)) ?? 0) - (inlinks.get(normPlanUrl(a.url)) ?? 0)).slice(0, 5).map((p) => rawOf.get(normPlanUrl(p.url))).filter((p): p is ReportPage => Boolean(p));
   lines.push('Homepage and top money pages: url | title (length) | meta description (length) | H1s | words | schema | inlinks');
   for (const p of [home, ...money].filter((x): x is ReportPage => Boolean(x))) {
-    lines.push(`${p.url} | ${short(p.title ?? '(none)', 80)} (${p.title?.length ?? 0}) | ${short(p.description ?? '(none)', 90)} (${p.description?.length ?? 0}) | ${p.h1Count ?? '?'}: ${short(p.h1 || '(none)', 60)} | ${p.words} | ${p.schemaTypes.join(', ') || 'none'} | ${inlinks.get(norm(p.url)) ?? 0}`);
+    lines.push(`${p.url} | ${short(p.title ?? '(none)', 80)} (${p.title?.length ?? 0}) | ${short(p.description ?? '(none)', 90)} (${p.description?.length ?? 0}) | ${p.h1Count ?? '?'}: ${short(p.h1 || '(none)', 60)} | ${p.words} | ${p.schemaTypes.join(', ') || 'none'} | ${inlinks.get(normPlanUrl(p.url)) ?? 0}`);
   }
   return { lines, issues };
 }
@@ -266,6 +272,25 @@ export function offpageBlock(x: PlanExtras | undefined, local: boolean): string 
   return out.join('\n');
 }
 
+/** Rule 11: the pages that get a new title and description (indexable pages from the crawl, at most 100). */
+export const PAGE_META_LIMIT = 100;
+export function pagesBlock(report: ReportModel | null, pages: CleanupPage[], mapping: MappingWorkspace | null): { text: string; urls: string[] } {
+  const raw = new Map((report?.pages ?? []).map((p) => [normPlanUrl(p.url), p]));
+  const main = new Map<string, string>();
+  for (const r of mapping?.rows ?? []) if (r.url && r.primaryKeyword) main.set(normPlanUrl(r.url), r.primaryKeyword);
+  const rows = pages.filter((p) => p.indexable).slice(0, PAGE_META_LIMIT);
+  const lines = ['url | current title (length) | current meta description (length) | H1 | main keyword'];
+  for (const p of rows) {
+    const r = raw.get(normPlanUrl(p.url));
+    lines.push(`${p.url} | ${short(r?.title ?? '(none)', 90)} (${r?.title?.length ?? 0}) | ${short(r?.description ?? '(none)', 170)} (${r?.description?.length ?? 0}) | ${short(r?.h1 || '(none)', 70)} | ${main.get(normPlanUrl(p.url)) ?? '-'}`);
+  }
+  return { text: rows.length ? lines.join('\n') : 'none', urls: rows.map((p) => p.url) };
+}
+
+export const TITLE_RANGE = [50, 60] as const;
+export const META_RANGE = [140, 155] as const;
+export const isKeep = (v: string) => !v.trim() || v.trim().toLowerCase() === 'keep';
+
 // ---- The answer --------------------------------------------------------------------------------
 
 const MODEL_CATEGORIES = ['technical', 'on_page', 'content', 'aeo', 'off_page', 'local', 'tracking'] as const;
@@ -284,6 +309,7 @@ export const planAnswerZ = z.object({
   months: z.array(z.object({ month: z.number(), theme: z.string(), goal: z.string(), tasks: z.array(taskZ) })),
   later: z.array(z.object({ title: z.string(), reason_deferred: z.string() })),
   needs_developer: z.array(z.object({ issue_id: z.string(), issue: z.string(), reason: z.string() })),
+  page_meta: z.array(z.object({ url: z.string(), title: z.string(), description: z.string() })),
   data_gaps: z.array(z.string()),
 });
 export type PlanAnswer = z.infer<typeof planAnswerZ>;
@@ -307,6 +333,7 @@ export const PLAN_ANSWER_SCHEMA = obj({
   })),
   later: arr(obj({ title: str, reason_deferred: str })),
   needs_developer: arr(obj({ issue_id: str, issue: str, reason: str })),
+  page_meta: arr(obj({ url: str, title: str, description: str })),
   data_gaps: strs,
 });
 
@@ -344,7 +371,7 @@ export const PLAN_OUTPUT_TOKENS = 32_000;
 export const MAX_OUTPUT_TOKENS = 100_000;
 
 export type PlanPrompt = { system: string; user: string };
-export function planPrompt(blocks: { business: string; audit: PlanIssue[]; siteCheck: string[]; keywords: string; ai: string; offpage: string }, minTasks: number): PlanPrompt {
+export function planPrompt(blocks: { business: string; audit: PlanIssue[]; siteCheck: string[]; keywords: string; ai: string; offpage: string; pages?: string }, minTasks: number): PlanPrompt {
   const issueLines = blocks.audit.map((i) => `${i.issue_id} | ${i.issue} | ${i.severity} | ${i.affected_url_count} | ${i.example_urls.join(' ')}`);
   const user = [
     `<business>\n${blocks.business}\n</business>`,
@@ -353,9 +380,10 @@ export function planPrompt(blocks: { business: string; audit: PlanIssue[]; siteC
     `<keywords>\n${blocks.keywords}\n</keywords>`,
     `<ai_visibility>\n${blocks.ai}\n</ai_visibility>`,
     `<offpage>\n${blocks.offpage}\n</offpage>`,
+    `<pages>\n${blocks.pages || 'none'}\n</pages>`,
   ].join('\n\n');
   const aim = minTasks > 12 ? `\nAim for ${minTasks} tasks a month on this plan.` : '';
-  return { system: `${PLAN_PROMPT_INTRO}\n\n${PLAN_PROMPT_RULES}${aim}\n\n${PLAN_PROMPT_OUTPUT}`, user };
+  return { system: `${PLAN_PROMPT_INTRO}\n\n${PLAN_PROMPT_RULES}\n${PLAN_PROMPT_PAGE_META}${aim}\n\n${PLAN_PROMPT_OUTPUT}`, user };
 }
 
 export async function askForPlan(client: OpenAiClient, prompt: PlanPrompt): Promise<{ answer: PlanAnswer; tokens: number; model: string }> {

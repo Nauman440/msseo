@@ -179,7 +179,7 @@ export function fixDependencies(plan: AiPlan): number {
   return dropped;
 }
 
-export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeveloper: NeedsDeveloper[]; pages: CleanupPage[]; capacity: PlanCapacity; banned: string[] }): ValidationLine[] {
+export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeveloper: NeedsDeveloper[]; pages: CleanupPage[]; capacity: PlanCapacity; banned: string[]; pageMeta?: { url: string; title: string; description: string }[]; listedUrls?: string[] }): ValidationLine[] {
   const lines: ValidationLine[] = [];
   const add = (check: string, pass: boolean, detail: string) => lines.push({ check, pass, detail });
   const tasks = plan.months.flatMap((m) => m.tasks.map((t) => ({ ...t, month: m.month })));
@@ -230,6 +230,17 @@ export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeve
 
   const long = tasks.filter((t) => [t.title, t.why, t.change, t.success_check].some((s) => words(s) > MAX_WORDS));
   add(`10. Every text field under ${MAX_WORDS} words`, !long.length, long.length ? `${long.length} task(s) with a longer field: ${long.slice(0, 8).map((t) => t.id).join(', ')}` : `${tasks.length} tasks`);
+  if (ctx.listedUrls) {
+    const rows = ctx.pageMeta ?? [];
+    const keep = (v: string) => !v.trim() || v.trim().toLowerCase() === 'keep';
+    const missing = ctx.listedUrls.length - rows.length;
+    const badTitle = rows.filter((r) => !keep(r.title) && (r.title.length < 50 || r.title.length > 60));
+    const badMeta = rows.filter((r) => !keep(r.description) && (r.description.length < 140 || r.description.length > 155));
+    const dup = (vals: string[]) => vals.length - new Set(vals.map((v) => v.toLowerCase())).size;
+    const dups = dup(rows.filter((r) => !keep(r.title)).map((r) => r.title)) + dup(rows.filter((r) => !keep(r.description)).map((r) => r.description));
+    add('11. Month 1: a new title (50–60) and description (140–155) for every page', !missing && !badTitle.length && !badMeta.length && !dups,
+      `${rows.length} of ${ctx.listedUrls.length} pages; ${rows.filter((r) => !keep(r.title)).length} new titles, ${rows.filter((r) => !keep(r.description)).length} new descriptions; out of range: ${badTitle.length} titles, ${badMeta.length} descriptions; duplicates: ${dups}`);
+  }
   return lines;
 }
 

@@ -43,6 +43,11 @@ const answer = {
   })),
   later: [],
   needs_developer: [{ issue_id: '', issue: 'Lazy-load the theme slider', reason: 'Only in theme code.' }],
+  page_meta: [
+    { url: 'https://petbox.co.uk/products/chews/', title: 'Natural Dog Chews for Healthy Teeth, UK Delivery | PetBox', description: 'keep' },
+    { url: 'http://www.petbox.co.uk/about', title: 'keep', description: 'Meet the small UK team behind PetBox: natural, single-ingredient pet treats made with care and delivered fast. Read our story and say hello today.' },
+    { url: 'https://petbox.co.uk/not-listed/', title: 'Should be ignored', description: 'keep' },
+  ],
   data_gaps: ['Search Console not connected'],
 };
 
@@ -91,6 +96,9 @@ describe('6-month plan in one call (plan prompt)', () => {
     expect(user).toContain('Pages without BreadcrumbList schema');
     expect(user).toContain('<ai_visibility>\nnot checked yet');
     expect(user).toContain('<offpage>\nBacklinks: not checked yet');
+    // Rule 11: every indexable page is listed for a new title and description.
+    expect(system).toContain('11. Month 1 page titles and meta descriptions');
+    expect(user).toMatch(/<pages>[\s\S]*https:\/\/petbox\.co\.uk\/products\/chews\/ \| Natural pet treats/);
     expect(steps).toEqual(['Writing the 6-month plan', 'Checking the plan against the rules']);
 
     const plan = workspace.aiPlan!;
@@ -114,6 +122,15 @@ describe('6-month plan in one call (plan prompt)', () => {
     // Rule 9: dependencies only on earlier tasks.
     const order = new Map(tasks.map((a, i) => [a.plan!.taskId, i]));
     for (const a of tasks) for (const d of a.plan!.dependsOn) expect(order.get(d)!).toBeLessThan(order.get(a.plan!.taskId)!);
+
+    // The new title and description sit on the Month 1 batches as changes to approve, each naming its page.
+    const titleBatch = tasks.find((a) => a.plan!.month === 1 && a.plan!.siteWideItem === 'meta_title' && a.changes?.some((c) => c.data?.url === 'https://petbox.co.uk/products/chews/'))!;
+    expect(titleBatch.changes!.find((c) => c.data?.url === 'https://petbox.co.uk/products/chews/')).toMatchObject({ id: 'title', now: 'Natural pet treats /products/chews/ | PetBox', suggested: 'Natural Dog Chews for Healthy Teeth, UK Delivery | PetBox' });
+    const metaBatch = tasks.find((a) => a.plan!.month === 1 && a.plan!.siteWideItem === 'meta_description')!;
+    expect(metaBatch.changes).toEqual([expect.objectContaining({ id: 'meta', data: { url: 'https://petbox.co.uk/about/' } })]);
+    expect(metaBatch.urls).toContain('https://petbox.co.uk/about/');
+    expect(tasks.flatMap((a) => a.changes ?? []).some((c) => /Should be ignored/.test(c.suggested))).toBe(false);
+    expect(planFile(workspace, 'page_meta.csv')).toContain('Natural Dog Chews for Healthy Teeth');
 
     const v = Object.fromEntries(plan.validation!.map((l) => [l.check, l.pass]));
     expect(v['1. Exactly 6 months']).toBe(true);

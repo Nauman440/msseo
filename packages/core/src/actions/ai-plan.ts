@@ -3,7 +3,7 @@ import { dedupeKey, normTerm } from '../keywords/clean';
 import type { KeywordWorkspace } from '../keywords/types';
 import type { MappingWorkspace } from '../mapping/mapping';
 import type { OpenAiClient } from '../providers/openai';
-import { aiVisibilityBlock, askForPlan, auditIssues, businessBlock, keywordsBlock, offpageBlock, planPrompt, platformOf, siteCheck, softwareCan, titleSuffix, toAiPlan, type NeedsDeveloper, type PlanIssue, type PlanPlatform } from './plan-prompt';
+import { aiVisibilityBlock, askForPlan, auditIssues, businessBlock, isKeep, keywordsBlock, normPlanUrl, offpageBlock, pagesBlock, planPrompt, platformOf, siteCheck, softwareCan, titleSuffix, toAiPlan, type NeedsDeveloper, type PlanIssue, type PlanPlatform } from './plan-prompt';
 import { BLOCKER_TASK, fixDependencies, MIN_TASKS, repairPlan, validatePlan, type RepairContext, type ValidationLine } from './plan-validate';
 import type { ReportModel } from '../types';
 import type { AeoAudit, AeoWorkspace } from '../aeo/aeo';
@@ -498,7 +498,9 @@ export type StoredAiPlan = Omit<AiPlan, 'months'> & {
   issues?: PlanIssue[];
   /** Issues only a developer can fix, left out of the plan (rule 3). */
   needsDeveloper?: NeedsDeveloper[];
-  /** RULES 1–10 checked in code. */
+  /** Rule 11: the new title and description per page, as the model wrote them. */
+  pageMeta?: { url: string; title: string; description: string }[];
+  /** RULES 1–11 checked in code. */
   validation?: ValidationLine[];
   platform?: PlanPlatform;
   /** Business inputs the plan was written with (shown in plan.md and the files). */
@@ -509,7 +511,8 @@ const OWNER: Record<TaskDoer, string> = { automatic: 'Automatic (after approval)
 
 /** Untouched by a person: still to do, not approved, not moved, not applied, no exact changes attached. */
 const untouched = (a: ActionItem) =>
-  a.status === 'todo' && !a.approvedAt && !a.applied && !a.changes?.length &&
+  // The plan's own changes (rule 11 titles and descriptions) do not count as a person's work.
+  a.status === 'todo' && !a.approvedAt && !a.applied && (!a.changes?.length || a.source.kind === 'ai') &&
   // AI tasks come with a month and an owner; the older automatic actions had neither until a person set them.
   (a.source.kind === 'ai' || (!a.bucketLocked && !a.owner));
 
@@ -669,10 +672,11 @@ export async function writeAiPlan(
   const audit = auditIssues(args.report);
   const issues = [...audit, ...check.issues];
   const questions = input.data.ai_questions as string[];
+  const listed = pagesBlock(args.report, pages, args.mapping);
   const prompt = planPrompt({
     business: businessBlock(b, { platform, suffix: titleSuffix(args.report?.pages ?? []), software: softwareCan(platform, Boolean(args.connected)) }),
     audit, siteCheck: check.lines, keywords: keywordsBlock(args.keywords, args.mapping, args.extras?.gsc ?? null),
-    ai: aiVisibilityBlock(args.extras?.aiSearch ?? null, questions), offpage: offpageBlock(args.extras, local),
+    ai: aiVisibilityBlock(args.extras?.aiSearch ?? null, questions), offpage: offpageBlock(args.extras, local), pages: listed.text,
   }, b.capacity.minTasks);
 
   await ctx.onProgress?.('Writing the 6-month plan');
@@ -685,12 +689,76 @@ export async function writeAiPlan(
   }));
   raw.removed_keywords = args.keywords.keywords.filter((k) => k.status === 'removed').sort((x, y) => (y.volume ?? 0) - (x.volume ?? 0)).slice(0, 30).map((k) => ({ keyword: k.term, reason: k.removeReason ?? 'removed' }));
   const needsDeveloper = [...asked.answer.needs_developer];
+  const pageMeta = pageMetaRows(asked.answer.page_meta, listed.urls);
+  ensureMetaBatches(raw, pageMeta, pages);
   const topUp = topUpCandidates({ report: args.report, extras: args.extras, prompts: questions, domain: args.domain, kind: b.businessType });
   const checked = checkPlan(raw, b, pages, topUp, { issues, needsDeveloper, questions: questions.length });
-  const validation = validatePlan(checked.plan, { issues, needsDeveloper, pages, capacity: b.capacity, banned: b.bannedWords ?? [] });
+  const validation = validatePlan(checked.plan, { issues, needsDeveloper, pages, capacity: b.capacity, banned: b.bannedWords ?? [], pageMeta, listedUrls: listed.urls });
   const workspace = applyAiPlan(ws, checked, { model: asked.model, tokens: asked.tokens, business: b }, ctx);
-  workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform };
+  workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform, pageMeta };
+  attachPageMeta(workspace, pageMeta, args.report, pages);
   return { workspace, tokens: asked.tokens };
+}
+
+// ---- Rule 11: a new title and description for every page -------------------------------------
+
+/** The model's rows for listed pages only, one per page, with the address exactly as listed. */
+function pageMetaRows(rows: { url: string; title: string; description: string }[], listed: string[]) {
+  const byKey = new Map(listed.map((u) => [normPlanUrl(u), u]));
+  const out = new Map<string, { url: string; title: string; description: string }>();
+  for (const r of rows) {
+    const url = byKey.get(normPlanUrl(r.url));
+    if (url && !out.has(url)) out.set(url, { url, title: r.title.trim(), description: r.description.trim() });
+  }
+  return [...out.values()];
+}
+
+/** Month 1 needs a title batch and a description batch for every page group with new text in page_meta. */
+function ensureMetaBatches(plan: AiPlan, rows: { url: string; title: string; description: string }[], pages: CleanupPage[]) {
+  const month1 = plan.months.find((m) => Math.round(m.month) === 1) ?? (plan.months.push({ month: 1, theme: '', goal: '', tasks: [] }), plan.months.at(-1)!);
+  const groupOf = new Map(pages.map((p) => [normPlanUrl(p.url), p.group]));
+  for (const item of ['meta_title', 'meta_description'] as const) {
+    const urls = rows.filter((r) => !isKeep(item === 'meta_title' ? r.title : r.description)).map((r) => r.url);
+    if (!urls.length) continue;
+    const have = plan.months.flatMap((m) => m.tasks).filter((t) => t.site_wide_item === item);
+    const byGroup = new Map<Exclude<PageGroup, 'none'>, string[]>();
+    for (const u of urls) {
+      const g = groupOf.get(normPlanUrl(u)) ?? 'other';
+      byGroup.set(g, [...(byGroup.get(g) ?? []), u]);
+    }
+    for (const [g, us] of byGroup) if (!have.some((t) => t.page_group === g)) month1.tasks.push(cleanupTask(item, g, us));
+  }
+}
+
+/** Puts each new title and description on the Month 1 batch that covers its page, as a change to approve. */
+function attachPageMeta(ws: ActionWorkspace, rows: { url: string; title: string; description: string }[], report: ReportModel | null | undefined, pages: CleanupPage[]) {
+  const planId = ws.aiPlan?.id;
+  const raw = new Map((report?.pages ?? []).map((p) => [normPlanUrl(p.url), p]));
+  const groupOf = new Map(pages.map((p) => [normPlanUrl(p.url), p.group]));
+  const month1 = ws.actions.filter((a) => a.source.kind === 'ai' && a.source.planId === planId && a.plan?.month === 1);
+  const pathOf = (u: string) => {
+    try {
+      return new URL(u).pathname;
+    } catch {
+      return u;
+    }
+  };
+  for (const item of ['meta_title', 'meta_description'] as const) {
+    const batches = month1.filter((a) => a.plan!.siteWideItem === item);
+    if (!batches.length) continue;
+    for (const r of rows) {
+      const suggested = item === 'meta_title' ? r.title : r.description;
+      if (isKeep(suggested)) continue;
+      const key = normPlanUrl(r.url);
+      const target = batches.find((a) => a.urls.some((u) => normPlanUrl(u) === key)) ?? batches.find((a) => a.plan!.pageGroup === groupOf.get(key)) ?? batches[0]!;
+      const now = item === 'meta_title' ? raw.get(key)?.title : raw.get(key)?.description;
+      target.changes = [...(target.changes ?? []), {
+        id: item === 'meta_title' ? 'title' : 'meta', label: `${item === 'meta_title' ? 'Title tag' : 'Meta description'} · ${pathOf(r.url)}`,
+        now: now || '(missing)', suggested, data: { url: r.url },
+      }];
+      if (!target.urls.some((u) => normPlanUrl(u) === key)) target.urls = [...target.urls, r.url];
+    }
+  }
 }
 
 /** A plan this old is written again by autopilot (and customers may ask for a new one after a week). */
