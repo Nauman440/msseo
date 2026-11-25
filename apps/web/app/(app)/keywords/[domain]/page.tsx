@@ -8,7 +8,7 @@ import { TOPIC_ORDERS, type TopicOrder } from '@/components/keywords/labels';
 import { Container, SectionHeader } from '@/components/landing/primitives';
 import { freshKeywords } from '@/lib/keywords';
 import { freshMapping } from '@/lib/mapping';
-import { autoFastKeywords } from '@/lib/fast-keywords';
+import { restoreKeywordsAfterFast } from '@/lib/keyword-restore';
 import { Preparing } from '@/components/customer/Preparing';
 import { requireUser } from '@/lib/session';
 
@@ -28,9 +28,9 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   const { view, open, sort, topics, from, topic, show, all, mode, role } = await searchParams;
   const parsed = parseKeywordView(view, open);
   // Clean the list first, then the page plan follows the cleaned topics.
+  // Lists cut down by the withdrawn fast keyword run get the full research again (once, in the background).
+  const restoring = await restoreKeywordsAfterFast(domain);
   const ws = await freshKeywords(domain);
-  // A list from before the fast pipeline is replaced by one fast run in the background (no click needed).
-  const preparingFast = await autoFastKeywords(domain);
   const mapping = await freshMapping(domain);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
@@ -42,7 +42,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
           <Link href={`/competitors/${domain}`} className={link}>Competitors</Link>
         </div>
       </div>
-      {preparingFast && <Preparing what="the new keyword list" />}
+      {restoring && <Preparing what="your full keyword list again" />}
       <KeywordWorkspaceView
         ws={ws}
         audience="team"

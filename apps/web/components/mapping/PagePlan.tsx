@@ -1,5 +1,4 @@
-import { normUrl, pageCards, pageNameOf, titleSuffix, type BlogIdea, type FastResult, type KeywordRecord, type MappingWorkspace, type ReportPage } from '@seo/core';
-import { FastPageCard } from './FastPageCard';
+import { normUrl, pageCards, pageNameOf, titleSuffix, type BlogIdea, type KeywordRecord, type MappingWorkspace, type ReportPage } from '@seo/core';
 import { SendAllBar } from './forms';
 import { PagePlanCard, Volume } from './PagePlanCard';
 
@@ -30,10 +29,8 @@ const STEPS = [
   { title: 'You approve first', text: 'Nothing changes on your website until you say yes.' },
 ];
 
-export function PagePlan({ ws, keywords, places, fixes, reportPages, ideas, href, fast }: {
+export function PagePlan({ ws, keywords, places, fixes, reportPages, ideas, href }: {
   ws: MappingWorkspace;
-  /** The fast keyword pipeline's saved result: when present the plan shows its topics (same as the Keywords tab). */
-  fast?: FastResult | null;
   keywords: KeywordRecord[];
   /** Places served (research inputs). */
   places: string[];
@@ -44,17 +41,13 @@ export function PagePlan({ ws, keywords, places, fixes, reportPages, ideas, href
 }) {
   const suffix = titleSuffix(reportPages);
   const byUrl = new Map(reportPages.map((p) => [normUrl(p.url), p]));
-  const cards = fast ? [] : pageCards(ws, keywords, reportPages, places);
-  // Live pages first, then pages and articles to create (each list by value, as saved).
-  const fastTopics = fast ? [...fast.topics].sort((a, b) => Number(a.isNew) - Number(b.isNew)) : [];
-  const close = fast
-    ? fastTopics.filter((t) => !t.isNew && t.position !== null && t.position > 3 && t.position <= 30).length
-    : cards.filter((c) => c.url && c.rows[0]!.currentPosition !== null && c.rows[0]!.currentPosition > 3 && c.rows[0]!.currentPosition <= 30).length;
-  const newPages = fast ? fastTopics.filter((t) => t.isNew).length : cards.filter((c) => !c.url).length;
-  const fixesOf = (c: (typeof cards)[number]) => c.rows.reduce((sum, r) => sum + (fixes[r.clusterId] ?? 0), 0);
-  const totalFixes = fast ? fastTopics.filter((t) => !t.isNew).reduce((sum, t) => sum + (fixes[t.id] ?? 0), 0) : cards.filter((c) => c.url).reduce((sum, c) => sum + fixesOf(c), 0);
+  const cards = pageCards(ws, keywords, reportPages, places);
+  const close = cards.filter((c) => c.url && c.rows[0]!.currentPosition !== null && c.rows[0]!.currentPosition > 3 && c.rows[0]!.currentPosition <= 30).length;
+  const newPages = cards.filter((c) => !c.url).length;
+  const fixesOf = (c: (typeof cards)[number]) => c.rows.reduce((s, r) => s + (fixes[r.clusterId] ?? 0), 0);
+  const totalFixes = cards.filter((c) => c.url).reduce((s, c) => s + fixesOf(c), 0);
   const tiles = [
-    { value: fast ? fastTopics.length : cards.length, label: 'pages in the plan' },
+    { value: cards.length, label: 'pages in the plan' },
     { value: close, label: 'close to page 1' },
     { value: newPages, label: 'new pages to create' },
   ];
@@ -90,17 +83,7 @@ export function PagePlan({ ws, keywords, places, fixes, reportPages, ideas, href
         ))}
       </ol>
 
-      {fast ? (
-        fastTopics.length === 0 ? (
-          <p className="rounded-card border border-border bg-surface p-6 text-[15px] text-ink-2">No page plan yet. It is made automatically once your keywords are checked.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {fastTopics.map((t) => (
-              <FastPageCard key={t.id} t={t} fixes={fixes[t.id] ?? 0} href={href({ topic: t.id })} />
-            ))}
-          </div>
-        )
-      ) : cards.length === 0 ? (
+      {cards.length === 0 ? (
         <p className="rounded-card border border-border bg-surface p-6 text-[15px] text-ink-2">
           No page plan yet. It is made automatically once your keywords are researched and your site has been checked.
         </p>

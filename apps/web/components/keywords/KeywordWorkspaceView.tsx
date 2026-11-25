@@ -11,7 +11,6 @@ import { KeywordTabs, viewHref, type KeywordOpen, type KeywordView } from './Key
 import type { TopicOrder } from './labels';
 import { TopTopics } from './TopTopics';
 import { KeywordTypes } from './KeywordTypes';
-import { FastKeywordsView } from './FastKeywordsView';
 
 /**
  * Keywords (Module 4) and the page plan (Module 5), written for someone who knows nothing about SEO.
@@ -56,7 +55,7 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
 
   return (
     <div className="flex flex-col gap-[22px]">
-      <KeywordTabs base={base} view={state.view} keywords={stats.kept} topics={ws.fast ? ws.fast.topics.length : mappedTopics} />
+      <KeywordTabs base={base} view={state.view} keywords={stats.kept} topics={mappedTopics} />
 
       {state.view === 'mapping' && <MappingSection domain={ws.domain} base={base} audience={audience} keywords={ws.keywords} params={state.mapping ?? {}} />}
 
@@ -85,16 +84,6 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             </div>
           </details>
 
-          {ws.fastError && (!ws.fast || ws.fastError.at > ws.fast.runAt) && (
-            <p role="alert" className="rounded-[14px] border border-border bg-surface px-[18px] py-3.5 text-sm text-ink">
-              <b>The last keyword check did not finish.</b>{' '}
-              {audience === 'team' ? `${ws.fastError.message} (${ws.fastError.at.slice(0, 16).replace('T', ' ')} UTC)` : 'We will try again soon. The list below is the previous one.'}
-            </p>
-          )}
-          {ws.fast ? (
-            <FastKeywordsView domain={ws.domain} fast={ws.fast} audience={audience} />
-          ) : (
-            <>
           {stats.kept > 0 && (
             <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {tiles.map((t) => (
@@ -123,8 +112,6 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
               business={ws.businessType}
               editable
             />
-          )}
-            </>
           )}
           <details id="all-keywords" open={state.open === 'all' || Boolean(state.from) || Boolean(state.role)} className={FOLD}>
             <summary className={FOLD_SUMMARY}>

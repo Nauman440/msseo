@@ -35,7 +35,7 @@ export function Volume({ volume }: { volume: number | null }) {
 const EYEBROW = 'text-[11px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 const MORE = 4;
 
-export function KeywordList({ title, hint, items }: { title: string; hint: string; items: CardKeyword[] }) {
+function KeywordList({ title, hint, items }: { title: string; hint: string; items: CardKeyword[] }) {
   if (!items.length) return null;
   return (
     <div className="flex flex-col">

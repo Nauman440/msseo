@@ -5,4 +5,3 @@
 export * from './secrets';
 export * from './providers/shopify';
 export * from './tls-cert';
-export { httpStatuses } from './providers/direct-fetch';

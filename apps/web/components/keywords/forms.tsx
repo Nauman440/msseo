@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from 'react';
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, SEED_LIMITS, type BusinessType, type KeywordSeeds } from '@seo/core';
 import {
-  addKeywordsAction, refreshKeywordsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
+  addKeywordsAction, clusterKeywordsAction, researchKeywordsAction, saveKeywordSeedsAction, updateClusterAction, sendClustersToCompetitorsAction,
   type KeywordState,
 } from '@/app/keywords/actions';
 import { INPUT, Message, Submit } from '@/components/competitors/forms';
@@ -74,30 +74,6 @@ export function SeedsForm({ domain, businessType, country, language, seeds }: { 
         optional
       />
       <TagInput
-        name="ownBrands"
-        label="Your own brand names"
-        hint="Searches with these names are kept as yours."
-        placeholder="For example: Maxbox"
-        initial={seeds.ownBrands ?? []}
-        optional
-      />
-      <TagInput
-        name="notOffered"
-        label={shop ? 'Things you do NOT sell' : 'Services you do NOT offer'}
-        hint={shop ? 'Products, sizes or formats you do not stock. Searches for them are left out.' : 'Searches for these are left out.'}
-        placeholder={shop ? 'For example: 10kg bags' : 'For example: commercial work'}
-        initial={seeds.notOffered ?? []}
-        optional
-      />
-      <TagInput
-        name="bannedClaims"
-        label="Words you must never use"
-        hint="Claims you cannot make (for example medical claims). Searches with them are left out."
-        placeholder="For example: cure"
-        initial={seeds.bannedClaims ?? []}
-        optional
-      />
-      <TagInput
         name="extra"
         label="Other words customers use"
         hint={shop ? 'Materials, styles, sizes or problems your customers mention.' : 'Anything your sales team hears: problems, questions, offers.'}
@@ -116,7 +92,7 @@ export function SeedsForm({ domain, businessType, country, language, seeds }: { 
 /** 4.2–4.7 runs: research (which also builds the clusters) and prompts; the team can rebuild clusters after edits. */
 export function KeywordRunButtons({ domain, hasKeywords, hasClusters, audience }: { domain: string; hasKeywords: boolean; hasClusters: boolean; audience: 'team' | 'customer' }) {
   const [research, runResearch] = useActionState<KeywordState>(researchKeywordsAction.bind(null, domain), {});
-  const [cluster, runCluster] = useActionState<KeywordState>(refreshKeywordsAction.bind(null, domain), {});
+  const [cluster, runCluster] = useActionState<KeywordState>(clusterKeywordsAction.bind(null, domain), {});
   const [sent, send] = useActionState<KeywordState>(sendClustersToCompetitorsAction.bind(null, domain), {});
   const team = audience === 'team';
   return (
@@ -130,11 +106,11 @@ export function KeywordRunButtons({ domain, hasKeywords, hasClusters, audience }
         )}
         {team && hasKeywords && (
           <form action={runCluster}>
-            <Submit label="Fetch everything again" busy="Fetching… (under a minute)" tone="secondary" />
+            <Submit label="Rebuild topics" busy="Checking Google…" tone="secondary" />
           </form>
         )}
         <form action={runResearch}>
-          <Submit label={hasKeywords ? 'Check for new keywords now' : 'Find my keywords now'} busy="Checking… (under a minute)" tone={hasKeywords ? 'secondary' : undefined} />
+          <Submit label={hasKeywords ? 'Check for new keywords now' : 'Find my keywords now'} busy="Checking Google… (about a minute)" tone={hasKeywords ? 'secondary' : undefined} />
         </form>
       </div>
       {[research, cluster, sent].map((s, i) => (
