@@ -83,3 +83,4 @@ export * from './autopilot/quality';
 export * from './autopilot/redirects';
 export * from './autopilot/ai-drafts';
 export * from './autopilot/generate';
+export * from './autopilot/run';

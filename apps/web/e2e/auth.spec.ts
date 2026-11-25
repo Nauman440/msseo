@@ -343,7 +343,7 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('Removed by hand')).toBeVisible();
   const csv = await page.request.get('/api/keywords/summitairhvac.com/csv');
   expect(csv.headers()['content-type']).toContain('text/csv');
-  expect(await csv.text()).toContain('emergency ac repair,removed,Removed by hand');
+  expect(await csv.text()).toContain('emergency ac repair,,removed,Removed by hand');
   // The final keyword research sheet: an .xlsx (zip) the customer can download for their own site only.
   const sheet = await page.request.get('/api/keywords/summitairhvac.com/sheet');
   expect(sheet.headers()['content-type']).toContain('spreadsheetml');
@@ -391,8 +391,17 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('heading', { name: "This month's changes" })).toBeVisible();
   await expect(page.getByText('Month 1 is open now', { exact: false })).toBeVisible();
   await page.waitForLoadState('networkidle');
+  // The WordPress autopilot card asks for a connected site before it can start.
+  await expect(page.getByRole('heading', { name: 'Make this month’s changes on your website' })).toBeVisible();
+  await expect(page.getByText('Connect your WordPress website first', { exact: false })).toBeVisible();
+  // Marking a task done moves it from "To do" to "Done".
+  const todoTab = page.getByRole('navigation', { name: 'Tasks' }).getByRole('link', { name: /To do/ });
+  const todoBefore = Number((await todoTab.innerText()).replace(/\D+/g, ''));
   await page.locator('select[name="status"]').first().selectOption('done');
-  await expect(page.getByText('Marked done. We will check the results after 7, 14 and 28 days.')).toBeVisible();
+  await expect(todoTab).toContainText(String(todoBefore - 1));
+  await page.getByRole('navigation', { name: 'Tasks' }).getByRole('link', { name: /Done/ }).click();
+  await expect(page.getByRole('heading', { name: 'Changes already made' })).toBeVisible();
+  await expect(page.locator('select[name="status"]').first()).toHaveValue('done');
   const plan = await page.request.get('/api/action-plan/summitairhvac.com/csv');
   expect(plan.headers()['content-type']).toContain('text/csv');
   expect(await plan.text()).toContain('priority,title,severity');

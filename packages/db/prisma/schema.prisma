@@ -306,3 +306,16 @@ model SiteInventory {
   @@id([accountId, domain])
   @@index([domain])
 }
+
+/// WordPress autopilot: per account and website, the work items (exact changes) and the runs that
+/// applied them (see @seo/core WorkItem, RunSummary).
+model WpAutopilot {
+  accountId String
+  domain    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([accountId, domain])
+  @@index([domain])
+}

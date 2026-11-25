@@ -16,6 +16,7 @@ export * from './analysis';
 export * from './connections';
 export * from './inventory';
 export * from './wp-inventory';
+export * from './autopilot-site';
 export * from './site-documents';
 export * from './aeo-weekly';
 export * from './google-access';

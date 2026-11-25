@@ -7,6 +7,8 @@ import { Container, SectionHeader } from '@/components/landing/primitives';
 import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard';
 import { SiteInventoryCard } from '@/components/connections/SiteInventoryCard';
 import { inventoryFor } from '@/lib/inventory';
+import { ImplementPlan } from '@/components/autopilot/ImplementPlan';
+import { autopilotBlocker, autopilotRunning, getAutopilot } from '@/lib/autopilot-wp';
 import { getActions, planContext } from '@/lib/actions';
 import { aiPlanAvailable, regenerateEnabled } from '@/lib/ai-plan';
 import { connectionsReady, getConnection, shopifyApp, viewOf } from '@/lib/connections';
@@ -25,7 +27,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
-  const [ws, ctx, conn, q, regenerate, inv] = await Promise.all([getActions(domain), planContext(domain), getConnection(domain), searchParams, regenerateEnabled(), inventoryFor(domain)]);
+  const [ws, ctx, conn, q, regenerate, inv, auto, blocker] = await Promise.all([getActions(domain), planContext(domain), getConnection(domain), searchParams, regenerateEnabled(), inventoryFor(domain), getAutopilot(domain), autopilotBlocker(domain)]);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">
@@ -38,6 +40,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
       </div>
       {q.error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{q.error}</p>}
       {q.connected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm font-semibold text-pass-text">{q.connected === 'shopify' ? 'Shopify' : 'WordPress'} is connected.</p>}
+      {ws.actions.length > 0 && <ImplementPlan domain={domain} state={auto} blocker={blocker} running={autopilotRunning(domain)} connectHref="#site-connection" audience="team" />}
       <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="team" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref="#site-connection" ai={{ available: aiPlanAvailable(), preparing: false, disabledReason: null, regenerate, status: ws.aiPlanStatus ?? null }} />
       <SiteConnectionCard domain={domain} connection={viewOf(conn)} back={`/action-plan/${domain}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="team" />
       {conn && <SiteInventoryCard domain={domain} connection={viewOf(conn)!} inventory={inv.inventory} refreshing={inv.refreshing} audience="team" />}

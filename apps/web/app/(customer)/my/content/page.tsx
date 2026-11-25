@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { ContentView } from '@/components/content/ContentView';
 import { currentPlanMonth, PlanMonths, taskCounts } from '@/components/actions/PlanMonths';
 import { SubTabs } from '@/components/ui/SubTabs';
+import { ImplementPlan } from '@/components/autopilot/ImplementPlan';
+import { autopilotBlocker, autopilotRunning, getAutopilot } from '@/lib/autopilot-wp';
 import { Preparing } from '@/components/customer/Preparing';
 import { SiteFrame } from '@/components/customer/SiteFrame';
 import { autoActionPlan, autoContent } from '@/lib/auto-sections';
@@ -24,10 +26,13 @@ export default async function CustomerContentPage({ searchParams }: Props) {
   const show = tasks === 'done' ? 'done' : 'todo';
   const s = await loadCustomerSite(site);
   const preparing = await autoContent(s.domain, Boolean(s.latestId));
-  const [audit, alt, plan, conn] = await Promise.all([getContent(s.domain), getAltText(s.domain), autoActionPlan(s.domain), getConnection(s.domain)]);
+  const [audit, alt, plan, conn, auto, blocker] = await Promise.all([getContent(s.domain), getAltText(s.domain), autoActionPlan(s.domain), getConnection(s.domain), getAutopilot(s.domain), autopilotBlocker(s.domain)]);
   return (
     <SiteFrame s={s} tab="content">
       {preparing && <Preparing what="your content check and alt-text drafts" />}
+      {plan.ws.actions.length > 0 && (
+        <ImplementPlan domain={s.domain} state={auto} blocker={blocker} running={autopilotRunning(s.domain)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} audience="customer" />
+      )}
       {plan.ws.actions.length > 0 && (() => {
         const counts = taskCounts(plan.ws);
         const href = (t: string) => `/my/content?site=${encodeURIComponent(s.domain)}${t === 'done' ? '&tasks=done' : ''}`;
