@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
-  addPrompt, editPrompt, generatePrompts, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
+  addPrompt, editPrompt, generatePrompts, seedsKey, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
 import { customerAudits } from '@/lib/customer-data';
@@ -125,7 +125,7 @@ export async function generatePromptsAction(rawDomain: string): Promise<KeywordS
   if (!(await allowed(customer, `keywords-prompts:${domain}`, 2))) return { error: 'Questions can be written twice a day.' };
   const openai = providerConfig().env?.openai;
   const r = await generatePrompts(openai ? createOpenAiClient(openai) : null, ws.seeds, domain, { businessType: ws.businessType, country: ws.country });
-  await saveKeywordWorkspace({ ...ws, prompts: mergePrompts(ws.prompts, r.prompts), promptsAt: new Date().toISOString() });
+  await saveKeywordWorkspace({ ...ws, prompts: mergePrompts(ws.prompts, r.prompts), promptsAt: new Date().toISOString(), promptsSeeds: seedsKey(ws) });
   await logUsage('openai', r.tokens);
   pathsFor(domain);
   return { ok: `${r.prompts.length} questions written${r.usedAi ? '' : ' from templates'}.` };

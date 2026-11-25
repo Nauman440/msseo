@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  AEO_ESTIMATE_USD, analysisTargets, COUNTRY_ISO, createAiClient, createAnalysisClient, createOpenAiClient, dataforseoBalance, emptyAeo, fetchPageContents, fetchRobotsTxt, historyPoint, normDomain, runAeoAudit,
+  AEO_ESTIMATE_USD, analysisTargets, siteQuestions, COUNTRY_ISO, createAiClient, createAnalysisClient, createOpenAiClient, dataforseoBalance, emptyAeo, fetchPageContents, fetchRobotsTxt, historyPoint, normDomain, runAeoAudit,
   type AeoWorkspace, type Brand,
 } from '@seo/core';
 import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
@@ -36,7 +36,7 @@ export async function runAeo(rawDomain: string, by: 'team' | 'customer'): Promis
   const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
   const name = local?.profile?.title || siteProfile(account, domain).businessName;
   const brands: Brand[] = [{ domain, name, you: true }, ...analysisTargets(competitors).map((c) => ({ domain: c.domain, name: c.name, you: false }))];
-  const questions = keywords.prompts.filter((p) => p.tracked !== false).map((p) => p.text);
+  const questions = siteQuestions(keywords, 100).questions;
   const locale = { country: competitors.country, language: competitors.language };
   let calls = 0;
   const log = (e: { provider: string }) => void (e.provider === 'dataforseo' && calls++);

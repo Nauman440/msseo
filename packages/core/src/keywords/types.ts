@@ -101,6 +101,8 @@ export type KeywordWorkspace = {
   lastRunAt: string | null;
   clusteredAt: string | null;
   promptsAt: string | null;
+  /** The research inputs the AI questions were written from (`seedsKey`); new inputs mean new questions. */
+  promptsSeeds?: string;
   /** Autopilot (customers): when competitors → keywords → page plan last ran by itself, its cost and any problem. */
   autopilot?: { lastRunAt: string; costUsd: number; steps: string[]; error: string | null };
   /** "People also ask" questions from Google for the checked keywords: ready-made FAQ material. */

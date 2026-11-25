@@ -10,6 +10,7 @@ import type { RankedKeyword } from '../providers/dataforseo-keywords';
 import { cdnOf } from '../audit/rules-site';
 import { answerFormat, missingEntities, missingTopics, pageDetails, topPagesFrom, type PageDetails, type TopPage } from './extras';
 import type { OpenAiClient } from '../providers/openai';
+import { siteQuestions } from '../actions/plan-guard';
 
 /**
  * Module 6 · Deep competitor analysis (spec §16.2): the client's site against its shortlist.
@@ -178,7 +179,7 @@ export async function runCompetitorAnalysis(
   const names = new Map<string, string | null>([[domain, input.businessName ?? null], ...targets.map((c) => [c.domain, c.name] as [string, string | null])]);
   const domains = [domain, ...targets.map((c) => c.domain)];
   const searches = ws.searches.slice(0, ANALYSIS_LIMITS.searches);
-  const questions = kw.prompts.filter((p) => p.tracked !== false).slice(0, ANALYSIS_LIMITS.questions).map((p) => p.text);
+  const questions = siteQuestions(kw, ANALYSIS_LIMITS.questions).questions;
   const notes: string[] = [];
   let cost = 0;
   const owner = (host: string) => domains.find((d) => belongs(host, d)) ?? null;

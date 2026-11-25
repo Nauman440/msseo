@@ -1,4 +1,4 @@
-import { analysisTargets, COUNTRY_ISO, createAiClient, createAnalysisClient, dataforseoBalance, emptyAeo, historyPoint, providerConfig, trackQuestions, type AeoWorkspace, type Brand } from '@seo/core';
+import { analysisTargets, siteQuestions, COUNTRY_ISO, createAiClient, createAnalysisClient, dataforseoBalance, emptyAeo, historyPoint, providerConfig, trackQuestions, type AeoWorkspace, type Brand } from '@seo/core';
 import { autopilotSpentThisMonth } from './autopilot';
 import { prisma } from './client';
 import { getCompetitorWorkspace } from './competitors';
@@ -40,7 +40,7 @@ export async function runWeeklyAiTracking(now = new Date(), log?: (m: Record<str
       const domain = hostOf(url);
       if (!domain) continue;
       const [kw, competitors, saved] = await Promise.all([getKeywordWorkspace(domain).catch(() => null), getCompetitorWorkspace(domain).catch(() => null), getSiteDocument<AeoWorkspace>('aeo', domain).catch(() => null)]);
-      const questions = (kw?.prompts ?? []).filter((p) => p.tracked !== false).map((p) => p.text).slice(0, 10);
+      const questions = kw ? siteQuestions(kw, 10).questions : [];
       if (!questions.length || !competitors) continue;
       const ws = saved ?? emptyAeo(domain);
       const last = ws.history[ws.history.length - 1]?.date;
