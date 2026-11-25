@@ -190,6 +190,9 @@ export function platformOf(report: ReportModel | null, connected?: 'shopify' | '
 
 /** What the tool can change on the site without code, for "What the software can do without code". */
 export function softwareCan(platform: PlanPlatform, connected: boolean): string {
+  return `${softwareCanBase(platform, connected)}. Visible breadcrumbs need theme code: only breadcrumb markup (BreadcrumbList JSON-LD) can be added, so write "breadcrumb markup"`;
+}
+function softwareCanBase(platform: PlanPlatform, connected: boolean): string {
   if (connected && platform === 'Shopify') return 'edit SEO titles and meta descriptions, page and product titles (H1), 301 redirects and new pages as drafts through the Shopify connection; alt text, schema through an app embed, page and product content and hiding pages from search are done by the team in the Shopify admin';
   if (connected && platform === 'WordPress') return 'edit SEO titles and meta descriptions (through the SEO plugin), page titles (H1), 301 redirects and new pages as drafts through the MS SCORE Connector plugin; alt text, schema, page content and hiding pages from search are done by the team in the WordPress editor';
   return 'the website is not connected yet: software drafts titles, metas, H1s, alt text, schema (JSON-LD for an app embed or plugin) and redirects, and the team or the client applies them in the CMS editor';

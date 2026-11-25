@@ -91,6 +91,10 @@ export async function rewriteAiPlan(domain: string, opts: { fresh?: boolean } = 
       {
         domain, tier: who.tier, capacity: capacityFor(settings, who.tier), keywords, mapping, report: ctx.report, country: keywords.country, priorities: who.priorities, start: now, connected: connection?.platform ?? null,
         extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
+        sources: [
+          { label: 'backlinks', domain: backlinks?.domain }, { label: 'local audit', domain: local?.domain }, { label: 'AI search', domain: aeo?.domain },
+          { label: 'content audit', domain: content?.domain }, { label: 'competitors', domain: competitors?.domain },
+        ],
       },
       { newId: randomUUID, now, report: ctx.report, gsc: ctx.gsc, fresh: opts.fresh, altDrafts, onProgress: (step) => setStatus(domain, { state: 'writing', step, startedAt }) },
     );

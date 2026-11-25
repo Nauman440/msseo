@@ -7,7 +7,7 @@ const page = (path: string, o: Record<string, unknown> = {}) => ({
   openGraph: { title: true, description: true, image: true }, ...o,
 });
 const report = {
-  id: 'audit-1', overall: { score: 71 }, pagesCrawled: 4,
+  id: 'audit-1', project: { name: 'PetBox', domain: 'petbox.co.uk' }, overall: { score: 71 }, pagesCrawled: 4,
   robots: { found: true, rows: [], suggested: '' },
   sitemap: { found: true, url: 'https://petbox.co.uk/sitemap.xml', rows: [], segments: [{ label: 'valid', value: 3, tone: 'pass' }] },
   issues: [
@@ -61,6 +61,8 @@ function fakeClient() {
         cut = false;
         throw new OpenAiCutOffError('max_output_tokens');
       }
+      // The second try for drafts that failed the checks: nothing better, so they stay for review.
+      if (req.name === 'page_meta_fix') return { data: { rows: (JSON.parse(req.user) as { rows: { url: string }[] }).rows.map((r) => ({ url: r.url, title: 'keep', description: 'keep' })) }, tokens: 50, model: 'fake' };
       return { data: structuredClone(answer), tokens: 500, model: 'fake' };
     },
   } as unknown as OpenAiClient;
@@ -82,8 +84,8 @@ describe('6-month plan in one call (plan prompt)', () => {
       { newId: () => `id${++n}`, now: new Date('2026-12-01T00:00:00Z'), report, onProgress: (s) => void steps.push(s) },
     );
     // One prompt; the cut-off answer is asked again with double the output limit.
-    expect(calls.map((c) => c.name)).toEqual(['six_month_plan', 'six_month_plan']);
-    expect(calls.map((c) => c.maxOutputTokens)).toEqual([32_000, 64_000]);
+    expect(calls.map((c) => c.name)).toEqual(['six_month_plan', 'six_month_plan', 'page_meta_fix']);
+    expect(calls.slice(0, 2).map((c) => c.maxOutputTokens)).toEqual([32_000, 64_000]);
     const { system, user } = calls[0]!;
     expect(system).toContain(PLAN_PROMPT_RULES);
     expect(system).toContain('Aim for 20 tasks a month');
@@ -131,6 +133,8 @@ describe('6-month plan in one call (plan prompt)', () => {
     expect(metaBatch.urls).toContain('https://petbox.co.uk/about/');
     expect(tasks.flatMap((a) => a.changes ?? []).some((c) => /Should be ignored/.test(c.suggested))).toBe(false);
     expect(planFile(workspace, 'page_meta.csv')).toContain('Natural Dog Chews for Healthy Teeth');
+    // Current text that breaks the rules with no passing draft stays as it is, flagged for a person.
+    expect(plan.metaReview).toEqual(expect.arrayContaining([expect.objectContaining({ url: 'https://petbox.co.uk/products/chews/', field: 'description' }), expect.objectContaining({ url: 'https://petbox.co.uk/about/', field: 'title' })]));
 
     const v = Object.fromEntries(plan.validation!.map((l) => [l.check, l.pass]));
     expect(v['1. Exactly 6 months']).toBe(true);

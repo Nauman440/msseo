@@ -62,8 +62,9 @@ export function planFile(ws: ActionWorkspace, name: PlanFile): string | null {
       return out.filter((l) => l !== '').join('\n').replace(/\n(## )/g, '\n\n$1') + '\n';
     }
     case 'page_meta.csv':
-      return csv(['url', 'new_title', 'title_length', 'new_meta_description', 'meta_length'],
-        (plan.pageMeta ?? []).map((r) => [r.url, r.title, /^keep$/i.test(r.title) ? '' : r.title.length, r.description, /^keep$/i.test(r.description) ? '' : r.description.length]));
+      return csv(['url', 'new_title', 'title_length', 'new_meta_description', 'meta_length', 'needs_review'],
+        (plan.pageMeta ?? []).map((r) => [r.url, r.title, /^keep$/i.test(r.title) ? '' : r.title.length, r.description, /^keep$/i.test(r.description) ? '' : r.description.length,
+          (plan.metaReview ?? []).filter((x) => x.url === r.url).map((x) => `${x.field}: ${x.problems.join('; ')}`)]));
     case 'issue_register.csv':
       return csv(
         ['issue_id', 'issue', 'severity', 'affected_url_count', 'example_urls', 'fix', 'scheduled_in'],

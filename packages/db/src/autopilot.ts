@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
-  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
+  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
 import { getActionWorkspace, saveActionWorkspace } from './actions';
@@ -239,10 +239,11 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       steps.push(`keywords: ${keywords.keywords.filter((k) => k.status === 'kept').length}`, `topics: ${keywords.clusters.length}`);
 
       // 5. AI questions, refreshed monthly (only services and places are sent).
-      if (env.openai && (!keywords.promptsAt || now.getTime() - Date.parse(keywords.promptsAt) > AUTOPILOT_EVERY_DAYS * 86_400_000)) {
+      // Rewritten monthly, and whenever the research inputs changed (so questions never outlive the inputs they came from).
+      if (env.openai && (!keywords.promptsAt || keywords.promptsSeeds !== seedsKey(keywords) || now.getTime() - Date.parse(keywords.promptsAt) > AUTOPILOT_EVERY_DAYS * 86_400_000)) {
         const p = await generatePrompts(createOpenAiClient(env.openai), keywords.seeds, domain, { businessType: keywords.businessType, country: keywords.country });
         tokens += p.tokens;
-        keywords = { ...keywords, prompts: mergePrompts(keywords.prompts, p.prompts), promptsAt: now.toISOString() };
+        keywords = { ...keywords, prompts: mergePrompts(keywords.prompts, p.prompts), promptsAt: now.toISOString(), promptsSeeds: seedsKey(keywords) };
         steps.push(`AI questions: ${p.prompts.length}`);
       }
 
@@ -279,7 +280,12 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
               {
                 domain, tier, capacity: capacityFor(await getSettings(), tier), keywords, mapping: plan, report: latest.report, country: keywords.country,
                 priorities: site.primary ? site.services.slice(0, 5) : [], start: now,
-                connected: (await getSiteConnection(domain).catch(() => null))?.platform ?? null, extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
+                connected: (await getSiteConnection(domain).catch(() => null))?.platform ?? null,
+                sources: [
+                  { label: 'backlinks', domain: backlinks?.domain }, { label: 'local audit', domain: local?.domain }, { label: 'AI search', domain: aeo?.domain },
+                  { label: 'content audit', domain: content?.domain }, { label: 'competitors', domain: competitors.domain },
+                ],
+                extras: { ...planExtrasFrom({ gsc: gscRows.length ? gscRows : null, backlinks, local, aeo, content }), competitors: watched },
               },
               { newId: randomUUID, now, report: latest.report, gsc: null, altDrafts },
             );

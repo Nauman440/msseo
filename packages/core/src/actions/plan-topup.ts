@@ -190,7 +190,7 @@ export function topUpCandidates(args: { report: ReportModel | null; extras?: Pla
     out.push({
       earliest: i.severity === 'critical' || i.severity === 'high' ? 1 : 2,
       task: task({
-        title: i.title.client, urls: i.urls.slice(0, 20), category: categoryOf(i.ruleId), week: 2,
+        title: i.title.client, urls: i.urls.slice(0, 20), category: categoryOf(i.ruleId), week: 2, issue_ids: [i.ruleId],
         why: i.message.client, change: i.fix.client,
         impact: i.ice.impact, confidence: i.ice.confidence, effort: i.ice.effort,
         success_check: 'The next audit shows this check passing.', check_after_days: 14,

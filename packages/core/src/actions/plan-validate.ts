@@ -2,6 +2,7 @@ import type { AiPlan, AiPlanTask, PlanCapacity, TaskCategory } from './ai-plan';
 import type { CleanupItem, CleanupPage } from './cleanup';
 import type { NeedsDeveloper, PlanIssue } from './plan-prompt';
 import type { TopUpCandidate } from './plan-topup';
+import { isAiCheck, sameWork } from './plan-dedupe';
 
 /**
  * The plan prompt's RULES 1–10, in code: repairs what can be repaired from the site's own findings
@@ -127,8 +128,10 @@ export function repairPlan(all: MonthTask[], ctx: RepairContext): string[] {
   const pool = ctx.extra
     .filter((c) => !keyOf(c.task).some((k) => used.has(k)))
     .sort((a, b) => priorityOf(b.task.impact, b.task.confidence, b.task.effort) - priorityOf(a.task.impact, a.task.confidence, a.task.effort));
+  // A finding the plan already covers (same issue, or the same work on the same pages) is never added again.
+  const covered = (c: TopUpCandidate) => c.task.issue_ids.some((i) => done.has(i)) || all.some((t) => sameWork(t, c.task));
   const pull = (m: number, of?: TaskCategory[]): AiPlanTask | null => {
-    const i = pool.findIndex((c) => c.earliest <= m && (c.only === undefined || c.only === m) && (!of || of.includes(c.task.category)) && !keyOf(c.task).some((k) => used.has(k)));
+    const i = pool.findIndex((c) => c.earliest <= m && (c.only === undefined || c.only === m) && (!of || of.includes(c.task.category)) && !keyOf(c.task).some((k) => used.has(k)) && !covered(c));
     if (i < 0) return null;
     const t = pool.splice(i, 1)[0]!.task;
     for (const k of keyOf(t)) used.add(k);
@@ -145,9 +148,8 @@ export function repairPlan(all: MonthTask[], ctx: RepairContext): string[] {
     return n;
   };
   let topped = 0;
-  const retest = /\b(baseline|re-?test)\b/i;
   for (let m = 1; m <= 6; m++) {
-    if (!month(m).some((t) => t.category === 'ai_visibility' && retest.test(t.title))) {
+    if (!month(m).some(isAiCheck)) {
       all.push({ ...aiRetestTask(m, ctx.questions), id: `${m}.retest`, month: m });
       topped++;
     }
@@ -179,7 +181,7 @@ export function fixDependencies(plan: AiPlan): number {
   return dropped;
 }
 
-export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeveloper: NeedsDeveloper[]; pages: CleanupPage[]; capacity: PlanCapacity; banned: string[]; pageMeta?: { url: string; title: string; description: string }[]; listedUrls?: string[] }): ValidationLine[] {
+export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeveloper: NeedsDeveloper[]; pages: CleanupPage[]; capacity: PlanCapacity; banned: string[]; pageMeta?: { url: string; title: string; description: string }[]; listedUrls?: string[]; metaReview?: { url: string; field: string }[] }): ValidationLine[] {
   const lines: ValidationLine[] = [];
   const add = (check: string, pass: boolean, detail: string) => lines.push({ check, pass, detail });
   const tasks = plan.months.flatMap((m) => m.tasks.map((t) => ({ ...t, month: m.month })));
@@ -239,7 +241,7 @@ export function validatePlan(plan: AiPlan, ctx: { issues: PlanIssue[]; needsDeve
     const dup = (vals: string[]) => vals.length - new Set(vals.map((v) => v.toLowerCase())).size;
     const dups = dup(rows.filter((r) => !keep(r.title)).map((r) => r.title)) + dup(rows.filter((r) => !keep(r.description)).map((r) => r.description));
     add('11. Month 1: a new title (50–60) and description (140–155) for every page', !missing && !badTitle.length && !badMeta.length && !dups,
-      `${rows.length} of ${ctx.listedUrls.length} pages; ${rows.filter((r) => !keep(r.title)).length} new titles, ${rows.filter((r) => !keep(r.description)).length} new descriptions; out of range: ${badTitle.length} titles, ${badMeta.length} descriptions; duplicates: ${dups}`);
+      `${rows.length} of ${ctx.listedUrls.length} pages; ${rows.filter((r) => !keep(r.title)).length} new titles, ${rows.filter((r) => !keep(r.description)).length} new descriptions; out of range: ${badTitle.length} titles, ${badMeta.length} descriptions; duplicates: ${dups}; for review: ${ctx.metaReview?.length ?? 0}`);
   }
   return lines;
 }

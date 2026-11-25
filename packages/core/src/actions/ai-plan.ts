@@ -3,6 +3,9 @@ import { dedupeKey, normTerm } from '../keywords/clean';
 import type { KeywordWorkspace } from '../keywords/types';
 import type { MappingWorkspace } from '../mapping/mapping';
 import type { OpenAiClient } from '../providers/openai';
+import { assertSameSite, siteQuestions } from './plan-guard';
+import { settlePageMeta, type MetaPage, type MetaReview } from './plan-meta';
+import { tidyPlanTasks } from './plan-dedupe';
 import { aiVisibilityBlock, askForPlan, auditIssues, businessBlock, isKeep, keywordsBlock, normPlanUrl, offpageBlock, pagesBlock, planPrompt, platformOf, siteCheck, softwareCan, titleSuffix, toAiPlan, type NeedsDeveloper, type PlanIssue, type PlanPlatform } from './plan-prompt';
 import { BLOCKER_TASK, fixDependencies, MIN_TASKS, repairPlan, validatePlan, type RepairContext, type ValidationLine } from './plan-validate';
 import type { ReportModel } from '../types';
@@ -184,6 +187,8 @@ export function buildPlanInput(args: {
   extras?: PlanExtras;
   /** The site connection (§16.5), when there is one. */
   connected?: 'shopify' | 'wordpress' | null;
+  /** Saved results the extras were built from, with the website each belongs to (checked by `assertSameSite`). */
+  sources?: { label: string; domain: string | null | undefined }[];
 }): PlanInput {
   const kw = args.keywords;
   const kind = businessKindOf(kw);
@@ -236,7 +241,7 @@ export function buildPlanInput(args: {
       competitor_gaps: [...gap].slice(0, 5).map(([domain, terms]) => ({ competitor: domain, keywords_they_rank_for_and_we_do_not: terms.slice(0, 15) })),
       content_audit: args.extras?.content ?? 'not run yet: plan content optimisation from the crawl, positions and page plan',
       ai_search: args.extras?.aiSearch ?? 'not checked yet: plan crawler access, entity signals and answer-ready content from the crawl',
-      ai_questions: kw.prompts.filter((q) => q.tracked !== false).slice(0, 30).map((q) => q.text),
+      ai_questions: siteQuestions(kw).questions,
       people_also_ask: (kw.questions ?? []).slice(0, 40).map((q) => ({ question: q.text, keyword: q.keyword })),
       backlinks: args.extras?.backlinks ?? 'not checked',
       business_profile: args.extras?.local ?? (kind === 'ecommerce' ? 'not relevant' : 'not checked'),
@@ -346,9 +351,12 @@ export function checkPlan(
   const deferred = fits.length - kept.length;
   if (deferred) notes.push(`${deferred} task(s) moved to "later" to stay within the monthly capacity.`);
   if (repair) {
+    // Duplicates and impossible order are cleaned before the gaps are filled, and again after (plan-dedupe.ts).
+    tidyPlanTasks(kept, notes);
     notes.push(...repairPlan(kept, { ...repair, target: Math.max(MIN_TASKS, business.capacity.minTasks ?? 0), extra: topUp }));
     // Rule 4: blockers, broken links, redirects, sitemap and tracking in month 1, weeks 1–2.
     moveBlockers(kept, notes, BLOCKER_TASK);
+    tidyPlanTasks(kept, notes);
   } else {
     fillMonths(kept, business.capacity.minTasks ?? 0, topUp, notes);
   }
@@ -500,6 +508,8 @@ export type StoredAiPlan = Omit<AiPlan, 'months'> & {
   needsDeveloper?: NeedsDeveloper[];
   /** Rule 11: the new title and description per page, as the model wrote them. */
   pageMeta?: { url: string; title: string; description: string }[];
+  /** Pages whose title or description stayed as it is because no draft passed the rules: for a person to review. */
+  metaReview?: MetaReview[];
   /** RULES 1–11 checked in code. */
   validation?: ValidationLine[];
   platform?: PlanPlatform;
@@ -663,6 +673,21 @@ export async function writeAiPlan(
     onProgress?: (step: string) => void | Promise<void>;
   },
 ): Promise<{ workspace: ActionWorkspace; tokens: number }> {
+  // Every input must belong to this website: a plan is never built from another site's data.
+  assertSameSite(args.domain, [
+    { label: 'action plan', domain: ws.domain },
+    { label: 'keyword research', domain: args.keywords.domain },
+    { label: 'page plan', domain: args.mapping?.domain },
+    { label: 'audit', domain: args.report?.project?.domain },
+    ...(args.sources ?? []),
+  ]);
+  const own = siteQuestions(args.keywords, 100);
+  const ownSet = new Set(own.questions);
+  if (args.extras?.aiSearch) {
+    // AI search answers to questions that are not this website's (left in its workspace by an older run) are left out.
+    const ai = args.extras.aiSearch;
+    args = { ...args, extras: { ...args.extras, aiSearch: { ...ai, answers: ai.answers?.filter((a) => ownSet.has(a.question)), questions_where_you_are_not_named: ai.questions_where_you_are_not_named.filter((q) => ownSet.has(q)) } } };
+  }
   const input = buildPlanInput(args);
   const b = input.business;
   const pages = input.data.site_wide_pages as CleanupPage[];
@@ -689,15 +714,23 @@ export async function writeAiPlan(
   }));
   raw.removed_keywords = args.keywords.keywords.filter((k) => k.status === 'removed').sort((x, y) => (y.volume ?? 0) - (x.volume ?? 0)).slice(0, 30).map((k) => ({ keyword: k.term, reason: k.removeReason ?? 'removed' }));
   const needsDeveloper = [...asked.answer.needs_developer];
-  const pageMeta = pageMetaRows(asked.answer.page_meta, listed.urls);
+  // Drafted titles and descriptions are checked in code; good current text is kept, failing drafts are
+  // re-asked once and otherwise kept as they are and flagged for review (plan-meta.ts).
+  const rawPages = new Map((args.report?.pages ?? []).map((p) => [normPlanUrl(p.url), p]));
+  const mainKw = new Map((args.mapping?.rows ?? []).filter((r) => r.url && r.primaryKeyword).map((r) => [normPlanUrl(r.url!), r.primaryKeyword]));
+  const metaPages = new Map<string, MetaPage>(listed.urls.map((u) => [u, { url: u, title: rawPages.get(normPlanUrl(u))?.title ?? null, description: rawPages.get(normPlanUrl(u))?.description ?? null, mainKeyword: mainKw.get(normPlanUrl(u)) ?? null }]));
+  const settled = await settlePageMeta(client, pageMetaRows(asked.answer.page_meta, listed.urls), metaPages, { suffix: titleSuffix(args.report?.pages ?? []), brand: args.domain.replace(/^www\./, '').split('.')[0] ?? null });
+  const pageMeta = settled.rows;
   ensureMetaBatches(raw, pageMeta, pages);
   const topUp = topUpCandidates({ report: args.report, extras: args.extras, prompts: questions, domain: args.domain, kind: b.businessType });
   const checked = checkPlan(raw, b, pages, topUp, { issues, needsDeveloper, questions: questions.length });
-  const validation = validatePlan(checked.plan, { issues, needsDeveloper, pages, capacity: b.capacity, banned: b.bannedWords ?? [], pageMeta, listedUrls: listed.urls });
+  if (settled.kept || settled.review.length || settled.fixed) checked.notes.unshift(`Titles and descriptions: ${settled.kept} good current one(s) kept instead of a draft, ${settled.fixed} draft(s) fixed on a second try, ${settled.review.length} left as they are for a person to review.`);
+  if (own.dropped.length) checked.notes.unshift(`Left out ${own.dropped.length} AI question(s) that are not about this website (e.g. "${own.dropped[0]}").`);
+  const validation = validatePlan(checked.plan, { issues, needsDeveloper, pages, capacity: b.capacity, banned: b.bannedWords ?? [], pageMeta, listedUrls: listed.urls, metaReview: settled.review });
   const workspace = applyAiPlan(ws, checked, { model: asked.model, tokens: asked.tokens, business: b }, ctx);
-  workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform, pageMeta };
+  workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform, pageMeta, metaReview: settled.review };
   attachPageMeta(workspace, pageMeta, args.report, pages);
-  return { workspace, tokens: asked.tokens };
+  return { workspace, tokens: asked.tokens + settled.tokens };
 }
 
 // ---- Rule 11: a new title and description for every page -------------------------------------
