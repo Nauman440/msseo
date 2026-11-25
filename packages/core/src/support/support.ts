@@ -24,8 +24,6 @@ export const SUPPORT_PAGES = {
   content: { label: 'Content', path: '/my/content', site: true },
   local: { label: 'Local', path: '/my/local', site: true },
   backlinks: { label: 'Backlinks', path: '/my/backlinks', site: true },
-  ai_search: { label: 'AI search', path: '/my/ai-search', site: true },
-  tracking: { label: 'Tracking', path: '/my/tracking', site: true },
   monitoring: { label: 'Monitoring', path: '/my/monitor', site: true },
   alerts: { label: 'Alerts', path: '/my/alerts', site: false },
   websites: { label: 'Manage websites', path: '/my/sites', site: false },

@@ -211,13 +211,14 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Before Google is connected: the connect card, locked tabs, and the audit that is available now.
   await expect(page.getByRole('heading', { name: 'Connect Google to unlock your dashboard' })).toBeVisible();
   await expect(page.getByText('Connecting Google is not switched on yet', { exact: false }).first()).toBeVisible(); // no Google client in e2e
-  await expect(page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: /Weekly plan/ })).toHaveAttribute('href', /\/my\/connections\?site=summitairhvac\.com/);
+  await expect(page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: /Rankings/ })).toHaveAttribute('href', /\/my\/connections\?site=summitairhvac\.com/);
+  await expect(page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: /Weekly plan|Tracking|AI search/ })).toHaveCount(0);
   await page.getByRole('link', { name: /See all \d+ issues/ }).click();
   // The reports page adds the website it belongs to (?site=).
   await expect(page).toHaveURL(new RegExp(`/my/reports/${id}(\\?site=[^&]+)?$`));
   await expect(page.getByRole('link', { name: 'Download .md' })).toBeVisible();
   // Locked tabs lead to Connections; the Google sign-in says it is not available on this server.
-  await page.goto('/my/plan');
+  await page.goto('/my/rankings');
   await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com$/);
   await page.goto('/api/google/connect?site=summitairhvac.com');
   await expect(page).toHaveURL(/\/my\/connections\?site=summitairhvac\.com&error=/);
@@ -427,8 +428,8 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');
 
-  // Modules 7 and 10 for customers: Content and AI search tabs (no Google, DataForSEO unreachable).
-  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Content', exact: true }).click();
+  // Module 7 for customers: the Changes tab (no Google, DataForSEO unreachable).
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Changes', exact: true }).click();
   await expect(page.getByText('Not checked yet')).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Check content' }).click();
@@ -440,25 +441,16 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   const brief = await page.request.get('/api/content/summitairhvac.com/brief');
   expect(await brief.text()).toContain('# Content brief');
   expect((await page.request.get('/api/content/rival-hvac.com/brief')).status()).toBe(404);
-  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'AI search' }).click();
-  await expect(page.getByText('Not checked yet')).toBeVisible();
-  await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Check AI search' }).click();
-  // The page may already have prepared the check by itself (then the button answers with the weekly limit).
-  await expect(page.getByText(/answers checked|Tick questions under|did not finish|questions are ticked under|run this once a week/).first()).toBeVisible({ timeout: 60_000 });
+  // The AI search, Tracking and Weekly plan tabs were removed: their old addresses land on the overview.
+  for (const old of ['/my/ai-search', '/my/tracking', '/my/plan']) {
+    await page.goto(old);
+    await expect(page).toHaveURL(/\/my(\?site=[^&]+)?$/);
+  }
   await page.goto('/ai-search/summitairhvac.com');
   await expect(page).toHaveURL(/\/my$/);
   await page.goto('/my/actions');
 
-  // Modules 11 and 13 for customers: Tracking and Monitoring tabs, Alerts in the sidebar, the monthly report.
-  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Tracking' }).click();
-  await expect(page.getByRole('heading', { name: 'Lead quality' })).toBeVisible();
-  await page.waitForLoadState('networkidle');
-  await page.getByLabel('Where leads are recorded (CRM or job software)').fill('Jobber');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('Saved.')).toBeVisible();
-  await page.getByRole('button', { name: 'Check tracking' }).click();
-  await expect(page.getByText(/points need attention|points look good|did not finish/)).toBeVisible({ timeout: 60_000 });
+  // Module 13 for customers: Monitoring tab, Alerts in the sidebar, the monthly report.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Monitoring' }).click();
   await expect(page.getByRole('heading', { name: 'Rankings for the searches that matter' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Run checks now' })).toHaveCount(0);

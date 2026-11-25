@@ -40,7 +40,7 @@ export default async function CustomerDashboard({ searchParams }: Props) {
               </p>
             )}
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.6fr_1fr]">
-              <PlanCard rows={data.plan} domain={s.domain} />
+              <PlanCard rows={data.plan} />
               <div className="flex flex-col gap-5">
                 <AlertsCard report={s.latest} latestId={s.latestId} />
                 <ConnectionsCard google={s.google} domain={s.domain} />

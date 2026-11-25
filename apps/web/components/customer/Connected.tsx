@@ -79,7 +79,7 @@ export function PlanTable({ rows, compact = false }: { rows: PlanRow[]; compact?
   );
 }
 
-export function PlanCard({ rows, domain }: { rows: PlanRow[]; domain: string }) {
+export function PlanCard({ rows }: { rows: PlanRow[] }) {
   const monday = new Date();
   monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
   return (
@@ -91,9 +91,6 @@ export function PlanCard({ rows, domain }: { rows: PlanRow[]; domain: string }) 
         <p className="mt-1 text-sm text-ink-2">The five searches closest to page 1, and what to do for each.</p>
       </div>
       <PlanTable rows={rows} compact />
-      <Link href={`/my/plan?site=${encodeURIComponent(domain)}`} className="text-sm font-semibold text-primary-heading underline">
-        Open the weekly plan
-      </Link>
     </section>
   );
 }

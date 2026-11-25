@@ -7,7 +7,7 @@ import { getAltText } from '@/lib/alt-text';
 import { getContent } from '@/lib/content';
 import { loadCustomerSite } from '@/lib/customer-site';
 
-export const metadata: Metadata = { title: 'Content' };
+export const metadata: Metadata = { title: 'Changes' };
 export const dynamic = 'force-dynamic';
 
 type Props = { searchParams: Promise<{ site?: string }> };

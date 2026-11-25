@@ -20,7 +20,7 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, a
   locks?: Partial<Record<SiteTab, { n: number; title: string }>>;
 }) {
   const q = `site=${encodeURIComponent(domain)}`;
-  // In the order of the journey. Weekly plan and Rankings are built from Search Console, so they also wait for Google.
+  // In the order of the journey. Rankings is built from Search Console, so it also waits for Google.
   const tabs: { key: SiteTab | 'settings'; label: string; href?: string; google?: boolean }[] = [
     { key: 'overview', label: 'Overview', href: `/my?${q}` },
     { key: 'issues', label: 'Issues', href: latestId ? `/my/reports/${latestId}?${q}` : undefined },
@@ -28,13 +28,10 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, a
     { key: 'competitors', label: 'Competitors', href: `/my/competitors?${q}` },
     { key: 'keywords', label: 'Keywords', href: `/my/keywords?${q}` },
     { key: 'actions', label: 'Action plan', href: `/my/actions?${q}` },
-    { key: 'content', label: 'Content', href: `/my/content?${q}` },
+    { key: 'content', label: 'Changes', href: `/my/content?${q}` },
     { key: 'local', label: 'Local', href: `/my/local?${q}` },
     { key: 'backlinks', label: 'Backlinks', href: `/my/backlinks?${q}` },
-    { key: 'ai-search', label: 'AI search', href: `/my/ai-search?${q}` },
-    { key: 'tracking', label: 'Tracking', href: `/my/tracking?${q}` },
     { key: 'monitor', label: 'Monitoring', href: `/my/monitor?${q}` },
-    { key: 'plan', label: 'Weekly plan', href: `/my/plan?${q}`, google: true },
     { key: 'rankings', label: 'Rankings', href: `/my/rankings?${q}`, google: true },
     { key: 'reports', label: 'Reports', href: `/my/reports?${q}` },
     { key: 'settings', label: 'Settings', href: '/my/account' },
