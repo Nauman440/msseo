@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { needsApproval } from '@seo/core';
+import { currentPlanMonth, monthOf } from '@/components/actions/PlanMonths';
 import { ApproveButton } from '@/components/actions/forms';
 import { accountSites, domainOf, getAccountByUserId } from '@/lib/accounts';
 import { getActions } from '@/lib/actions';
@@ -18,7 +19,8 @@ export default async function ApprovalsPage() {
   if (!account) redirect('/signup');
   if (account.onboardingStep < FINISHED) redirect(stepPath(account.onboardingStep));
   const plans = await Promise.all(accountSites(account).map((w) => getActions(domainOf(w))));
-  const waiting = plans.flatMap((ws) => ws.actions.filter((a) => needsApproval(a, 'client')).map((a) => ({ domain: ws.domain, a })));
+  // Only this month's work can be approved (other months are locked on the Changes tab).
+  const waiting = plans.flatMap((ws) => ws.actions.filter((a) => needsApproval(a, 'client') && monthOf(a) === currentPlanMonth(ws)).map((a) => ({ domain: ws.domain, a })));
   return (
     <>
       <div>

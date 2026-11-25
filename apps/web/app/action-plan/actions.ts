@@ -17,6 +17,7 @@ const pathsFor = (domain: string) => {
   revalidatePath(`/action-plan/${domain}`);
   revalidatePath('/my/actions');
   revalidatePath('/my/approvals');
+  revalidatePath('/my/content');
 };
 
 async function guard(rawDomain: string) {

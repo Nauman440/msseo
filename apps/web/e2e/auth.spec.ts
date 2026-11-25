@@ -379,11 +379,14 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Action plan' }).click();
   // The audit's findings are already a 6-month plan: nothing to click.
   await expect(page.getByRole('heading', { name: '6-month roadmap' })).toBeVisible();
-  // The to-dos sit month by month under the 6-month plan.
-  await expect(page.getByRole('heading', { name: 'Your 6-month plan' })).toBeVisible();
-  // The "Top 10" list and the approval count are for the team only.
+  // The "Top 10" list, the approval count and the month-by-month to-dos are not on the customer's action plan.
   await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toHaveCount(0);
   await expect(page.getByText('Waiting for approval', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your 6-month plan' })).toHaveCount(0);
+  // The to-dos live on the Changes tab: only this month is open, the others are locked.
+  await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Changes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: "This month's changes" })).toBeVisible();
+  await expect(page.getByText('Month 1 is open now', { exact: false })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.locator('select[name="status"]').first().selectOption('done');
   await expect(page.getByText('Marked done. We will check the results after 7, 14 and 28 days.')).toBeVisible();
