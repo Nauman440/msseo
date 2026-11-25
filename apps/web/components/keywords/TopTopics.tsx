@@ -22,7 +22,7 @@ function status(c: KeywordCluster): { line: string; todo: string } {
   const lower = c.head.toLowerCase();
   if (c.bestPosition === null || c.bestPosition > 100) return { line: 'Not showing yet', todo: `${PAGE_TO_MAKE[c.pageType]} ${lower}.` };
   if (c.bestPosition <= 3) return { line: `Ranking #${c.bestPosition} · top 3`, todo: 'Keep that page up to date and answer the questions people ask.' };
-  if (c.quickWin) return { line: `Ranking #${c.bestPosition} · quick win`, todo: 'Improve the page that ranks: a clearer title, a short direct answer near the top and links from your other pages.' };
+  if (c.quickWin) return { line: `Ranking #${c.bestPosition} · quick win`, todo: 'Improve the page that ranks: a clearer title, a short direct answer near the top and links from more of your pages.' };
   return { line: `Ranking #${c.bestPosition}`, todo: 'Add the sections the top results cover, such as costs, options and FAQs.' };
 }
 

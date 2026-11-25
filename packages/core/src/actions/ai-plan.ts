@@ -12,6 +12,7 @@ import type { ReportModel } from '../types';
 import type { AeoAudit, AeoWorkspace } from '../aeo/aeo';
 import type { ContentAudit } from '../content/content';
 import { topUpCandidates, type TopUpCandidate } from './plan-topup';
+import { namePlanActions } from './plan-names';
 import { AFTER_CANONICAL, CLEANUP_DOER, CLEANUP_ITEMS, cleanupPages, cleanupTask, NEEDS_APPROVAL, PAGE_GROUPS, SITE_WIDE_ITEMS, weeklyCheckTask, type CleanupItem, type CleanupPage, type PageGroup } from './cleanup';
 import { ACTION_BUCKETS, beforeState, type ActionItem, type ActionWorkspace, type Suggestion } from './actions';
 
@@ -730,6 +731,7 @@ export async function writeAiPlan(
   const workspace = applyAiPlan(ws, checked, { model: asked.model, tokens: asked.tokens, business: b }, ctx);
   workspace.aiPlan = { ...workspace.aiPlan!, issues, needsDeveloper, validation, business: b, platform, pageMeta, metaReview: settled.review };
   attachPageMeta(workspace, pageMeta, args.report, pages);
+  namePlanActions(workspace, { report: args.report, pages, kind: b.businessType, suffix: titleSuffix(args.report?.pages ?? []) });
   return { workspace, tokens: asked.tokens + settled.tokens };
 }
 

@@ -47,6 +47,7 @@ export * from './actions/plan-prompt';
 export * from './actions/plan-guard';
 export * from './actions/plan-meta';
 export * from './actions/plan-dedupe';
+export * from './actions/plan-names';
 export * from './actions/plan-files';
 export * from './analysis/analysis';
 export { analysisDeps, sitemapCount, sitemapUrlList } from './analysis/deps';

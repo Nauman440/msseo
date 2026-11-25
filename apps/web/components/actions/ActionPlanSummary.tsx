@@ -1,4 +1,4 @@
-import { openActions, type ActionWorkspace } from '@seo/core';
+import { openActions, type ActionWorkspace, ownerText } from '@seo/core';
 import { Card } from '@/components/ui/Card';
 import { Roadmap } from './Roadmap';
 
@@ -16,7 +16,7 @@ export function ActionPlanSummary({ ws, now, href, showTop = true }: { ws: Actio
           <ol className="flex list-decimal flex-col gap-2 pl-5 text-[14px] leading-6">
             {top.map((a) => (
               <li key={a.id} className="pl-1">
-                <span className="font-semibold">{a.title}</span>
+                <span className="font-semibold">{ownerText(a.title)}</span>
                 {a.dueDate && <span className="text-ink-3"> · by {new Date(a.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</span>}
               </li>
             ))}

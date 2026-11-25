@@ -37,7 +37,12 @@ export type PlanTaskInfo = {
   area?: string;
   issueIds?: string[];
   recurring?: boolean;
+  /** Bug 8: owner-friendly group(s) of a site-wide batch ("Product pages") and every page with before/after. */
+  groupLabel?: string;
+  pages?: PlanPageRow[];
 };
+/** One page a site-wide task changes, with its name on the site. */
+export type PlanPageRow = { url: string; name: string; before: string; after: string };
 
 export type BeforeState = {
   capturedAt: string;

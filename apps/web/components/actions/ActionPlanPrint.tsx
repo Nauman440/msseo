@@ -1,4 +1,4 @@
-import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace } from '@seo/core';
+import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace, ownerText } from '@seo/core';
 import { CARD } from '@/components/backlinks/Sections';
 import { cn } from '@/lib/tones';
 import { ACTION_STATUS_LABEL, APPROVAL_LABEL, BUCKET_LABEL } from './labels';
@@ -67,9 +67,9 @@ export function ActionPlanPrint({ ws }: { ws: ActionWorkspace }) {
                     <li key={a.id} className="pdf-avoid flex gap-3 border-t border-border py-3 text-sm first:border-t-0">
                       <span className="w-6 shrink-0 font-bold tabular text-ink-3">{i + 1}.</span>
                       <span className="min-w-0 flex-1">
-                        <b className="block">{a.title}</b>
-                        {a.detail && <span className="block text-ink-2">{a.detail}</span>}
-                        {a.plan?.successCheck && <span className="block text-ink-2">How we know it worked: {a.plan.successCheck} (after {a.plan.checkAfterDays} days)</span>}
+                        <b className="block">{ownerText(a.title)}</b>
+                        {a.detail && <span className="block text-ink-2">{ownerText(a.detail)}</span>}
+                        {a.plan?.successCheck && <span className="block text-ink-2">How we know it worked: {ownerText(a.plan.successCheck)} (after {a.plan.checkAfterDays} days)</span>}
                         <span className="mt-1 block text-[12px] text-ink-3">
                           {ACTION_STATUS_LABEL[a.status]} · {SEVERITY[a.severity]} · priority {Math.round(a.priority * 10) / 10}
                           {a.dueDate ? ` · due ${day(a.dueDate)}` : ''} · {APPROVAL_LABEL[a.approval]}

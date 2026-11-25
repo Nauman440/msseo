@@ -129,7 +129,7 @@ export function topUpCandidates(args: { report: ReportModel | null; extras?: Pla
         task: task({
           title: `Make pages answer-ready: ${p.split(':')[0]}`, category: 'ai_visibility', week: 2, impact: 3, effort: 2,
           why: p,
-          change: 'Put a short direct answer near the top of the main pages, with question-style H2s, an FAQ and FAQPage schema.',
+          change: 'Put a short direct answer near the top of the homepage and the most visited pages, with question-style H2s, an FAQ and FAQPage schema.',
           success_check: 'The audit shows this check passing.',
         }),
       });

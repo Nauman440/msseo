@@ -1,4 +1,4 @@
-import { canApply, type ActionItem } from '@seo/core';
+import { canApply, ownerText, type ActionItem } from '@seo/core';
 import { ApplyButton, UndoButton } from '@/components/connections/forms';
 import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
@@ -24,7 +24,8 @@ const DOER: Record<NonNullable<ActionItem['plan']>['doer'], string> = {
   team: 'Done by the SEO team',
   client: 'Done by you',
 };
-const GROUP: Record<string, string> = { money_pages: 'Main pages', products: 'Product pages', collections: 'Collection pages', articles: 'Articles', other: 'Other pages' };
+/** Plans written before 2026-11-25 have no groupLabel: owner-friendly names for their internal groups. */
+const GROUP: Record<string, string> = { products: 'Product pages', collections: 'Shop categories', articles: 'Blog posts' };
 
 /** AI plan tasks: when, who, what changes and how success is checked. */
 function PlanLine({ a }: { a: ActionItem }) {
@@ -35,13 +36,31 @@ function PlanLine({ a }: { a: ActionItem }) {
         <Chip tone="info">Month {p.month}, week {p.week}</Chip>
         <Chip tone={p.doer === 'automatic' || p.doer === 'automatic_no_approval' ? 'pass' : 'info'}>{DOER[p.doer]}</Chip>
         {p.siteWideItem === 'weekly_check' && <Chip tone="info">Every week</Chip>}
-        {p.siteWideItem && p.siteWideItem !== 'weekly_check' && <Chip tone="info">Whole site · {GROUP[p.pageGroup ?? 'other'] ?? 'Other pages'} · {a.urls.length} pages</Chip>}
+        {p.siteWideItem && p.siteWideItem !== 'weekly_check' && <Chip tone="info">{[p.groupLabel ?? GROUP[p.pageGroup ?? ''], `${a.urls.length} ${a.urls.length === 1 ? 'page' : 'pages'}`].filter(Boolean).join(' · ')}</Chip>}
         {p.issueIds && p.issueIds.length > 0 && <span>fixes {p.issueIds.join(', ')}</span>}
         {p.dependsOn.length > 0 && <span>after task {p.dependsOn.join(', ')}</span>}
       </p>
-      {p.change && <p className="[overflow-wrap:anywhere]"><span className="font-semibold">What changes: </span>{p.change}</p>}
-      {p.successCheck && <p className="text-ink-2"><span className="font-semibold text-ink">How we know it worked: </span>{p.successCheck} (checked {p.checkAfterDays} days after the change)</p>}
+      {p.change && <p className="[overflow-wrap:anywhere]"><span className="font-semibold">What changes: </span>{ownerText(p.change)}</p>}
+      {p.successCheck && <p className="text-ink-2"><span className="font-semibold text-ink">How we know it worked: </span>{ownerText(p.successCheck)} (checked {p.checkAfterDays} days after the change)</p>}
       {p.keywords.length > 0 && <p className="text-[12.5px] text-ink-2">Searches: {p.keywords.join(', ')}</p>}
+    </div>
+  );
+}
+
+/** Bug 8: every page a site-wide task changes, by name, with its before and after. */
+function PlanPages({ rows }: { rows: NonNullable<NonNullable<ActionItem['plan']>['pages']> }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-3">{rows.length} {rows.length === 1 ? 'page' : 'pages'} in this task</p>
+      <ul aria-label="Pages in this task" className="flex flex-col divide-y divide-border rounded-[12px] border border-border text-[13px]">
+        {rows.map((r) => (
+          <li key={r.url} className="grid grid-cols-1 gap-1 p-3 sm:grid-cols-[180px_1fr_1fr] sm:gap-3">
+            <span className="min-w-0"><b className="block [overflow-wrap:anywhere]">{r.name}</b><span className="block font-mono text-[11.5px] text-ink-3 [overflow-wrap:anywhere]">{path(r.url)}</span></span>
+            <span className="text-ink-2 [overflow-wrap:anywhere]"><span className="font-semibold">Before: </span>{r.before}</span>
+            <span className="font-semibold text-teal-text [overflow-wrap:anywhere]"><span className="text-ink">After: </span>{r.after}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -55,7 +74,7 @@ export function ActionRow({ domain, action: a, audience, site = null, connectHre
     <li className="flex flex-col gap-3 px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <p className={cn('font-semibold leading-snug', a.status === 'dismissed' && 'text-ink-3 line-through')}>{a.title}</p>
+          <p className={cn('font-semibold leading-snug', a.status === 'dismissed' && 'text-ink-3 line-through')}>{ownerText(a.title)}</p>
           <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2">
             <Chip tone={SEVERITY_TONE[a.severity]}>{SEVERITY_LABEL[a.severity]}</Chip>
             <Chip tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Chip>
@@ -86,8 +105,8 @@ export function ActionRow({ domain, action: a, audience, site = null, connectHre
       <details className="group">
         <summary className="cursor-pointer text-[13px] font-semibold text-primary-text">Details</summary>
         <div className="mt-3 flex flex-col gap-4 text-[14px]">
-          <p className="text-ink-2">{a.detail}</p>
-          {a.urls.length > 0 && (
+          <p className="text-ink-2">{ownerText(a.detail)}</p>
+          {a.plan?.pages && a.plan.pages.length > 0 ? <PlanPages rows={a.plan.pages} /> : a.urls.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
               {a.urls.slice(0, 12).map((u) => (
                 <li key={u} className="rounded-[6px] bg-sunken px-2 py-0.5 font-mono text-[12px] text-ink-2 [overflow-wrap:anywhere]">{path(u)}</li>

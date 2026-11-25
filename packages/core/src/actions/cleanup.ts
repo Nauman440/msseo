@@ -25,7 +25,7 @@ export const AFTER_CANONICAL: SiteWideItem[] = ['meta_title', 'meta_description'
 const ITEM_LABEL: Record<CleanupItem, string> = {
   canonical: 'Canonical tags', meta_title: 'Page titles', meta_description: 'Meta descriptions', h1: 'Main headings (H1)', alt_text: 'Image alt text', schema: 'Schema (Organization, WebSite, BreadcrumbList)', open_graph: 'Open Graph tags (link previews)',
 };
-const GROUP_LABEL: Record<Exclude<PageGroup, 'none'>, string> = { money_pages: 'main pages', products: 'product pages', collections: 'collection pages', articles: 'articles', other: 'other pages' };
+const GROUP_LABEL: Record<Exclude<PageGroup, 'none'>, string> = { money_pages: 'key pages', products: 'product pages', collections: 'shop categories', articles: 'blog posts', other: 'company pages' };
 
 /** One crawled page as the plan sees it for the clean-up (null = not known for older reports). */
 export type CleanupPage = {
@@ -153,6 +153,7 @@ export function cleanupTask(item: CleanupItem, group: Exclude<PageGroup, 'none'>
   return {
     id: `1.cleanup-${item}-${group}`,
     week: CLEANUP_WEEK[item],
+    // Renamed with the pages' own names once the plan is applied (namePlanActions).
     title: `${ITEM_LABEL[item]}: fix ${urls.length} ${GROUP_LABEL[group]}`,
     why: WHY[item],
     urls,

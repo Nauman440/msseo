@@ -1,4 +1,4 @@
-import { actionKey, actionSummary, needsApproval, openActions, type ActionWorkspace, type Suggestion } from '@seo/core';
+import { actionKey, actionSummary, needsApproval, openActions, type ActionWorkspace, type Suggestion, ownerText } from '@seo/core';
 import { Card } from '@/components/ui/Card';
 import type { ConnectionView } from '@/lib/connections';
 import { cn, SEVERITY_LABEL, SEVERITY_TONE, TONE_SOFT } from '@/lib/tones';
@@ -68,8 +68,8 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
           <ul className="flex flex-col gap-4">
             {approvals.map((a) => (
               <li key={a.id} className="flex flex-col gap-2 border-b border-border pb-4 last:border-0 last:pb-0">
-                <p className="font-semibold">{a.title}</p>
-                <p className="text-sm text-ink-2">{a.detail}</p>
+                <p className="font-semibold">{ownerText(a.title)}</p>
+                <p className="text-sm text-ink-2">{ownerText(a.detail)}</p>
                 {(audience === 'team' || a.approval === 'client') && <ApproveButton domain={domain} id={a.id} label={audience === 'team' && a.approval === 'client' ? 'Record client approval' : 'Approve'} />}
               </li>
             ))}
@@ -83,7 +83,7 @@ export function ActionPlanView({ ws, open: suggested, audience, hasAudit, site =
             {top.map((a, i) => (
               <li key={a.id} className="flex items-start gap-3 border-b border-border py-2.5 text-[15px] last:border-0 lg:[&:nth-child(5)]:border-0">
                 <span className="w-6 shrink-0 text-right font-bold tabular text-ink-3">{i + 1}.</span>
-                <span className="min-w-0 flex-1 font-semibold leading-snug">{a.title}</span>
+                <span className="min-w-0 flex-1 font-semibold leading-snug">{ownerText(a.title)}</span>
                 <span className={cn('shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-bold', TONE_SOFT[SEVERITY_TONE[a.severity]])}>{SEVERITY_LABEL[a.severity]}</span>
               </li>
             ))}

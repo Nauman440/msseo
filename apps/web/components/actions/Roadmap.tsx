@@ -1,4 +1,4 @@
-import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace, type Bucket } from '@seo/core';
+import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace, type Bucket, ownerText } from '@seo/core';
 import { cn, SEVERITY_TONE, TONE_FILL, TONE_SOFT } from '@/lib/tones';
 import { BUCKET_LABEL } from './labels';
 
@@ -14,8 +14,8 @@ function ActionLine({ a }: { a: ActionItem }) {
   return (
     <li className="flex items-start gap-2 text-[13px] leading-snug">
       <span aria-hidden className={cn('mt-[5px] size-2 shrink-0 rounded-full', isDone(a) ? TONE_FILL.pass : TONE_FILL[SEVERITY_TONE[a.severity]])} />
-      <span className={cn('line-clamp-2 min-w-0', isDone(a) && 'text-ink-3 line-through')} title={a.title}>
-        {a.title}
+      <span className={cn('line-clamp-2 min-w-0', isDone(a) && 'text-ink-3 line-through')} title={ownerText(a.title)}>
+        {ownerText(a.title)}
       </span>
     </li>
   );

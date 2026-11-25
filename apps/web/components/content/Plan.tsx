@@ -70,7 +70,7 @@ export function PillarSection({ pillars }: { pillars: Pillar[] }) {
   if (!pillars.length) return null;
   return (
     <section aria-labelledby="pil-title" className={CARD}>
-      <h2 id="pil-title" className="font-display text-xl font-bold">Main pages and the pages that support them</h2>
+      <h2 id="pil-title" className="font-display text-xl font-bold">Your key pages and the pages that support them</h2>
       <p className="text-sm text-ink-2">Each service gets one main page; the topics around it link back to it.</p>
       <div className="grid gap-3 md:grid-cols-2">
         {pillars.map((p) => (
@@ -97,7 +97,7 @@ export function QualitySection({ rows }: { rows: QualityRow[] }) {
   const score = (v: number) => <span className={cn(CHIP, v >= 4 ? 'bg-teal-chip text-teal-text' : v >= 3 ? 'bg-sunken text-ink-2' : 'bg-high-bg text-high-strong')}>{v}/5</span>;
   return (
     <section aria-labelledby="q-title" className={CARD}>
-      <h2 id="q-title" className="font-display text-xl font-bold">Content quality of your main pages</h2>
+      <h2 id="q-title" className="font-display text-xl font-bold">Content quality of your key pages</h2>
       <p className="text-sm text-ink-2">Read by AI: is it your own, is it accurate and current, and does it show real experience?</p>
       <div className="relative overflow-x-auto">
         <table className="w-full min-w-[620px] text-sm">
