@@ -3,7 +3,7 @@ Contributors: morosoft
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
 Lets MS SCORE apply SEO changes you have approved.
@@ -26,6 +26,11 @@ Only editors and administrators can use it, through an Application Password you 
 2. In MS SCORE, open Connections and press "Connect WordPress".
 
 == Changelog ==
+
+= 1.2.0 =
+* Apply and undo: MS SCORE can make one change at a time (SEO title, meta description, canonical, noindex, Open Graph, image alt text, heading fixes, marked content blocks, internal links, schema, 301 redirects, sitemap, robots.txt, llms.txt). Each change is logged with its value before, so it can be undone, and the page's cache is cleared.
+* Writes to Yoast SEO, Rank Math, SEOPress, All in One SEO or Bricks page settings when present, and prints its own tags only when no plugin does.
+* Text outside MS SCORE's marked blocks is never removed.
 
 = 1.1.0 =
 * Signed requests: once MS SCORE has set its key, every request must carry a signature that expires after 5 minutes.

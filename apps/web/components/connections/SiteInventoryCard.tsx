@@ -10,7 +10,7 @@ import { RefreshInventoryButton } from './forms';
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const TYPE_NAME: Record<string, string> = { page: 'Pages', post: 'Blog posts', product: 'Products', category: 'Blog categories', product_cat: 'Shop categories' };
 const SEO_NAME: Record<string, string> = { yoast: 'Yoast SEO', 'rank-math': 'Rank Math', aioseo: 'All in One SEO', seopress: 'SEOPress', none: 'None (MS SCORE prints titles and descriptions)' };
-const BUILDER: Record<string, string> = { gutenberg: 'Block editor', classic: 'Classic editor', elementor: 'Elementor', divi: 'Divi', other: 'Other page builder' };
+const BUILDER: Record<string, string> = { gutenberg: 'Block editor', classic: 'Classic editor', elementor: 'Elementor', divi: 'Divi', bricks: 'Bricks', other: 'Other page builder' };
 
 export function SiteInventoryCard({ domain, connection: c, inventory, refreshing, audience }: {
   domain: string;

@@ -7,7 +7,7 @@ import { CheckAndDisconnect } from './forms';
  * (action plan). Connecting opens WordPress's or Shopify's own approval screen.
  */
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-const SEO_NAME: Record<string, string> = { yoast: 'Yoast SEO', 'rank-math': 'Rank Math', seopress: 'SEOPress', aioseo: 'All in One SEO', msscore: 'its own SEO fields (no SEO plugin found)' };
+const SEO_NAME: Record<string, string> = { yoast: 'Yoast SEO', 'rank-math': 'Rank Math', seopress: 'SEOPress', aioseo: 'All in One SEO', bricks: 'Bricks page settings (no SEO plugin)', msscore: 'its own SEO fields (no SEO plugin found)' };
 const BUTTON = 'inline-flex min-h-11 items-center rounded-button bg-primary px-5 text-sm font-bold text-primary-ink hover:bg-primary-hover';
 
 export function SiteConnectionCard({ domain, connection: c, back, ready, shopifyReady, audience }: {

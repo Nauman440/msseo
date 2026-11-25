@@ -15,7 +15,8 @@
     "test:e2e": "pnpm --filter @seo/web test:e2e",
     "check:secrets": "node scripts/check-secrets.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
-    "test:wp": "php integrations/wordpress/tests/signing-test.php"
+    "test:wp": "php integrations/wordpress/tests/signing-test.php",
+    "test:wp:e2e": "bash integrations/wordpress/tests/local/setup.sh && cd packages/db && tsx ../../integrations/wordpress/tests/e2e.ts"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

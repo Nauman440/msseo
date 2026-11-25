@@ -1,0 +1,249 @@
+<?php
+/**
+ * POST /apply, POST /rollback and GET /changes (all signed).
+ *
+ * /apply { change_id, type, target, new_value } is idempotent by change_id: sending the same change
+ * again returns the first result. The value before the change is stored in the change log, so
+ * /rollback { change_id } can put it back. Every change clears the page's cache.
+ *
+ * @package MSScore_Connector
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * The change types this plugin version can apply, and how.
+ *
+ * @return array<string,array>
+ */
+function msscore_change_handlers() {
+	$custom = array();
+	foreach ( array( 'image_alt', 'heading_fix', 'content_block', 'internal_link', 'schema', 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt' ) as $type ) {
+		$custom[ $type ] = array(
+			'apply'    => 'msscore_apply_' . $type,
+			'rollback' => 'heading_fix' === $type ? 'msscore_rollback_snapshot' : 'msscore_rollback_' . $type,
+			'site'     => in_array( $type, array( 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt' ), true ),
+		);
+	}
+	return array_merge( msscore_field_types(), $custom );
+}
+
+/**
+ * Builds the REST answer for a WP_Error from a handler.
+ *
+ * @param WP_Error $e Error.
+ * @return array{status:string,reason:string,http:int}
+ */
+function msscore_error_outcome( WP_Error $e ) {
+	$code = $e->get_error_code();
+	$data = $e->get_error_data();
+	if ( 'needs_human' === $code || 'skipped' === $code ) {
+		return array(
+			'status' => $code,
+			'reason' => $e->get_error_message(),
+			'http'   => 200,
+		);
+	}
+	return array(
+		'status' => 'failed',
+		'reason' => $e->get_error_message(),
+		'http'   => is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 400,
+	);
+}
+
+/**
+ * POST /apply.
+ *
+ * @param WP_REST_Request $req Request.
+ * @return WP_REST_Response
+ */
+function msscore_rest_apply( WP_REST_Request $req ) {
+	$change_id = (string) $req->get_param( 'change_id' );
+	$type      = sanitize_key( (string) $req->get_param( 'type' ) );
+	$target    = $req->get_param( 'target' );
+	$new       = $req->get_param( 'new_value' );
+	if ( ! preg_match( '/^[A-Za-z0-9_-]{8,64}$/', $change_id ) ) {
+		return new WP_REST_Response( array( 'status' => 'failed', 'reason' => 'change_id must be 8–64 letters, digits, - or _.' ), 400 );
+	}
+	$done = msscore_log_get( $change_id );
+	if ( $done ) {
+		return new WP_REST_Response(
+			array(
+				'status'    => $done['status'],
+				'change_id' => $change_id,
+				'before'    => $done['before_value'],
+				'after'     => $done['after_value'],
+				'reason'    => $done['note'],
+				'repeat'    => true,
+			),
+			200
+		);
+	}
+	$handlers = msscore_change_handlers();
+	if ( ! isset( $handlers[ $type ] ) ) {
+		return new WP_REST_Response( array( 'status' => 'needs_human', 'reason' => 'This plugin version cannot make “' . $type . '” changes.' ), 200 );
+	}
+	$h = $handlers[ $type ];
+	if ( ! empty( $h['site'] ) ) {
+		$target = array( 'site' => true );
+	}
+	$t = msscore_resolve_target( $target );
+	if ( is_wp_error( $t ) ) {
+		$o = msscore_error_outcome( $t );
+		return new WP_REST_Response( array( 'status' => $o['status'], 'reason' => $o['reason'] ), $o['http'] );
+	}
+	try {
+		if ( isset( $h['get'] ) ) {
+			$value  = call_user_func( $h['clean'], $new );
+			$before = call_user_func( $h['get'], $t );
+			$result = is_wp_error( $before ) ? $before : call_user_func( $h['set'], $t, $value );
+			$result = is_wp_error( $result ) ? $result : array(
+				'before' => $before,
+				'after'  => call_user_func( $h['get'], $t ),
+			);
+		} else {
+			$new           = is_array( $new ) ? $new : array();
+			$new['_change_id'] = $change_id;
+			$result        = call_user_func( $h['apply'], $t, $new );
+		}
+	} catch ( \Throwable $e ) {
+		$result = new WP_Error( 'failed', 'The change could not be made: ' . $e->getMessage() );
+	}
+	if ( is_wp_error( $result ) ) {
+		$o = msscore_error_outcome( $result );
+		if ( 'failed' !== $o['status'] ) {
+			msscore_log_insert(
+				array(
+					'change_id' => $change_id,
+					'type'      => $type,
+					'target'    => $target,
+					'url'       => $t['url'],
+					'before'    => null,
+					'after'     => null,
+					'status'    => $o['status'],
+					'note'      => $o['reason'],
+				)
+			);
+		}
+		return new WP_REST_Response( array( 'status' => $o['status'], 'change_id' => $change_id, 'reason' => $o['reason'] ), $o['http'] );
+	}
+	msscore_log_insert(
+		array(
+			'change_id' => $change_id,
+			'type'      => $type,
+			'target'    => $target,
+			'url'       => $t['url'],
+			'before'    => $result['before'],
+			'after'     => $result['after'],
+			'status'    => 'applied',
+		)
+	);
+	$purged = msscore_purge_cache( $t['url'], 'post' === $t['kind'] ? $t['id'] : null );
+	return new WP_REST_Response(
+		array(
+			'status'    => 'applied',
+			'change_id' => $change_id,
+			'url'       => $t['url'],
+			'before'    => $result['before'],
+			'after'     => $result['after'],
+			'purged'    => $purged,
+		),
+		200
+	);
+}
+
+/**
+ * POST /rollback.
+ *
+ * @param WP_REST_Request $req Request.
+ * @return WP_REST_Response
+ */
+function msscore_rest_rollback( WP_REST_Request $req ) {
+	$change_id = (string) $req->get_param( 'change_id' );
+	$done      = msscore_log_get( $change_id );
+	if ( ! $done ) {
+		return new WP_REST_Response( array( 'status' => 'failed', 'reason' => 'No change with this id.' ), 404 );
+	}
+	if ( 'applied' !== $done['status'] ) {
+		return new WP_REST_Response( array( 'status' => $done['status'], 'change_id' => $change_id, 'repeat' => true ), 200 );
+	}
+	$handlers = msscore_change_handlers();
+	$h        = isset( $handlers[ $done['type'] ] ) ? $handlers[ $done['type'] ] : null;
+	$t        = msscore_resolve_target( ! empty( $h['site'] ) ? array( 'site' => true ) : $done['target'] );
+	if ( ! $h || is_wp_error( $t ) ) {
+		return new WP_REST_Response( array( 'status' => 'needs_human', 'reason' => 'The page or setting this change was made on no longer exists.' ), 200 );
+	}
+	try {
+		$r = isset( $h['get'] )
+			? call_user_func( $h['set'], $t, $done['before_value'] )
+			: call_user_func( $h['rollback'], $t, $done['before_value'], $done['after_value'] );
+	} catch ( \Throwable $e ) {
+		$r = new WP_Error( 'failed', 'Undo failed: ' . $e->getMessage() );
+	}
+	if ( is_wp_error( $r ) ) {
+		$o = msscore_error_outcome( $r );
+		return new WP_REST_Response( array( 'status' => $o['status'], 'change_id' => $change_id, 'reason' => $o['reason'] ), $o['http'] );
+	}
+	msscore_log_rolled_back( $change_id, (string) $req->get_param( 'reason' ) );
+	$purged = msscore_purge_cache( $t['url'], 'post' === $t['kind'] ? $t['id'] : null );
+	return new WP_REST_Response(
+		array(
+			'status'    => 'rolled_back',
+			'change_id' => $change_id,
+			'restored'  => $done['before_value'],
+			'purged'    => $purged,
+		),
+		200
+	);
+}
+
+/**
+ * GET /changes?page=1: the change log, newest first.
+ *
+ * @param WP_REST_Request $req Request.
+ * @return array
+ */
+function msscore_rest_changes( WP_REST_Request $req ) {
+	$page = max( 1, absint( $req->get_param( 'page' ) ) );
+	return array(
+		'page'  => $page,
+		'items' => msscore_log_list( 50, ( $page - 1 ) * 50 ),
+	);
+}
+
+/**
+ * Registers the routes.
+ *
+ * @param string $ns Namespace.
+ */
+function msscore_register_apply_routes( $ns ) {
+	register_rest_route(
+		$ns,
+		'/apply',
+		array(
+			'methods'             => 'POST',
+			'permission_callback' => 'msscore_can_use_signed',
+			'callback'            => 'msscore_rest_apply',
+		)
+	);
+	register_rest_route(
+		$ns,
+		'/rollback',
+		array(
+			'methods'             => 'POST',
+			'permission_callback' => 'msscore_can_use_signed',
+			'callback'            => 'msscore_rest_rollback',
+		)
+	);
+	register_rest_route(
+		$ns,
+		'/changes',
+		array(
+			'methods'             => 'GET',
+			'permission_callback' => 'msscore_can_use_signed',
+			'callback'            => 'msscore_rest_changes',
+		)
+	);
+}

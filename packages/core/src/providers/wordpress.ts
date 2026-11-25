@@ -47,7 +47,7 @@ export const wpStatusSchema = z.object({
   wp_version: z.string(),
   php_version: z.string(),
   theme: z.object({ name: z.string(), version: z.string(), template: z.string(), title_tag: z.boolean() }),
-  page_builder: z.enum(['gutenberg', 'classic', 'elementor', 'divi', 'other']),
+  page_builder: z.enum(['gutenberg', 'classic', 'elementor', 'divi', 'bricks', 'other']),
   page_builders: z.array(z.string()),
   cache_plugins: z.array(z.string()),
   woocommerce: z.boolean(),
@@ -84,6 +84,35 @@ export type WpInventoryItem = z.infer<typeof inventoryItem>;
 const inventoryPage = z.object({ type: z.string(), page: z.number(), per_page: z.number(), total: z.number(), total_pages: z.number(), items: z.array(inventoryItem) }).passthrough();
 export type WpInventoryPage = z.infer<typeof inventoryPage>;
 
+/** Change types plugin 1.2.0 can make (spec phase 2). */
+export const WP_CHANGE_TYPES = [
+  'meta_title', 'meta_description', 'canonical', 'robots_noindex', 'og_tags', 'image_alt', 'heading_fix',
+  'content_block', 'internal_link', 'schema', 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt',
+] as const;
+export type WpChangeType = (typeof WP_CHANGE_TYPES)[number];
+/** What a change is aimed at: a post/page/product, a category, an image, or the whole site. */
+export type WpTarget = { post_id: number } | { term_id: number; taxonomy: string } | { attachment_id: number } | { site: true };
+export type WpChange = { change_id: string; type: WpChangeType; target: WpTarget; new_value: unknown };
+const applyResult = z.object({
+  status: z.enum(['applied', 'needs_human', 'skipped', 'failed', 'rolled_back']),
+  change_id: z.string().optional(),
+  url: z.string().optional(),
+  before: z.unknown().optional(),
+  after: z.unknown().optional(),
+  reason: z.string().nullable().optional(),
+  repeat: z.boolean().optional(),
+  purged: z.array(z.string()).optional(),
+}).passthrough();
+export type WpApplyResult = z.infer<typeof applyResult>;
+const rollbackResult = z.object({ status: z.enum(['rolled_back', 'needs_human', 'skipped', 'failed', 'applied']), change_id: z.string().optional(), reason: z.string().nullable().optional(), repeat: z.boolean().optional() }).passthrough();
+export type WpRollbackResult = z.infer<typeof rollbackResult>;
+
+/** Whether a plugin version can apply and undo changes itself (1.2.0 and later). */
+export function pluginSupportsApply(version: string | null | undefined): boolean {
+  const [a = 0, b = 0] = (version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
+  return a > 1 || (a === 1 && b >= 2);
+}
+
 /** Whether a plugin version can sign requests and send its inventory (1.1.0 and later). */
 export function pluginSupportsSigning(version: string | null | undefined): boolean {
   const [a = 0, b = 0] = (version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
@@ -102,6 +131,10 @@ export type WordPressClient = SiteAdapter & {
   clearKey(): Promise<void>;
   /** One page of the inventory for one content type (signed). */
   inventory(type: string, page: number, perPage?: number): Promise<WpInventoryPage>;
+  /** Makes one change (plugin 1.2.0+). Idempotent by change_id. */
+  apply(change: WpChange): Promise<WpApplyResult>;
+  /** Undoes one change by its change_id. */
+  rollback(changeId: string, reason?: string): Promise<WpRollbackResult>;
 };
 
 /**
@@ -152,6 +185,32 @@ export function createWordPressClient(cfg: { siteUrl: string; user: string; pass
     },
     async clearKey() {
       await del('msscore/v1/key/clear');
+    },
+    async apply(change) {
+      // The plugin answers needs_human / skipped with 200 and refusals with 4xx; both carry a status.
+      try {
+        return await call('msscore/v1/apply', 'POST', change, applyResult);
+      } catch (err) {
+        if (err instanceof HttpError && err.status !== 401 && err.body) {
+          let body: unknown = null;
+          try {
+            body = JSON.parse(err.body);
+          } catch {
+            body = null;
+          }
+          const parsed = applyResult.safeParse(body);
+          if (parsed.success) return parsed.data;
+        }
+        throw pluginError(err);
+      }
+    },
+    async rollback(changeId, reason) {
+      try {
+        return await call('msscore/v1/rollback', 'POST', { change_id: changeId, ...(reason ? { reason } : {}) }, rollbackResult);
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 404) return { status: 'failed', change_id: changeId, reason: 'The site has no record of this change.' };
+        throw pluginError(err);
+      }
     },
     async inventory(type, page, perPage = 50) {
       const q = `type=${encodeURIComponent(type)}&page=${page}&per_page=${perPage}`;

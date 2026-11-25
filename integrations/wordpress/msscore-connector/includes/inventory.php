@@ -80,6 +80,13 @@ function msscore_post_seo_fields( $post_id ) {
 			$noindex   = ! empty( $row->robots_noindex );
 			$nofollow  = ! empty( $row->robots_nofollow );
 			break;
+		case 'bricks':
+			$bs        = msscore_bricks_settings( $post_id );
+			$robots    = isset( $bs['robots'] ) && is_array( $bs['robots'] ) ? $bs['robots'] : array();
+			$canonical = $get( '_msscore_canonical' );
+			$noindex   = in_array( 'noindex', $robots, true ) || '1' === $get( '_msscore_noindex' );
+			$nofollow  = in_array( 'nofollow', $robots, true );
+			break;
 		default:
 			$canonical = $get( '_msscore_canonical' );
 			$noindex   = '1' === $get( '_msscore_noindex' );
@@ -164,6 +171,20 @@ function msscore_resolved_title( $stored, $post ) {
 }
 
 /**
+ * Bricks elements of a post (flat list), or an empty list when the page is not built with Bricks.
+ *
+ * @param int $post_id Post ID.
+ * @return array<int,array>
+ */
+function msscore_bricks_elements( $post_id ) {
+	if ( 'bricks' !== get_post_meta( $post_id, '_bricks_editor_mode', true ) ) {
+		return array();
+	}
+	$els = get_post_meta( $post_id, '_bricks_page_content_2', true );
+	return is_array( $els ) ? array_values( array_filter( $els, 'is_array' ) ) : array();
+}
+
+/**
  * H1 headings written in the content: Classic HTML, Gutenberg heading blocks and Elementor widgets.
  * (An H1 the theme prints around the post title is not in the content; MS SCORE reads it from the page.)
  *
@@ -197,6 +218,13 @@ function msscore_content_h1s( $post ) {
 			$walk( $tree );
 		}
 	}
+	foreach ( msscore_bricks_elements( $post->ID ) as $el ) {
+		$set = isset( $el['settings'] ) && is_array( $el['settings'] ) ? $el['settings'] : array();
+		$tag = isset( $set['tag'] ) ? strtolower( (string) $set['tag'] ) : ( isset( $el['name'] ) && 'heading' === $el['name'] ? 'h3' : '' );
+		if ( 'h1' === $tag && isset( $set['text'] ) ) {
+			$h1s[] = trim( wp_strip_all_tags( (string) $set['text'] ) );
+		}
+	}
 	return array_values( array_filter( $h1s, 'strlen' ) );
 }
 
@@ -213,6 +241,11 @@ function msscore_plain_text( $post ) {
 		foreach ( $m[1] as $s ) {
 			$decoded = json_decode( '"' . $s . '"' );
 			$text   .= ' ' . ( is_string( $decoded ) ? $decoded : '' );
+		}
+	}
+	foreach ( msscore_bricks_elements( $post->ID ) as $el ) {
+		if ( isset( $el['settings']['text'] ) && is_string( $el['settings']['text'] ) ) {
+			$text .= ' ' . $el['settings']['text'];
 		}
 	}
 	$text = strip_shortcodes( $text );
@@ -264,6 +297,25 @@ function msscore_post_images( $post ) {
 			}
 		}
 	}
+	foreach ( msscore_bricks_elements( $post->ID ) as $el ) {
+		if ( ! isset( $el['name'] ) || 'image' !== $el['name'] || empty( $el['settings']['image'] ) || ! is_array( $el['settings']['image'] ) ) {
+			continue;
+		}
+		$img = $el['settings']['image'];
+		$id  = isset( $img['id'] ) ? (int) $img['id'] : null;
+		$url = isset( $img['url'] ) ? (string) $img['url'] : ( $id ? (string) wp_get_attachment_url( $id ) : '' );
+		if ( '' === $url || isset( $seen[ $url ] ) || count( $images ) >= 60 ) {
+			continue;
+		}
+		$seen[ $url ] = true;
+		$alt          = isset( $el['settings']['altText'] ) && '' !== $el['settings']['altText'] ? (string) $el['settings']['altText'] : ( $id ? (string) get_post_meta( $id, '_wp_attachment_image_alt', true ) : null );
+		$images[]     = array(
+			'id'       => $id,
+			'url'      => $url,
+			'alt'      => $alt,
+			'featured' => false,
+		);
+	}
 	return $images;
 }
 
@@ -309,6 +361,9 @@ function msscore_post_builder( $post ) {
 	}
 	if ( 'on' === get_post_meta( $post->ID, '_et_pb_use_builder', true ) ) {
 		return 'divi';
+	}
+	if ( 'bricks' === get_post_meta( $post->ID, '_bricks_editor_mode', true ) ) {
+		return 'bricks';
 	}
 	return function_exists( 'has_blocks' ) && has_blocks( $post ) ? 'gutenberg' : 'classic';
 }

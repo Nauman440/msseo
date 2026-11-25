@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       MS SCORE Connector
  * Description:       Lets MS SCORE apply SEO changes you have approved: SEO titles and meta descriptions (Yoast, Rank Math, SEOPress, AIOSEO or its own), page titles, 301 redirects and draft pages. Every change can be undone from MS SCORE.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 5.6
  * Requires PHP:      7.4
  * Author:            Morosoft Technologies
@@ -16,12 +16,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MSSCORE_CONNECTOR_VERSION', '1.1.0' );
+define( 'MSSCORE_CONNECTOR_VERSION', '1.2.0' );
 define( 'MSSCORE_REDIRECTS_OPTION', 'msscore_redirects' );
 
 require_once __DIR__ . '/includes/signing.php';
 require_once __DIR__ . '/includes/detect.php';
 require_once __DIR__ . '/includes/inventory.php';
+require_once __DIR__ . '/includes/store.php';
+require_once __DIR__ . '/includes/cache.php';
+require_once __DIR__ . '/includes/types-seo.php';
+require_once __DIR__ . '/includes/types-content.php';
+require_once __DIR__ . '/includes/types-site.php';
+require_once __DIR__ . '/includes/output.php';
+require_once __DIR__ . '/includes/sitemap.php';
+require_once __DIR__ . '/includes/apply.php';
 
 /**
  * Which SEO plugin stores titles and descriptions on this site.
@@ -41,7 +49,34 @@ function msscore_seo_backend() {
 	if ( function_exists( 'aioseo' ) && class_exists( '\AIOSEO\Plugin\Common\Models\Post' ) ) {
 		return 'aioseo';
 	}
+	// Bricks prints its own title and description (page settings) when no SEO plugin is active.
+	if ( msscore_bricks_active() ) {
+		$global = get_option( 'bricks_global_settings', array() );
+		if ( ! is_array( $global ) || empty( $global['disableSeo'] ) ) {
+			return 'bricks';
+		}
+	}
 	return 'msscore';
+}
+
+/**
+ * Whether the Bricks theme/builder runs on this site.
+ *
+ * @return bool
+ */
+function msscore_bricks_active() {
+	return defined( 'BRICKS_VERSION' ) || 'bricks' === wp_get_theme()->get_template();
+}
+
+/**
+ * Bricks page settings of a post (title, description, robots, sharing fields).
+ *
+ * @param int $post_id Post ID.
+ * @return array
+ */
+function msscore_bricks_settings( $post_id ) {
+	$s = get_post_meta( $post_id, '_bricks_page_settings', true );
+	return is_array( $s ) ? $s : array();
 }
 
 /**
@@ -68,6 +103,13 @@ function msscore_meta_keys( $backend ) {
  */
 function msscore_get_seo( $post_id ) {
 	$backend = msscore_seo_backend();
+	if ( 'bricks' === $backend ) {
+		$bs = msscore_bricks_settings( $post_id );
+		return array(
+			'title'       => isset( $bs['documentTitle'] ) && '' !== $bs['documentTitle'] ? (string) $bs['documentTitle'] : null,
+			'description' => isset( $bs['metaDescription'] ) && '' !== $bs['metaDescription'] ? (string) $bs['metaDescription'] : null,
+		);
+	}
 	if ( 'aioseo' === $backend ) {
 		$row = \AIOSEO\Plugin\Common\Models\Post::getPost( $post_id );
 		return array(
@@ -93,6 +135,22 @@ function msscore_get_seo( $post_id ) {
  */
 function msscore_set_seo( $post_id, $title, $description ) {
 	$backend = msscore_seo_backend();
+	if ( 'bricks' === $backend ) {
+		$bs = msscore_bricks_settings( $post_id );
+		foreach ( array( 'documentTitle' => $title, 'metaDescription' => $description ) as $key => $value ) {
+			if ( null === $value ) {
+				continue;
+			}
+			if ( '' === $value ) {
+				unset( $bs[ $key ] );
+			} else {
+				$bs[ $key ] = $value;
+			}
+		}
+		update_post_meta( $post_id, '_bricks_page_settings', $bs );
+		clean_post_cache( $post_id );
+		return;
+	}
 	if ( 'aioseo' === $backend ) {
 		$row = \AIOSEO\Plugin\Common\Models\Post::getPost( $post_id );
 		if ( null !== $title ) {
@@ -167,6 +225,7 @@ add_action( 'rest_api_init', 'msscore_register_routes' );
  */
 function msscore_register_routes() {
 	$ns = 'msscore/v1';
+	msscore_register_apply_routes( $ns );
 
 	register_rest_route(
 		$ns,
@@ -388,6 +447,7 @@ function msscore_meta_description() {
  * connection fresh (deactivate, activate, connect again in MS SCORE).
  */
 register_deactivation_hook( __FILE__, 'msscore_on_deactivate' );
+register_activation_hook( __FILE__, 'msscore_install_tables' );
 
 /**
  * Removes the signing key.

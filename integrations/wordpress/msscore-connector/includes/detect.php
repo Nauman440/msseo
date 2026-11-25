@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function msscore_page_builders() {
 	$found = array();
+	if ( msscore_bricks_active() ) {
+		$found[] = 'bricks';
+	}
 	if ( defined( 'ELEMENTOR_VERSION' ) ) {
 		$found[] = 'elementor';
 	}
@@ -39,13 +42,13 @@ function msscore_page_builders() {
 }
 
 /**
- * The main page builder in MS SCORE's words: gutenberg, classic, elementor, divi or other.
+ * The main page builder in MS SCORE's words: gutenberg, classic, elementor, divi, bricks or other.
  *
  * @return string
  */
 function msscore_main_builder() {
 	$main = msscore_page_builders()[0];
-	return in_array( $main, array( 'gutenberg', 'classic', 'elementor', 'divi' ), true ) ? $main : 'other';
+	return in_array( $main, array( 'gutenberg', 'classic', 'elementor', 'divi', 'bricks' ), true ) ? $main : 'other';
 }
 
 /**
@@ -82,6 +85,12 @@ function msscore_cache_plugins() {
  * @return array{url:string|null,by:string}
  */
 function msscore_existing_sitemap() {
+	if ( get_option( 'msscore_sitemap_enabled' ) ) {
+		return array(
+			'url' => home_url( '/sitemap.xml' ),
+			'by'  => 'msscore',
+		);
+	}
 	$seo = msscore_seo_backend();
 	if ( 'yoast' === $seo && class_exists( 'WPSEO_Options' ) && WPSEO_Options::get( 'enable_xml_sitemap' ) ) {
 		return array(
@@ -135,14 +144,14 @@ function msscore_site_status() {
 	return array(
 		'version'         => MSSCORE_CONNECTOR_VERSION,
 		'seo'             => $seo,
-		'seo_plugin'      => 'msscore' === $seo ? 'none' : $seo,
+		'seo_plugin'      => in_array( $seo, array( 'msscore', 'bricks' ), true ) ? 'none' : $seo,
 		'wp_version'      => (string) $wp_version,
 		'php_version'     => PHP_VERSION,
 		'theme'           => array(
 			'name'      => $theme->get( 'Name' ),
 			'version'   => $theme->get( 'Version' ),
 			'template'  => $theme->get_template(),
-			'title_tag' => current_theme_supports( 'title-tag' ),
+			'title_tag' => current_theme_supports( 'title-tag' ) || ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ),
 		),
 		'page_builder'    => msscore_main_builder(),
 		'page_builders'   => msscore_page_builders(),
@@ -155,5 +164,9 @@ function msscore_site_status() {
 		'home_url'        => home_url( '/' ),
 		'signed'          => '' !== msscore_signing_key(),
 		'inventory_types' => msscore_inventory_types(),
+		'change_types'    => array_keys( msscore_change_handlers() ),
+		'seo_backend'     => $seo,
+		'llms_served'     => '' !== (string) get_option( 'msscore_llms_txt', '' ),
+		'robots_managed'  => (bool) get_option( 'msscore_robots_enabled' ),
 	);
 }
