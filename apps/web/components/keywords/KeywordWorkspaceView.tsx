@@ -85,6 +85,12 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
             </div>
           </details>
 
+          {ws.fastError && (!ws.fast || ws.fastError.at > ws.fast.runAt) && (
+            <p role="alert" className="rounded-[14px] border border-border bg-surface px-[18px] py-3.5 text-sm text-ink">
+              <b>The last keyword check did not finish.</b>{' '}
+              {audience === 'team' ? `${ws.fastError.message} (${ws.fastError.at.slice(0, 16).replace('T', ' ')} UTC)` : 'We will try again soon. The list below is the previous one.'}
+            </p>
+          )}
           {ws.fast ? (
             <FastKeywordsView domain={ws.domain} fast={ws.fast} audience={audience} />
           ) : (

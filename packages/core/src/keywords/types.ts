@@ -121,6 +121,8 @@ export type KeywordWorkspace = {
   /** The fast pipeline's last result (Keywords tab and Page plan read it) and its 30-day data cache. */
   fast?: FastResult;
   fastCache?: FastCache;
+  /** Why the last fast run failed (cleared by the next good run), shown on the Keywords page. */
+  fastError?: { at: string; message: string };
   /** Yes/No answers to the fast pipeline's client questions ("is X your brand?"): they change the next run's filters. */
   fastAnswers?: { keyword: string; question: string; answer: 'yes' | 'no'; at: string }[];
 };

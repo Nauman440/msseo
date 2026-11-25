@@ -2,13 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  addKeywords, applyFastResult, fastProfileFrom, runFastKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
+  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
   addPrompt, editPrompt, generatePrompts, seedsKey, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
-import { httpStatuses } from '@seo/core/server';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
-import { customerAudits } from '@/lib/customer-data';
-import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from '@/lib/keywords';
+import { runFastFor } from '@/lib/fast-keywords';
+import { getKeywordWorkspace, logUsage, saveKeywordWorkspace } from '@/lib/keywords';
 import { providerConfig } from '@/lib/providers-config';
 import { hit } from '@/lib/rate-limit';
 
@@ -94,24 +93,17 @@ async function runFast(rawDomain: string, force: boolean): Promise<KeywordState>
   const ws = await getKeywordWorkspace(domain);
   if (!ws.seeds.services.length) return { error: ws.businessType === 'shop' ? 'Add your products first, then save.' : 'Add your services first, then save.' };
   if (!(await allowed(customer, `keywords-research:${domain}`, 3))) return { error: 'Keywords can be checked 3 times a day. Please try again tomorrow.' };
-  const { env } = providerConfig();
-  const c = await dfs();
-  if (!env || !c) return { error: 'Keyword research is not available right now.' };
-  const [competitors, audits] = await Promise.all([researchCompetitors(domain), customerAudits(`https://${domain}/`)]);
-  const profile = fastProfileFrom(ws, { report: audits.latest ?? null, competitors: competitors.domains, rivalNames: competitors.names });
-  const { result, cache } = await runFastKeywords(
-    profile,
-    { kw: c.api, ai: env.openai ? createOpenAiClient(env.openai) : null, gsc: () => gscQueries(domain), checkStatus: (u) => httpStatuses(u) },
-    { cache: ws.fastCache, force },
-  );
-  await saveKeywordWorkspace(applyFastResult(ws, result, cache));
-  if (c.calls()) await logUsage('dataforseo', c.calls(), await c.charged(result.costUsd));
-  if (result.aiTokens) await logUsage('openai', result.aiTokens);
-  pathsFor(domain);
-  const kept = result.topics.reduce((sum, t) => sum + t.keywords.length, 0);
-  const secs = Math.max(1, Math.round(result.totalMs / 1000));
-  const extra = customer ? '' : ` ${result.warm ? 'Saved data reused (no cost).' : `Cost $${result.costUsd.toFixed(2)}, ${result.aiTokens.toLocaleString('en-US')} AI tokens.`}${result.notes.length ? ` ${result.notes.join(' ')}` : ''}`;
-  return { ok: `${result.topics.length} topics and ${kept} keywords in ${secs} s.${extra}` };
+  try {
+    const result = await runFastFor(domain, force);
+    pathsFor(domain);
+    const kept = result.topics.reduce((sum, t) => sum + t.keywords.length, 0);
+    const secs = Math.max(1, Math.round(result.totalMs / 1000));
+    const extra = customer ? '' : ` ${result.warm ? 'Saved data reused (no cost).' : `Cost $${result.costUsd.toFixed(2)}, ${result.aiTokens.toLocaleString('en-US')} AI tokens.`}${result.notes.length ? ` ${result.notes.join(' ')}` : ''}`;
+    return { ok: `${result.topics.length} topics and ${kept} keywords in ${secs} s.${extra}` };
+  } catch (err) {
+    pathsFor(domain);
+    return { error: customer ? 'Keyword research is not available right now. Please try again later.' : `The keyword check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }
 
 /** "Check for new keywords now": reuses data fetched in the last 30 days. */
