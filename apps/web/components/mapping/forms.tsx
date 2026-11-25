@@ -137,16 +137,18 @@ export function PageChooser({ domain, row, pages, label }: { domain: string; row
 }
 
 /** The navy bar at the bottom of the overview. */
-export function SendAllBar({ domain, conflicts, fixes }: { domain: string; conflicts: number; fixes: number }) {
+export function SendAllBar({ domain, conflicts, fixes, message, label = 'Send fixes to approvals', sticky = true }: { domain: string; conflicts: number; fixes: number; message?: string; label?: string; sticky?: boolean }) {
   const [state, action] = useActionState<MappingState>(sendAllFixesAction.bind(null, domain), {});
   return (
-    <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3.5 rounded-card bg-night px-[18px] py-3.5">
+    <div className={cn(sticky && 'sticky bottom-0 z-10', 'flex flex-wrap items-center justify-between gap-3.5 rounded-card bg-night px-[18px] py-3.5')}>
       <p className="text-[15px] text-white">
+        {message ? <strong>{message}</strong> : <>
         {conflicts > 0 && <strong>{conflicts} {conflicts === 1 ? 'conflict' : 'conflicts'} to settle · </strong>}
         <span className="text-mist-3">{fixes} {fixes === 1 ? 'fix' : 'fixes'} drafted so far</span>
+        </>}
       </p>
       <form action={action} className="flex flex-col items-end gap-1">
-        <Submit label="Send fixes to approvals" busy="Sending… (checks each page)" />
+        <Submit label={label} busy="Sending… (checks each page)" />
         {(state.ok || state.error) && <p role={state.error ? 'alert' : 'status'} className={cn('text-[13px] font-semibold', state.error ? 'text-primary-tint' : 'text-tick')}>{state.error ?? state.ok}</p>}
       </form>
     </div>

@@ -12,7 +12,7 @@ import { requireUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ domain: string }>; searchParams: Promise<{ view?: string; open?: string; sort?: string; topics?: string; from?: string; topic?: string; show?: string; all?: string }> };
+type Props = { params: Promise<{ domain: string }>; searchParams: Promise<{ view?: string; open?: string; sort?: string; topics?: string; from?: string; topic?: string; show?: string; all?: string; mode?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Keywords · ${normDomain(decodeURIComponent((await params).domain))}` };
@@ -23,7 +23,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   await requireUser();
   const domain = normDomain(decodeURIComponent((await params).domain));
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) notFound();
-  const { view, open, sort, topics, from, topic, show, all } = await searchParams;
+  const { view, open, sort, topics, from, topic, show, all, mode } = await searchParams;
   const parsed = parseKeywordView(view, open);
   // Clean the list first, then the page plan follows the cleaned topics.
   const ws = await freshKeywords(domain);
@@ -48,7 +48,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
           order: TOPIC_ORDERS.some((o) => o.value === sort) ? (sort as TopicOrder) : 'priority',
           allTopics: topics === 'all',
           from: from === 'gap' || from === 'pages' || from === 'ranked' || from === 'gsc' || from === 'ideas' ? from : undefined,
-          mapping: { topic, show, all },
+          mapping: { topic, show, all, mode },
         }}
         mappedTopics={mapping.rows.length}
       />

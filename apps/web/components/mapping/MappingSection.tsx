@@ -9,12 +9,15 @@ import { BriefView } from './BriefView';
 import { MAPPING_FILTERS, type MappingFilter } from './labels';
 import { MappingOverview } from './MappingOverview';
 import { PageMapView } from './PageMapView';
+import { PagePlan } from './PagePlan';
+import Link from 'next/link';
+import { cn } from '@/lib/tones';
 
 /**
  * The "Page mapping" sub-tab of Keywords (Module 5): the overview, or with `topic` the keyword map
  * for one page (or the brief for a new page). Loads its own data; the same for team and customers.
  */
-export type MappingParams = { topic?: string; show?: string; all?: string };
+export type MappingParams = { topic?: string; show?: string; all?: string; mode?: string };
 
 export async function MappingSection({ domain, base, audience, keywords, params }: {
   domain: string;
@@ -56,8 +59,36 @@ export async function MappingSection({ domain, base, audience, keywords, params 
   const [ws, kw] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain)]);
   const fixes = await fixCounts(ws);
   const filter = MAPPING_FILTERS.includes(params.show as MappingFilter) ? (params.show as MappingFilter) : null;
+  const expert = params.mode === 'expert';
+  const ideas = blogIdeas(kw, ws);
+  const toggle = (
+    <nav aria-label="Page plan view" className="flex justify-end">
+      <span className="inline-flex rounded-button border border-border-strong bg-surface p-1">
+        {[{ key: false, label: 'Simple view' }, { key: true, label: 'Expert view' }].map((m) => (
+          <Link
+            key={m.label}
+            href={href(m.key ? { mode: 'expert' } : {})}
+            aria-current={expert === m.key ? 'page' : undefined}
+            className={cn('inline-flex min-h-10 items-center rounded-[8px] px-3.5 text-[13.5px] font-semibold', expert === m.key ? 'bg-night text-white' : 'text-ink hover:bg-sunken')}
+          >
+            {m.label}
+          </Link>
+        ))}
+      </span>
+    </nav>
+  );
+  if (!expert) {
+    return (
+      <div className="flex flex-col gap-[22px]">
+        {toggle}
+        <PagePlan ws={ws} keywords={keywords} fixes={fixes} reportPages={reportPages} ideas={ideas} href={href} />
+      </div>
+    );
+  }
+  const expertHref = (extra: Record<string, string> = {}) => href({ mode: 'expert', ...extra });
   return (
     <div className="flex flex-col gap-[22px]">
+      {toggle}
       <MappingOverview
         ws={ws}
         keywords={keywords}
@@ -66,11 +97,11 @@ export async function MappingSection({ domain, base, audience, keywords, params 
         reportPages={reportPages}
         audience={audience}
         aiAvailable={Boolean(providerConfig().env?.openai)}
-        href={href}
+        href={expertHref}
         filter={filter}
         showAll={params.all === '1'}
       />
-      <BlogIdeas domain={domain} ideas={blogIdeas(kw, ws)} />
+      <BlogIdeas domain={domain} ideas={ideas} />
     </div>
   );
 }

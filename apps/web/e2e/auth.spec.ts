@@ -363,6 +363,9 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   // Module 5 for customers: Keywords → Page plan needs keyword topics first (none researched in e2e).
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Keywords' }).click();
   await page.getByRole('navigation', { name: 'Keyword sections' }).getByRole('link', { name: /^Page plan/ }).click();
+  // Simple view first (one card per page); matching and conflicts live under Expert view.
+  await expect(page.getByRole('heading', { name: 'Your page plan', level: 2 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Page plan view' }).getByRole('link', { name: 'Expert view' }).click();
   await expect(page.getByRole('heading', { name: 'Which page should rank for each topic', level: 2 })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Match pages to topics' }).click();
