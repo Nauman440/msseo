@@ -36,6 +36,7 @@ export * from './mapping/mapping';
 export { draftableRows, writeDrafts } from './mapping/drafts';
 export * from './mapping/page-map';
 export * from './mapping/blog-ideas';
+export * from './mapping/page-cards';
 export { keywordResearchSheets } from './keywords/sheet';
 export { toXlsx, zipStore, type Sheet, type SheetCell } from './report/xlsx';
 export * from './actions/actions';

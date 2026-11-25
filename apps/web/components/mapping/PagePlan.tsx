@@ -1,10 +1,11 @@
-import { normTerm, normUrl, pageNameOf, titleSuffix, type BlogIdea, type KeywordRecord, type MappingRow, type MappingWorkspace, type ReportPage } from '@seo/core';
+import { normUrl, pageCards, pageNameOf, titleSuffix, type BlogIdea, type KeywordRecord, type MappingWorkspace, type ReportPage } from '@seo/core';
 import { SendAllBar } from './forms';
-import { PagePlanCard, Volume, type PlanKeyword } from './PagePlanCard';
+import { PagePlanCard, Volume } from './PagePlanCard';
 
 /**
- * Keywords → Page plan, simple view (design 2026-11-25): one card per page with its primary keyword,
- * secondary and supporting keywords, then the questions to answer in blog posts and one bar to send
+ * Keywords → Page plan, simple view (design 2026-11-25): one card per page (`pageCards()`: homepage,
+ * about and shop first, topics on one page or repeating each other merged) with its primary, secondary
+ * and informational keywords, then the questions to answer in blog posts and one bar to send
  * everything for approval. The expert view (MappingOverview) keeps conflicts, matching and the inventory.
  */
 const path = (u: string) => {
@@ -20,21 +21,7 @@ const waiting = (changes: number, pages: number) => {
   const parts = [changes ? plural(changes, 'change', 'changes') : '', pages ? plural(pages, 'new page', 'new pages') : ''].filter(Boolean);
   return `${parts.join(' and ')} ${changes + pages === 1 ? 'is' : 'are'} waiting for you`;
 };
-const cap =(s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Primary, secondary and supporting keywords of one page, with their monthly searches. */
-export function rowKeywords(row: MappingRow, ws: MappingWorkspace, keywords: KeywordRecord[]) {
-  const moves = ws.moves ?? {};
-  const vol = new Map(keywords.map((k) => [normTerm(k.term), k.volume]));
-  const k = (term: string): PlanKeyword => ({ term, volume: vol.get(normTerm(term)) ?? null });
-  const taken = new Set([normTerm(row.primaryKeyword), ...row.secondaryKeywords.map(normTerm)]);
-  const inTopic = [
-    ...keywords.filter((x) => x.status === 'kept' && (moves[normTerm(x.term)] ?? x.clusterId) === row.clusterId).map((x) => x.term),
-    ...(ws.added ?? []).filter((a) => a.clusterId === row.clusterId).map((a) => a.term),
-  ];
-  const supporting = [...new Set(inTopic.filter((t) => !taken.has(normTerm(t))))].map(k).sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
-  return { primary: { ...k(row.primaryKeyword), volume: vol.get(normTerm(row.primaryKeyword)) ?? row.volume ?? null }, secondary: row.secondaryKeywords.map(k), supporting };
-}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const STEPS = [
   { title: 'One page per search', text: 'Each search goes to one page, so your pages never compete with each other.' },
@@ -42,9 +29,11 @@ const STEPS = [
   { title: 'You approve first', text: 'Nothing changes on your website until you say yes.' },
 ];
 
-export function PagePlan({ ws, keywords, fixes, reportPages, ideas, href }: {
+export function PagePlan({ ws, keywords, places, fixes, reportPages, ideas, href }: {
   ws: MappingWorkspace;
   keywords: KeywordRecord[];
+  /** Places served (research inputs). */
+  places: string[];
   fixes: Record<string, number>;
   reportPages: ReportPage[];
   ideas: BlogIdea[];
@@ -52,13 +41,13 @@ export function PagePlan({ ws, keywords, fixes, reportPages, ideas, href }: {
 }) {
   const suffix = titleSuffix(reportPages);
   const byUrl = new Map(reportPages.map((p) => [normUrl(p.url), p]));
-  // Existing pages first (by priority), then the pages to create.
-  const rows = [...ws.rows].sort((a, b) => Number(!a.url) - Number(!b.url) || b.priority - a.priority);
-  const close = rows.filter((r) => r.url && r.currentPosition !== null && r.currentPosition > 3 && r.currentPosition <= 30).length;
-  const newPages = rows.filter((r) => !r.url).length;
-  const totalFixes = rows.filter((r) => r.url).reduce((s, r) => s + (fixes[r.clusterId] ?? 0), 0);
+  const cards = pageCards(ws, keywords, reportPages, places);
+  const close = cards.filter((c) => c.url && c.rows[0]!.currentPosition !== null && c.rows[0]!.currentPosition > 3 && c.rows[0]!.currentPosition <= 30).length;
+  const newPages = cards.filter((c) => !c.url).length;
+  const fixesOf = (c: (typeof cards)[number]) => c.rows.reduce((s, r) => s + (fixes[r.clusterId] ?? 0), 0);
+  const totalFixes = cards.filter((c) => c.url).reduce((s, c) => s + fixesOf(c), 0);
   const tiles = [
-    { value: rows.length, label: 'pages in the plan' },
+    { value: cards.length, label: 'pages in the plan' },
     { value: close, label: 'close to page 1' },
     { value: newPages, label: 'new pages to create' },
   ];
@@ -94,26 +83,22 @@ export function PagePlan({ ws, keywords, fixes, reportPages, ideas, href }: {
         ))}
       </ol>
 
-      {rows.length === 0 ? (
+      {cards.length === 0 ? (
         <p className="rounded-card border border-border bg-surface p-6 text-[15px] text-ink-2">
           No page plan yet. It is made automatically once your keywords are researched and your site has been checked.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {rows.map((r) => {
-            const kw = rowKeywords(r, ws, keywords);
-            return (
-              <PagePlanCard
-                key={r.clusterId}
-                row={r}
-                name={r.url ? linkName(r.url)! : cap(r.topic)}
-                path={r.url ? path(r.url) : (r.suggestedPath ?? '')}
-                {...kw}
-                fixes={fixes[r.clusterId] ?? 0}
-                href={href({ topic: r.clusterId })}
-              />
-            );
-          })}
+          {cards.map((c) => (
+            <PagePlanCard
+              key={c.key}
+              card={c}
+              name={c.url ? linkName(c.url)! : cap(c.rows[0]!.topic)}
+              path={c.url ? path(c.url) : (c.suggestedPath ?? '')}
+              fixes={fixesOf(c)}
+              href={href({ topic: c.rows[0]!.clusterId })}
+            />
+          ))}
         </div>
       )}
 

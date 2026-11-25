@@ -81,7 +81,7 @@ export async function MappingSection({ domain, base, audience, keywords, params 
     return (
       <div className="flex flex-col gap-[22px]">
         {toggle}
-        <PagePlan ws={ws} keywords={keywords} fixes={fixes} reportPages={reportPages} ideas={ideas} href={href} />
+        <PagePlan ws={ws} keywords={keywords} places={kw.seeds.locations} fixes={fixes} reportPages={reportPages} ideas={ideas} href={href} />
       </div>
     );
   }

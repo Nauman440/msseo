@@ -1,14 +1,13 @@
 import Link from 'next/link';
-import type { MappingRow } from '@seo/core';
+import type { CardKeyword, MappingRow, PageCard } from '@seo/core';
 import { cn } from '@/lib/tones';
 import { CHIP } from './labels';
 
 /**
  * One page of the simple page plan (design: Keywords → Page plan, simple view): the search the page
- * wins (primary keyword), the secondary keywords it also targets, the supporting keywords that back
- * them up, and the changes ready to review. New pages are dashed and offer "Draft this page".
+ * wins (primary keyword), the secondary keywords it also targets (title and headings), the informational
+ * searches it answers (questions and research, for the text and FAQ), and the changes ready to review. New pages are dashed and offer "Draft this page".
  */
-export type PlanKeyword = { term: string; volume: number | null };
 
 /** Monthly searches in plain words, with 1–3 bars. */
 export function volumeWord(v: number | null): { word: string; bars: number } {
@@ -36,7 +35,7 @@ export function Volume({ volume }: { volume: number | null }) {
 const EYEBROW = 'text-[11px] font-extrabold uppercase tracking-[0.07em] text-ink-2';
 const MORE = 4;
 
-function KeywordList({ title, hint, items }: { title: string; hint: string; items: PlanKeyword[] }) {
+function KeywordList({ title, hint, items }: { title: string; hint: string; items: CardKeyword[] }) {
   if (!items.length) return null;
   return (
     <div className="flex flex-col">
@@ -76,20 +75,19 @@ function status(row: MappingRow): { label: string; tone: string } {
   return { label: 'Not on Google yet', tone: 'bg-sunken text-ink-2' };
 }
 
-export function PagePlanCard({ row, name, path, primary, secondary, supporting, fixes, href }: {
-  row: MappingRow;
+export function PagePlanCard({ card, name, path, fixes, href }: {
+  card: PageCard;
   /** The page's own name on the site (or the topic for a new page). */
   name: string;
   path: string;
-  primary: PlanKeyword;
-  secondary: PlanKeyword[];
-  supporting: PlanKeyword[];
   fixes: number;
   href: string;
 }) {
+  const row = card.rows[0]!;
+  const { primary, secondary, informational } = card;
   const isNew = !row.url;
   const s = status(row);
-  const conflict = row.conflicts.length > 0 && !row.conflictSettled;
+  const conflict = card.rows.some((r) => r.conflicts.length > 0 && !r.conflictSettled);
   return (
     <article aria-label={name} className={cn('flex flex-col overflow-hidden rounded-card bg-surface', isNew ? 'border-2 border-dashed border-border-strong' : 'border border-border')}>
       <header className={cn('flex flex-wrap items-center justify-between gap-2 px-[18px] py-3', isNew ? 'border-b border-border' : 'bg-primary text-primary-ink')}>
@@ -110,13 +108,13 @@ export function PagePlanCard({ row, name, path, primary, secondary, supporting, 
           </p>
         </div>
         <KeywordList title="Secondary keywords" hint="also in the title and headings" items={secondary} />
-        <KeywordList title="Supporting keywords" hint="used in the text" items={supporting} />
+        <KeywordList title="Informational keywords" hint="questions the text and FAQ answer" items={informational} />
         {conflict && <p className="text-[12.5px] font-semibold text-high-strong">Another page competes for these searches. Choose the main page in Expert view.</p>}
       </div>
       <footer className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border px-[18px] py-3">
         <p className="text-[13px] text-ink-2">
           {isNew ? 'Nobody on your site answers these yet.' : fixes > 0 ? `${fixes} ${fixes === 1 ? 'change' : 'changes'} ready for you` : row.pageCheck ? 'Every keyword is in place' : 'Not checked yet'}
-          {row.sentAt ? ' · sent for approval' : ''}
+          {card.rows.some((r) => r.sentAt) ? ' · sent for approval' : ''}
         </p>
         <Link
           href={href}

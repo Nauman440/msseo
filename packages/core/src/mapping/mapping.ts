@@ -301,8 +301,15 @@ export function buildMapping(input: {
       else {
         const pick = matched.find((m) => free(m.p.url));
         const fromSitemap = pick ? null : sitemapOnly.find((u) => free(u) && textMatch(c.head, { url: u, title: null, h1: null }) >= 0.6);
+        // Before asking for a new page: the homepage or a shop/category page that covers half the topic's words.
+        const near = pick || fromSitemap ? null : input.pages
+          .filter((p) => free(p.url) && (p === home || p.pageType === 'category' || /\/(shop|store|collections?|categor(y|ies)|product-category)(\/|$)/i.test(pathOf(p.url))))
+          .map((p) => ({ p, score: textMatch(c.head, p) }))
+          .filter((m) => m.score >= 0.5)
+          .sort((a, b) => b.score - a.score || a.p.url.length - b.p.url.length)[0];
         if (pick) [url, reason, match] = [pick.p.url, 'Title, heading or address matches this topic', 'medium'];
         else if (fromSitemap) [url, reason, match] = [fromSitemap, 'Address matches this topic (listed in the sitemap, not checked in the audit yet)', 'low'];
+        else if (near) [url, reason, match] = [near.p.url, 'The closest existing page covers this topic', 'low'];
         else if (matched[0]) reason = `No page of its own yet: the closest page, ${pathOf(matched[0].p.url)}, already targets “${taken.get(normUrl(matched[0].p.url))}”`;
         else reason = 'No page targets this topic yet';
       }

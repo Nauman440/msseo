@@ -13,6 +13,7 @@ import type { AeoAudit, AeoWorkspace } from '../aeo/aeo';
 import type { ContentAudit } from '../content/content';
 import { topUpCandidates, type TopUpCandidate } from './plan-topup';
 import { namePlanActions } from './plan-names';
+import { pageCards } from '../mapping/page-cards';
 import { AFTER_CANONICAL, CLEANUP_DOER, CLEANUP_ITEMS, cleanupPages, cleanupTask, NEEDS_APPROVAL, PAGE_GROUPS, SITE_WIDE_ITEMS, weeklyCheckTask, type CleanupItem, type CleanupPage, type PageGroup } from './cleanup';
 import { ACTION_BUCKETS, beforeState, type ActionItem, type ActionWorkspace, type Suggestion } from './actions';
 
@@ -710,15 +711,18 @@ export async function writeAiPlan(
   await ctx.onProgress?.('Checking the plan against the rules');
   const raw = toAiPlan(asked.answer);
   // Page map and left-out keywords come from the page plan and keyword research (no model tokens).
-  raw.page_map = (args.mapping?.rows ?? []).filter((r) => r.primaryKeyword).slice(0, 60).map((r) => ({
-    url: r.url ?? r.suggestedPath ?? '', is_new: !r.url, page_type: r.newPageType ?? (r.url ? 'existing page' : 'new page'), main_keyword: r.primaryKeyword, supporting_keywords: r.secondaryKeywords.slice(0, 6), total_monthly_volume: r.volume,
+  // One row per page (topics on the same page, or repeating each other, share it).
+  raw.page_map = (args.mapping ? pageCards(args.mapping, args.keywords.keywords, args.report?.pages ?? [], args.keywords.seeds.locations) : []).slice(0, 60).map((c) => ({
+    url: c.url ?? c.suggestedPath ?? '', is_new: !c.url, page_type: c.rows[0]!.newPageType ?? (c.url ? 'existing page' : 'new page'), main_keyword: c.primary.term,
+    supporting_keywords: [...c.secondary, ...c.informational].slice(0, 6).map((k) => k.term), total_monthly_volume: c.rows.reduce((s, r) => s + r.volume, 0),
   }));
   raw.removed_keywords = args.keywords.keywords.filter((k) => k.status === 'removed').sort((x, y) => (y.volume ?? 0) - (x.volume ?? 0)).slice(0, 30).map((k) => ({ keyword: k.term, reason: k.removeReason ?? 'removed' }));
   const needsDeveloper = [...asked.answer.needs_developer];
   // Drafted titles and descriptions are checked in code; good current text is kept, failing drafts are
   // re-asked once and otherwise kept as they are and flagged for review (plan-meta.ts).
   const rawPages = new Map((args.report?.pages ?? []).map((p) => [normPlanUrl(p.url), p]));
-  const mainKw = new Map((args.mapping?.rows ?? []).filter((r) => r.url && r.primaryKeyword).map((r) => [normPlanUrl(r.url!), r.primaryKeyword]));
+  // The highest-priority topic on a page gives its main keyword (rows are in priority order).
+  const mainKw = new Map((args.mapping?.rows ?? []).filter((r) => r.url && r.primaryKeyword).reverse().map((r) => [normPlanUrl(r.url!), r.primaryKeyword]));
   const metaPages = new Map<string, MetaPage>(listed.urls.map((u) => [u, { url: u, title: rawPages.get(normPlanUrl(u))?.title ?? null, description: rawPages.get(normPlanUrl(u))?.description ?? null, mainKeyword: mainKw.get(normPlanUrl(u)) ?? null }]));
   const settled = await settlePageMeta(client, pageMetaRows(asked.answer.page_meta, listed.urls), metaPages, { suffix: titleSuffix(args.report?.pages ?? []), brand: args.domain.replace(/^www\./, '').split('.')[0] ?? null });
   const pageMeta = settled.rows;
