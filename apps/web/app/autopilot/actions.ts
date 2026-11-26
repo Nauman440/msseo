@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { normDomain } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
-import { approveWorkItems, saveAutopilotSettings, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
+import { approveWorkItems, resetAutopilot, saveAutopilotSettings, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
 
 /** "Start implementing plan" and per-change undo, for the team and the site's customer. */
 export type AutopilotActionState = { ok?: string; error?: string };
@@ -53,4 +53,12 @@ export async function approveWorkItemsAction(rawDomain: string, ids: string[] | 
   const n = await approveWorkItems(domain, ids, by);
   paths(domain);
   return n ? { ok: n === 1 ? 'Approved. It goes out on the next run.' : `${n} changes approved. They go out on the next runs.` } : { error: 'Nothing waiting for approval.' };
+}
+
+export async function resetAutopilotAction(rawDomain: string, _prev: AutopilotActionState, form: FormData): Promise<AutopilotActionState> {
+  const { domain } = await guard(rawDomain);
+  if (form.get('confirm') !== 'on') return { error: 'Tick the box to confirm.' };
+  const r = await resetAutopilot(domain);
+  paths(domain);
+  return r;
 }

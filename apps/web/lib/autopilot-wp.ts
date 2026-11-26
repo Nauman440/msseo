@@ -46,6 +46,8 @@ export type AutopilotState = {
   lastRunDate: string | null;
   /** Emails sent about this site (phase 5), newest first. */
   emails: EmailLogEntry[];
+  /** Raised by "Start over", so every change gets a new id. */
+  generation?: number;
 };
 
 const DIR = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'), 'autopilot');
@@ -98,7 +100,8 @@ export async function autopilotBlocker(rawDomain: string): Promise<string | null
   let c = await getConnection(normDomain(rawDomain));
   if (!c || c.platform !== 'wordpress') return 'Connect your WordPress website first (Connections tab).';
   // The stored plugin version is from the last check; after a plugin update, check again (at most every 2 minutes).
-  if (!pluginSupportsApply(c.plugin?.version) && Date.now() - new Date(c.checkedAt).getTime() > 2 * 60_000) c = await checkConnection(c);
+  // A connection in error (e.g. the plugin was reactivated and lost its key) is checked again too.
+  if ((!pluginSupportsApply(c.plugin?.version) || c.status !== 'ok') && Date.now() - new Date(c.checkedAt).getTime() > 2 * 60_000) c = await checkConnection(c);
   if (c.status !== 'ok') return c.error ?? 'The website connection needs attention (Connections tab).';
   if (!pluginSupportsApply(c.plugin?.version)) return 'Install or update the MS SCORE Connector plugin to version 1.2 or later (Connections tab).';
   const ws = await getActions(normDomain(rawDomain));
@@ -235,7 +238,7 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     const home0 = inventory.items.find((i) => i.isFrontPage)?.url ?? inventory.status.home_url;
     const robotsTxt = await robotsOf(home0);
     const gen = await generateWorkItems({
-      accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50), robotsTxt,
+      accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50), robotsTxt, idSalt: s.generation ? String(s.generation) : undefined,
       altDrafts: new Map((alt?.drafts ?? []).map((d) => [d.src, d.alt])),
       ai,
       draftAlt: ai ? async (list) => {
@@ -289,6 +292,34 @@ export async function startImplementing(rawDomain: string, by: string, opts: { s
   await saveAutopilot({ ...s, status: 'running', step: 'Starting', error: null, pausedReason: s.status === 'paused' ? null : s.pausedReason });
   prepare(runKey(domain), () => job(domain, by, opts), 60_000);
   return { started: true };
+}
+
+/**
+ * "Start over": undoes every change still live on the website, then forgets the changes, runs and
+ * results (settings and the email log stay). The next run starts from the beginning, with a new undo test.
+ */
+export async function resetAutopilot(rawDomain: string): Promise<{ ok?: string; error?: string }> {
+  const domain = normDomain(rawDomain);
+  if (autopilotRunning(domain)) return { error: 'A run is in progress. Try again when it has finished.' };
+  const s = await getAutopilot(domain);
+  const live = s.items.filter((i) => ['applied', 'verified'].includes(i.status));
+  const left: string[] = [];
+  if (live.length) {
+    const conn = await getConnection(domain);
+    if (!conn) return { error: 'The website is not connected, so the changes cannot be undone.' };
+    const { wp } = await wordpressSession(conn, { save: saveConnection });
+    for (const it of [...live].sort((a, b) => (b.appliedAt ?? '').localeCompare(a.appliedAt ?? ''))) {
+      const r = await wp.rollback(it.id, 'start over').catch(() => null);
+      if (r?.status !== 'rolled_back') left.push(it.label);
+    }
+  }
+  if (left.length) return { error: `Could not undo ${left.length} change${left.length === 1 ? '' : 's'} (for example “${left[0]}”); the page may have been edited since. Nothing was reset.` };
+  await saveAutopilot({ ...s, status: 'idle', step: null, pausedReason: null, month: null, items: [], runs: [], notes: [], error: null, lastRunDate: null, generation: (s.generation ?? 0) + 1 });
+  const ws = await getActions(domain);
+  let next = ws;
+  for (const a of ws.actions) if (live.some((i) => i.actionId === a.id) && (a.status === 'done' || a.status === 'verified' || a.status === 'in_progress')) next = updateAction(next, a.id, { status: 'todo' });
+  if (next !== ws) await saveActions(next);
+  return { ok: live.length ? `Undid ${live.length} change${live.length === 1 ? '' : 's'} and started over.` : 'Started over.' };
 }
 
 /** Saves the site's schedule and safety settings. */

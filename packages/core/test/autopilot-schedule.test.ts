@@ -104,6 +104,13 @@ describe('site files: sitemap, robots.txt, llms.txt', () => {
     expect(visibleIn(wi({ type: 'robots_txt', newValue: { enabled: true } }), 'User-agent: *\nSitemap: https://x/sitemap.xml')).toBe(true);
     expect(visibleIn(wi({ type: 'llms_txt', newValue: { content: '# Paws\n' } }), '# Paws\n> x')).toBe(true);
   });
+  it('gives every change a new id after “Start over”', async () => {
+    const a = (await gen({})).items.map((i) => i.id);
+    const st = { home_url: `${site}/`, seo_plugin: 'none', sitemap: { url: null, by: 'none' }, llms_file: false } as unknown as WpStatus;
+    const b = (await generateWorkItems({ accountId: 'a', domain: 'shop.test', actions: [], inventory: { ...inv({}), status: st }, live: [], profile: { name: 'Paws', places: ['Leeds'], brands: [], services: ['dog beds'], bannedWords: [], competitors: [] }, keywords: new Map(), deadUrls: [], idSalt: '1', now: new Date('2026-11-26T09:00:00Z') })).items.map((i) => i.id);
+    expect(a).toHaveLength(b.length);
+    expect(a.some((id) => b.includes(id))).toBe(false);
+  });
   it('writes a dated llms.txt, and leaves a site’s own file alone', async () => {
     const text = llmsText({ name: 'Paws', places: ['Leeds'], brands: [], services: ['dog beds'], bannedWords: [], competitors: [] }, inv({}), new Date('2026-11-26T09:00:00Z'));
     expect(text).toContain('# Paws');

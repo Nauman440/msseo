@@ -1,6 +1,6 @@
 import { localParts, type WorkItem } from '@seo/core';
 import type { AutopilotState } from '@/lib/autopilot-wp';
-import { AutopilotSettingsForm } from './forms';
+import { AutopilotSettingsForm, StartOverForm } from './forms';
 
 /**
  * The schedule and safety settings of one site's autopilot, when the next run is, and (team) the
@@ -45,6 +45,10 @@ export function AutopilotSchedule({ domain, state: s, audience }: { domain: stri
         <p className="text-[13px] text-ink-2">
           Every change is checked on the live page straight away, again an hour after the run, and measured in Google at 7, 14 and 28 days. A change that makes a page break or lose rankings is undone automatically, and you get an email. You can also pause everything from WordPress (MS SCORE Autopilot page).
         </p>
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <h3 className="text-sm font-semibold">Start over</h3>
+          <StartOverForm domain={domain} />
+        </div>
         {audience === 'team' && sent.length > 0 && (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold">Emails sent</h3>

@@ -2,8 +2,8 @@ import 'server-only';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createWordPressClient, normDomain, pluginSupportsSigning, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
-import { createShopifyClient, decryptSecret, encryptionKeyValid, encryptSecret, refreshShopifyToken, shopifyTokenStale, wordpressSession, type ShopifyApp } from '@seo/core/server';
+import { createWordPressClient, normDomain, pluginSupportsSigning, WordPressKeyMismatch, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
+import { createShopifyClient, decryptSecret, encryptionKeyValid, encryptSecret, refreshShopifyToken, rekeyWordPress, shopifyTokenStale, wordpressSession, type ShopifyApp } from '@seo/core/server';
 import { usingDatabase } from './audit-store';
 
 /**
@@ -133,7 +133,17 @@ export async function checkConnection(c: SiteConnection): Promise<SiteConnection
       const wp = createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: s.password, signingKey: s.signingKey });
       const me = await wp.me();
       if (!me.canEdit) throw new Error('This WordPress user cannot edit pages. Connect with an editor or administrator.');
-      const next = { ...c, plugin: await wp.plugin(), status: 'ok' as const, error: null, checkedAt: now };
+      let plugin;
+      try {
+        plugin = await wp.plugin();
+      } catch (err) {
+        // The plugin was reactivated (no key): give it a new one and check again. Refused if it holds another key.
+        if (!(err instanceof WordPressKeyMismatch)) throw err;
+        const fresh = await rekeyWordPress(c, { save: saveConnection });
+        if (!fresh) throw err;
+        return checkConnection(fresh);
+      }
+      const next = { ...c, plugin, status: 'ok' as const, error: null, checkedAt: now };
       await saveConnection(next);
       // Plugin 1.1.0+: hand it a signing key the first time; from then on every request is signed.
       if (pluginSupportsSigning(next.plugin?.version)) return (await wordpressSession(next, { save: saveConnection })).connection;

@@ -55,3 +55,27 @@ describe('apply and rollback answers from plugin 1.2.0', () => {
     expect(WP_CHANGE_TYPES).toHaveLength(14);
   });
 });
+
+describe('reconnect after the plugin was reactivated', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('hands a key-less plugin a new key, and gives up when the plugin refuses', async () => {
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+    const { encryptSecret, decryptSecret, rekeyWordPress } = await import('../src/server');
+    const c = { domain: 'shop.test', platform: 'wordpress', siteUrl: 'https://shop.test', account: 'u', secret: encryptSecret(JSON.stringify({ password: 'p', signingKey: 'old'.repeat(15) })), status: 'error', error: null, checkedAt: '' } as never;
+    const saved: unknown[] = [];
+    const sent: { url: string; headers: Record<string, string> }[] = [];
+    const answers = [reply(200, { ok: true }), reply(403, { code: 'msscore_key_exists' })];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      sent.push({ url, headers: init.headers as Record<string, string> });
+      return answers.shift()!;
+    }));
+    const fresh = await rekeyWordPress(c, { save: async (x) => void saved.push(x) });
+    expect(fresh).not.toBeNull();
+    const key = (JSON.parse(decryptSecret((fresh as { secret: string }).secret)) as { signingKey: string }).signingKey;
+    expect(key).not.toBe('old'.repeat(15));
+    expect(sent[0]!.url).toContain('msscore/v1/key');
+    expect(sent[0]!.headers['x-msscore-signature']).toBeUndefined();
+    expect(await rekeyWordPress(c, { save: async () => undefined })).toBeNull();
+    expect(saved).toHaveLength(1);
+  });
+});
