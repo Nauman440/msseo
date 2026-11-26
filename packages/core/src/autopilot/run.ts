@@ -1,6 +1,6 @@
 import type { WordPressClient, WpChange, WpChangeType } from '../providers/wordpress';
 import { pageKey } from './generate';
-import type { WorkItem } from './work-items';
+import { pluginId, type WorkItem } from './work-items';
 
 /**
  * Applies ready work items through the Connector plugin, one at a time, checks each on the live
@@ -119,7 +119,7 @@ export function applyOrder(items: WorkItem[], requireApproval = false): WorkItem
   return out;
 }
 
-const change = (i: WorkItem, id = i.id): WpChange => ({ change_id: id, type: i.type as WpChangeType, target: i.target ?? { site: true }, new_value: i.newValue, label: i.label.slice(0, 160) });
+const change = (i: WorkItem, id = pluginId(i)): WpChange => ({ change_id: id, type: i.type as WpChangeType, target: i.target ?? { site: true }, new_value: i.newValue, label: i.label.slice(0, 160) });
 
 type Health = { url: string; ok: boolean; title: boolean; words: number };
 async function health(urls: string[], deps: Pick<RunDeps, 'fetchPage'>): Promise<Health[]> {
@@ -169,9 +169,10 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
     try {
       if (opts.firstRun && run.undoTested === null) {
         // Prove undo works on this site before changing anything for real.
-        const test = await deps.wp.apply(change(it, `${it.id}-t`));
+        const testId = `${it.id}-t${Date.now().toString(36)}`;
+        const test = await deps.wp.apply(change(it, testId));
         if (test.status === 'applied') {
-          const rb = await deps.wp.rollback(`${it.id}-t`, 'undo test before the first run');
+          const rb = await deps.wp.rollback(testId, 'undo test before the first run');
           run.undoTested = rb.status === 'rolled_back';
           if (!run.undoTested) {
             run.paused = true;
@@ -180,7 +181,13 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
           }
         }
       }
-      const r = await deps.wp.apply(change(it));
+      let r = await deps.wp.apply(change(it));
+      // The plugin never applies a change id twice. This exact change was made and undone before
+      // (by a person, a test or Start over), so it is made again under a new id.
+      if (r.status === 'rolled_back') {
+        it.changeId = `${it.id}-r${Date.now().toString(36)}`;
+        r = await deps.wp.apply(change(it));
+      }
       if (r.status === 'applied') {
         it.status = 'applied';
         it.appliedAt = now();
@@ -234,7 +241,7 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
     run.problems.push(...bad);
     for (const it of [...appliedNow].reverse()) {
       try {
-        const rb = await deps.wp.rollback(it.id, 'health check failed after the run');
+        const rb = await deps.wp.rollback(pluginId(it), 'health check failed after the run');
         if (rb.status === 'rolled_back') {
           it.status = 'rolled_back';
           it.reason = `Undone automatically: ${bad[0]}`;

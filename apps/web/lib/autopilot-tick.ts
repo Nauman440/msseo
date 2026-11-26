@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  appendEmailLog, dailyAverage, dueCheckpoint, gscSearchAnalytics, judgeResult, laterHealthCheck, plannedEmails, runDue, updateAction,
+  appendEmailLog, dailyAverage, pluginId, dueCheckpoint, gscSearchAnalytics, judgeResult, laterHealthCheck, plannedEmails, runDue, updateAction,
   type PlannedEmail, type ResultCheck, type WorkItem,
 } from '@seo/core';
 import { accountSites, domainOf, listAccounts } from './accounts';
@@ -39,7 +39,7 @@ async function undo(domain: string, items: WorkItem[], reason: string): Promise<
   if (!conn) return done;
   const { wp } = await siteSession(conn);
   for (const it of [...items].reverse()) {
-    const r = await wp.rollback(it.id, reason).catch(() => null);
+    const r = await wp.rollback(pluginId(it), reason).catch(() => null);
     if (r?.status === 'rolled_back') done.add(it.id);
   }
   return done;

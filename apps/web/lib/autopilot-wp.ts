@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  applyHoldList, createOpenAiClient, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
+  applyHoldList, createOpenAiClient, pluginId, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
   planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
   type ActionWorkspace, type AutopilotSettings, type SiteConnection, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
@@ -166,7 +166,7 @@ async function syncWordPressUndos(wp: { changes(page?: number): Promise<{ change
     for (const c of list) if (c.status === 'rolled_back') undone.add(c.change_id);
     if (list.length < 50) break;
   }
-  return items.map((i) => (undone.has(i.id) && ['applied', 'verified'].includes(i.status) ? { ...i, status: 'rolled_back' as const, reason: 'Undone in WordPress (MS SCORE Autopilot page).' } : i));
+  return items.map((i) => (undone.has(pluginId(i)) && ['applied', 'verified'].includes(i.status) ? { ...i, status: 'rolled_back' as const, reason: 'Undone in WordPress (MS SCORE Autopilot page).' } : i));
 }
 
 /** MS SCORE's own steps: submit the sitemap, switch on the weekly page check, check AI assistants. */
@@ -333,7 +333,7 @@ export async function resetAutopilot(rawDomain: string): Promise<{ ok?: string; 
     if (!conn) return { error: 'The website is not connected, so the changes cannot be undone.' };
     const { wp } = await siteSession(conn);
     for (const it of [...live].sort((a, b) => (b.appliedAt ?? '').localeCompare(a.appliedAt ?? ''))) {
-      const r = await wp.rollback(it.id, 'start over').catch(() => null);
+      const r = await wp.rollback(pluginId(it), 'start over').catch(() => null);
       if (r?.status !== 'rolled_back') left.push(it.label);
     }
   }
@@ -384,7 +384,7 @@ export async function undoWorkItem(rawDomain: string, id: string): Promise<{ ok?
   const conn = await getConnection(domain);
   if (!conn) return { error: 'The website is not connected.' };
   const { wp } = await siteSession(conn);
-  const r = await wp.rollback(id, 'undone by a person');
+  const r = await wp.rollback(pluginId(it), 'undone by a person');
   if (r.status !== 'rolled_back') return { error: r.reason ?? 'The website could not undo it; it may have been edited since.' };
   const items = s.items.map((i) => (i.id === id ? { ...i, status: 'rolled_back' as const, reason: 'Undone by a person.' } : i));
   await saveAutopilot({ ...s, items });

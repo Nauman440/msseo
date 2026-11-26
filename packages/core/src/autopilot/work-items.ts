@@ -49,6 +49,8 @@ export type WorkItem = {
   appliedAt: string | null;
   verifiedAt: string | null;
   attempts: number;
+  /** The id sent to the plugin when it differs from `id` (the same change made again after an undo). */
+  changeId?: string;
   /** Approve mode: a person approved this exact change (cleared when the value changes, since the id changes). */
   approvedAt?: string | null;
   approvedBy?: string | null;
@@ -75,3 +77,6 @@ const SEVERITY_POINTS: Record<string, number> = { critical: 40, high: 30, medium
 export function itemPriority(severity: string, planPriority: number): number {
   return (SEVERITY_POINTS[severity] ?? 10) + Math.min(25, Math.max(0, planPriority));
 }
+
+/** The id the plugin knows this change by. */
+export const pluginId = (i: Pick<WorkItem, 'id' | 'changeId'>) => i.changeId ?? i.id;

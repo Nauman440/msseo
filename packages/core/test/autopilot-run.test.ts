@@ -9,7 +9,7 @@ const item = (id: string, o: Partial<WorkItem> = {}): WorkItem => ({
 });
 
 /** A fake site: applying a title changes the page's <title>; rollback restores it. */
-function fakeSite(opts: { failIds?: string[]; breakAfterApply?: boolean; refuseRollback?: boolean } = {}) {
+function fakeSite(opts: { failIds?: string[]; breakAfterApply?: boolean; refuseRollback?: boolean; undoneBefore?: string[] } = {}) {
   let title = 'Old';
   let broken = false;
   const log: string[] = [];
@@ -20,6 +20,7 @@ function fakeSite(opts: { failIds?: string[]; breakAfterApply?: boolean; refuseR
       async apply(c: WpChange): Promise<WpApplyResult> {
         log.push(`apply ${c.change_id}`);
         if (opts.failIds?.includes(c.change_id)) return { status: 'failed', reason: 'refused' };
+        if (opts.undoneBefore?.includes(c.change_id)) return { status: 'rolled_back', change_id: c.change_id, repeat: true };
         applied.set(c.change_id, title);
         title = String(c.new_value);
         if (opts.breakAfterApply) broken = true;
@@ -38,10 +39,19 @@ function fakeSite(opts: { failIds?: string[]; breakAfterApply?: boolean; refuseR
 }
 
 describe('runWorkItems', () => {
+  it('makes a change again under a new id when the same change was undone before', async () => {
+    const s = fakeSite({ undoneBefore: ['ms-sitemap0'] });
+    const r = await runWorkItems([item('ms-sitemap0')], { wp: s.wp, fetchPage: s.fetchPage, wait: async () => undefined }, { keyPages: [`${site}/`], firstRun: false });
+    const it0 = r.items[0]!;
+    expect(it0.status).toBe('verified');
+    expect(it0.changeId).toMatch(/^ms-sitemap0-r/);
+    expect(s.log).toEqual(['apply ms-sitemap0', `apply ${it0.changeId}`]);
+  });
+
   it('proves undo on the first run, then applies and verifies on the live page', async () => {
     const s = fakeSite();
     const r = await runWorkItems([item('t1')], { ...s, wait: async () => undefined }, { keyPages: [`${site}/`], firstRun: true });
-    expect(s.log).toEqual(['apply t1-t', 'rollback t1-t', 'apply t1']);
+    expect(s.log.map((l) => l.replace(/-t[0-9a-z]+$/, '-t'))).toEqual(['apply t1-t', 'rollback t1-t', 'apply t1']);
     expect(r.run).toMatchObject({ undoTested: true, applied: 1, verified: 1, paused: false });
     expect(r.items[0]).toMatchObject({ status: 'verified' });
   });
@@ -50,7 +60,7 @@ describe('runWorkItems', () => {
     const s = fakeSite({ refuseRollback: true });
     const r = await runWorkItems([item('t1'), item('t2')], { ...s, wait: async () => undefined }, { keyPages: [], firstRun: true });
     expect(r.run.paused).toBe(true);
-    expect(s.log).toEqual(['apply t1-t', 'rollback t1-t']);
+    expect(s.log.map((l) => l.replace(/-t[0-9a-z]+$/, '-t'))).toEqual(['apply t1-t', 'rollback t1-t']);
   });
 
   it('pauses after 3 failed changes', async () => {
