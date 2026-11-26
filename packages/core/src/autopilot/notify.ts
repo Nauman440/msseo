@@ -94,6 +94,15 @@ export function plannedEmails(n: NotifyInput): PlannedEmail[] {
     }
   }
 
+  // Manual tasks for the team (outreach, reviews, articles…): the team hears about them; they never block the queue.
+  const forTeam = n.items.filter((i) => i.status === 'team' || i.status === 'developer');
+  if (forTeam.length) {
+    const key = `team:${fingerprint(forTeam.map((i) => i.id))}`;
+    if (!sent(n.log, key)) {
+      out.push({ key, kind: 'action_needed', audience: 'team', path: n.path, subject: `${plural(forTeam.length, 'task')} for the team on ${site}`, heading: 'Tasks the autopilot passed to the team', paragraphs: [...forTeam.slice(0, 8).map((i) => `• ${i.label}${i.status === 'developer' ? ' (developer)' : ''}`), ...(forTeam.length > 8 ? [`…and ${forTeam.length - 8} more.`] : []), 'The autopilot carried on with the next tasks.'] });
+    }
+  }
+
   // Friday summary (after the run), only when something changed this week.
   if (local.weekday === 5) {
     const weekAgo = now.getTime() - 6 * 86_400_000;

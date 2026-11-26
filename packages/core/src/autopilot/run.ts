@@ -36,6 +36,10 @@ export type RunSummary = {
   problems: string[];
   /** First run on the site: undo was tried on one change before anything else. */
   undoTested: boolean | null;
+  /** The tasks this run worked on, in plan order (plan executor). */
+  tasks?: { id: string; title: string; step: 'apply' | 'waiting' | 'manual' | 'needs_you' | 'nothing'; applied: number; verified: number; failed: number; state: string }[];
+  /** Changes from earlier runs verified on the live page at the start of this run. */
+  reverified?: number;
   /** Who started it: Client, Team or Schedule. */
   by?: string;
   /** Pages changed in this run (up to 5), checked again later by the post-run check. */
@@ -107,8 +111,11 @@ export function visibleIn(item: WorkItem, html: string): boolean | null {
 }
 
 /** Ready items in a safe order: dependencies first, then priority, then week. */
-export function applyOrder(items: WorkItem[], requireApproval = false): WorkItem[] {
-  const ready = items.filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType) && (!requireApproval || i.approvedAt)).sort((a, b) => a.week - b.week || b.priority - a.priority);
+export function applyOrder(items: WorkItem[], requireApproval = false, order?: string[]): WorkItem[] {
+  const rank = order ? new Map(order.map((id, n) => [id, n])) : null;
+  const ready = items
+    .filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType) && (!requireApproval || i.approvedAt) && (!rank || rank.has(i.id)))
+    .sort((a, b) => (rank ? rank.get(a.id)! - rank.get(b.id)! : a.week - b.week || b.priority - a.priority));
   const done = new Set(items.filter((i) => ['applied', 'verified', 'keep'].includes(i.status)).map((i) => i.id));
   const out: WorkItem[] = [];
   const left = [...ready];
@@ -154,12 +161,12 @@ function broken(before: Health[], after: Health[]): string[] {
  * Applies up to `cap` ready items. `keyPages`: homepage first, then up to 5 key pages for the health
  * check. `firstRun`: no change was ever applied on this site, so undo is proven first.
  */
-export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { keyPages: string[]; firstRun: boolean; cap?: number; requireApproval?: boolean }): Promise<{ items: WorkItem[]; run: RunSummary }> {
+export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { keyPages: string[]; firstRun: boolean; cap?: number; requireApproval?: boolean; order?: string[] }): Promise<{ items: WorkItem[]; run: RunSummary }> {
   const now = () => (deps.now ? deps.now() : new Date()).toISOString();
   const wait = deps.wait ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const run: RunSummary = { id: `run-${Date.now().toString(36)}`, startedAt: now(), finishedAt: '', applied: 0, verified: 0, notVisible: 0, failed: 0, needsHuman: 0, skipped: 0, rolledBack: false, paused: false, problems: [], undoTested: null };
   const all = items.map((i) => ({ ...i }));
-  const queue = applyOrder(all, opts.requireApproval).slice(0, opts.cap ?? DAILY_CAP);
+  const queue = applyOrder(all, opts.requireApproval, opts.order).slice(0, opts.cap ?? DAILY_CAP);
   const keyPages = [...new Set(opts.keyPages)].slice(0, 6);
   const baseline = await health(keyPages, deps);
   run.baselineWords = Object.fromEntries(baseline.map((b) => [b.url, b.words]));
@@ -183,7 +190,13 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
           }
         }
       }
-      let r = await deps.wp.apply(change(it));
+      let r = await deps.wp.apply(change(it)).catch((err: unknown) => ({ status: 'failed' as const, reason: err instanceof Error ? err.message.slice(0, 200) : 'The site did not answer.' }));
+      // A change that fails is tried once more straight away; failing twice, it is skipped and logged.
+      if (r.status === 'failed') {
+        it.attempts++;
+        await wait(2000);
+        r = await deps.wp.apply(change(it)).catch((err: unknown) => ({ status: 'failed' as const, reason: err instanceof Error ? err.message.slice(0, 200) : 'The site did not answer.' }));
+      }
       // The plugin never applies a change id twice. This exact change was made and undone before
       // (by a person, a test or Start over), so it is made again under a new id.
       if (r.status === 'rolled_back') {
@@ -211,9 +224,16 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
             it.verifiedAt = now();
             run.verified++;
           } else if (seen === false) {
-            it.reason = 'Applied in WordPress, but not visible on the live page yet (a cache may still hold the old page).';
+            it.reason = 'Applied in WordPress, but not visible on the live page yet (a cache may still hold the old page). Checked again on the next run.';
             run.notVisible++;
           }
+        }
+        // Changes that leave no trace to read on the page (e.g. a heading order fix) count as verified once the website confirms them.
+        if (it.status === 'applied' && it.type !== 'redirect_301' && (!url || visibleIn(it, '') === null)) {
+          it.status = 'verified';
+          it.verifiedAt = now();
+          it.reason = 'Confirmed by the website (this change has nothing to read on the page).';
+          run.verified++;
         }
       } else if (r.status === 'needs_human' || r.status === 'skipped') {
         it.status = r.status;
@@ -222,12 +242,12 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
         else run.skipped++;
       } else {
         it.status = 'failed';
-        it.reason = r.reason ?? 'The site refused the change.';
+        it.reason = `Failed twice: ${r.reason ?? 'the site refused the change.'}`;
         run.failed++;
       }
     } catch (err) {
       it.status = 'failed';
-      it.reason = err instanceof Error ? err.message.slice(0, 200) : 'The site did not answer.';
+      it.reason = `Failed twice: ${err instanceof Error ? err.message.slice(0, 200) : 'the site did not answer.'}`;
       run.failed++;
     }
     if (run.failed >= MAX_FAILURES) {
@@ -257,4 +277,27 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
   }
   run.finishedAt = now();
   return { items: all, run };
+}
+
+/**
+ * Changes applied on an earlier run but not yet seen on the live page (a cache held the old page):
+ * looked at again, and verified when they show. Returns how many became verified.
+ */
+export async function reverifyApplied(items: WorkItem[], deps: Pick<RunDeps, 'fetchPage'>, max = 30, now = () => new Date()): Promise<{ items: WorkItem[]; verified: number }> {
+  const all = items.map((i) => ({ ...i }));
+  let verified = 0;
+  for (const it of all.filter((i) => i.status === 'applied' && i.url && i.type !== 'redirect_301').slice(0, max)) {
+    try {
+      const page = await deps.fetchPage(it.url!);
+      if (visibleIn(it, page.html) === true) {
+        it.status = 'verified';
+        it.verifiedAt = now().toISOString();
+        it.reason = null;
+        verified++;
+      }
+    } catch {
+      // Looked at again on the next run.
+    }
+  }
+  return { items: all, verified };
 }

@@ -15,6 +15,7 @@ export type Approval = 'none' | 'team_lead' | 'client';
 /** Roadmap months: d30 = month 1 (days 1–30) … d180 = month 6. Plans before 2026-11-20 only used the first three. */
 export type Bucket = 'd30' | 'd60' | 'd90' | 'd120' | 'd150' | 'd180';
 export const ACTION_BUCKETS: Bucket[] = ['d30', 'd60', 'd90', 'd120', 'd150', 'd180'];
+import type { TaskExec } from '../autopilot/task-map';
 export type ActionSource = { kind: 'audit'; ruleId: string } | { kind: 'mapping'; clusterId: string } | { kind: 'ai'; planId: string; taskId: string };
 
 /** What the AI plan says about a task (ai-plan.ts): who does it, when, what changes and how success is checked. */
@@ -98,6 +99,8 @@ export type ActionItem = {
   applied?: ApplyRecord | null;
   /** Set on tasks from the AI-written plan. */
   plan?: PlanTaskInfo;
+  /** What the plan executor does for this task (action type and target pages; `mapPlanTasks()`). */
+  exec?: TaskExec;
   createdAt: string;
   updatedAt: string;
 };

@@ -308,6 +308,48 @@ function msscore_fix_heading_order_html( $html ) {
 }
 
 /**
+ * Bricks element positions in the order they appear on the page: top-level elements in list order,
+ * each followed by its children (their `children` order), depth first. Elements the tree does not reach keep list order at the end.
+ *
+ * @param array $els Bricks elements.
+ * @return int[] Indexes into $els.
+ */
+function msscore_bricks_page_order( $els ) {
+	$by_id = array();
+	foreach ( $els as $i => $el ) {
+		if ( isset( $el['id'] ) ) {
+			$by_id[ (string) $el['id'] ] = $i;
+		}
+	}
+	$out  = array();
+	$seen = array();
+	$walk = function ( $i ) use ( &$walk, &$out, &$seen, $els, $by_id ) {
+		if ( isset( $seen[ $i ] ) ) {
+			return;
+		}
+		$seen[ $i ] = true;
+		$out[]      = $i;
+		foreach ( isset( $els[ $i ]['children'] ) && is_array( $els[ $i ]['children'] ) ? $els[ $i ]['children'] : array() as $child ) {
+			if ( isset( $by_id[ (string) $child ] ) ) {
+				$walk( $by_id[ (string) $child ] );
+			}
+		}
+	};
+	foreach ( $els as $i => $el ) {
+		$parent = isset( $el['parent'] ) ? (string) $el['parent'] : '0';
+		if ( '' === $parent || '0' === $parent || ! isset( $by_id[ $parent ] ) ) {
+			$walk( $i );
+		}
+	}
+	foreach ( array_keys( $els ) as $i ) {
+		if ( ! isset( $seen[ $i ] ) ) {
+			$out[] = $i;
+		}
+	}
+	return $out;
+}
+
+/**
  * Walks an Elementor tree or Bricks element list and demotes H1s after the first $keep.
  *
  * @param string $builder elementor | bricks.
@@ -319,11 +361,12 @@ function msscore_demote_h1_builder( $builder, $data, $keep ) {
 	$seen    = 0;
 	$changed = 0;
 	if ( 'bricks' === $builder ) {
-		foreach ( $data as &$el ) {
-			if ( isset( $el['settings']['tag'] ) && 'h1' === strtolower( (string) $el['settings']['tag'] ) ) {
+		// Bricks stores elements in a flat list whose order is not the order on the page: walk the tree.
+		foreach ( msscore_bricks_page_order( $data ) as $i ) {
+			if ( isset( $data[ $i ]['settings']['tag'] ) && 'h1' === strtolower( (string) $data[ $i ]['settings']['tag'] ) ) {
 				++$seen;
 				if ( $seen > $keep ) {
-					$el['settings']['tag'] = 'h2';
+					$data[ $i ]['settings']['tag'] = 'h2';
 					++$changed;
 				}
 			}
@@ -448,9 +491,9 @@ function msscore_apply_heading_fix( $t, $new ) {
 function msscore_set_h1_text( $id, $builder, $snap, $text ) {
 	if ( 'bricks' === $builder ) {
 		$els = is_array( $snap['bricks'] ) ? $snap['bricks'] : array();
-		foreach ( $els as &$el ) {
-			if ( isset( $el['settings']['tag'] ) && 'h1' === strtolower( (string) $el['settings']['tag'] ) && isset( $el['settings']['text'] ) ) {
-				$el['settings']['text'] = esc_html( $text );
+		foreach ( msscore_bricks_page_order( $els ) as $i ) {
+			if ( isset( $els[ $i ]['settings']['tag'] ) && 'h1' === strtolower( (string) $els[ $i ]['settings']['tag'] ) && isset( $els[ $i ]['settings']['text'] ) ) {
+				$els[ $i ]['settings']['text'] = esc_html( $text );
 				update_post_meta( $id, '_bricks_page_content_2', $els );
 				clean_post_cache( $id );
 				return 1;

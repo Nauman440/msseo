@@ -87,3 +87,5 @@ export * from './autopilot/generate';
 export * from './autopilot/run';
 export * from './autopilot/schedule';
 export * from './autopilot/notify';
+export * from './autopilot/task-map';
+export * from './autopilot/executor';

@@ -8,6 +8,7 @@ import { SiteConnectionCard } from '@/components/connections/SiteConnectionCard'
 import { SiteInventoryCard } from '@/components/connections/SiteInventoryCard';
 import { inventoryFor } from '@/lib/inventory';
 import { ImplementPlan } from '@/components/autopilot/ImplementPlan';
+import { currentPlanMonth } from '@/components/actions/PlanMonths';
 import { autopilotBlocker, autopilotRunning, getAutopilot } from '@/lib/autopilot-wp';
 import { getActions, planContext } from '@/lib/actions';
 import { aiPlanAvailable, regenerateEnabled } from '@/lib/ai-plan';
@@ -40,7 +41,7 @@ export default async function TeamActionPlanPage({ params, searchParams }: Props
       </div>
       {q.error && <p role="alert" className="rounded-[14px] border border-fail-bg bg-surface p-4 text-sm font-semibold text-fail-text">{q.error}</p>}
       {q.connected && <p role="status" className="rounded-[14px] border border-border bg-surface p-4 text-sm font-semibold text-pass-text">{q.connected === 'shopify' ? 'Shopify' : 'WordPress'} is connected.</p>}
-      {ws.actions.length > 0 && <ImplementPlan domain={domain} state={auto} blocker={blocker} running={autopilotRunning(domain)} connectHref="#site-connection" audience="team" />}
+      {ws.actions.length > 0 && <ImplementPlan domain={domain} state={auto} blocker={blocker} running={autopilotRunning(domain)} connectHref="#site-connection" audience="team" actions={ws.actions} month={currentPlanMonth(ws)} />}
       <ActionPlanView ws={ws} open={suggestions(ws, ctx.report, ctx.mapping)} audience="team" hasAudit={Boolean(ctx.report)} site={viewOf(conn)} connectHref="#site-connection" ai={{ available: aiPlanAvailable(), preparing: false, disabledReason: null, regenerate, status: ws.aiPlanStatus ?? null }} />
       <SiteConnectionCard domain={domain} connection={viewOf(conn)} back={`/action-plan/${domain}`} ready={connectionsReady()} shopifyReady={Boolean(shopifyApp())} audience="team" />
       {conn && <SiteInventoryCard domain={domain} connection={viewOf(conn)!} inventory={inv.inventory} refreshing={inv.refreshing} audience="team" />}

@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import type { AutopilotSettings } from '@seo/core';
-import { approveWorkItemsAction, resetAutopilotAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
+import { approveWorkItemsAction, pauseAutopilotAction, resetAutopilotAction, runNextTaskAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
 import { Message, Submit } from '@/components/competitors/forms';
 
 export function StartImplementingButton({ domain, label }: { domain: string; label: string }) {
@@ -96,6 +96,26 @@ export function StartOverForm({ domain }: { domain: string }) {
         <Submit label="Start over" busy="Undoing…" tone="secondary" />
         <Message state={state} />
       </div>
+    </form>
+  );
+}
+
+export function RunNextTaskButton({ domain }: { domain: string }) {
+  const [state, action] = useActionState<AutopilotActionState>(runNextTaskAction.bind(null, domain), {});
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <Submit label="Run next task now" busy="Starting…" tone="secondary" />
+      <Message state={state} />
+    </form>
+  );
+}
+
+export function PauseButton({ domain, paused }: { domain: string; paused: boolean }) {
+  const [state, action] = useActionState<AutopilotActionState>(pauseAutopilotAction.bind(null, domain, !paused), {});
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <Submit label={paused ? 'Resume' : 'Pause'} busy={paused ? 'Resuming…' : 'Pausing…'} tone="secondary" />
+      <Message state={state} />
     </form>
   );
 }
