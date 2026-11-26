@@ -27,6 +27,25 @@ export async function wordpressSession(
 }
 
 /**
+ * After the plugin was deactivated and activated it holds no key, so signed requests are refused.
+ * Gives it a new key (the plugin accepts an unsigned key only while it has none, so this never takes
+ * over a plugin another connection set up) and saves it. Returns null when the plugin refused.
+ */
+export async function rekeyWordPress(c: SiteConnection, deps: { save: (c: SiteConnection) => Promise<void>; log?: HttpLog }): Promise<SiteConnection | null> {
+  if (c.platform !== 'wordpress') return null;
+  const secret = JSON.parse(decryptSecret(c.secret)) as WordPressSecret;
+  const key = newSigningKey();
+  try {
+    await createWordPressClient({ siteUrl: c.siteUrl, user: c.account, password: secret.password, log: deps.log }).setKey(key);
+  } catch {
+    return null;
+  }
+  const connection: SiteConnection = { ...c, secret: encryptSecret(JSON.stringify({ ...secret, signingKey: key } satisfies WordPressSecret)) };
+  await deps.save(connection);
+  return connection;
+}
+
+/**
  * Reads the site's status and inventory and saves them. Returns the inventory and any findings that
  * must reach a person straight away (e.g. "Discourage search engines" switched on).
  */

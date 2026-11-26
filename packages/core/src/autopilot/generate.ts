@@ -27,6 +27,8 @@ export type GenerateInput = {
   deadUrls: DeadUrl[];
   /** Image address → alt text drafted earlier (Module 2 alt-text drafts). */
   altDrafts?: Map<string, string>;
+  /** Changes after "Start over" get new ids (the plugin never applies the same id twice). */
+  idSalt?: string;
   /** The live robots.txt (null = not read), for the sitemap line. */
   robotsTxt?: string | null;
   ai?: OpenAiClient | null;
@@ -51,7 +53,7 @@ type Ctx = {
 
 function push(c: Ctx, a: ActionItem | null, w: { type: WpChangeType | InternalChangeType | 'manual'; target: WpTarget | null; url: string | null; label: string; before: unknown; newValue: unknown; status: WorkItemStatus; reason?: string | null; priorityBoost?: number; week?: number }) {
   const actionId = a?.id ?? 'autopilot';
-  const id = workItemId(c.input.domain, actionId, w.type, w.target, w.newValue);
+  const id = workItemId(c.input.idSalt ? `${c.input.domain}#${c.input.idSalt}` : c.input.domain, actionId, w.type, w.target, w.newValue);
   if (c.items.some((x) => x.id === id)) return;
   c.items.push({
     id,

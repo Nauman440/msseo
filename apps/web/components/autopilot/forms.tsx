@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import type { AutopilotSettings } from '@seo/core';
-import { approveWorkItemsAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
+import { approveWorkItemsAction, resetAutopilotAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
 import { Message, Submit } from '@/components/competitors/forms';
 
 export function StartImplementingButton({ domain, label }: { domain: string; label: string }) {
@@ -78,6 +78,22 @@ export function AutopilotSettingsForm({ domain, settings: s, zones }: { domain: 
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <Submit label="Save" busy="Saving…" tone="secondary" />
+        <Message state={state} />
+      </div>
+    </form>
+  );
+}
+
+export function StartOverForm({ domain }: { domain: string }) {
+  const [state, action] = useActionState<AutopilotActionState, FormData>(resetAutopilotAction.bind(null, domain), {});
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <p className="text-[13px] text-ink-2">Undoes every change the autopilot made on the website and forgets this month’s runs, so the next run starts from the beginning. The schedule settings stay.</p>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="confirm" className="size-4 accent-primary" /> Yes, undo everything and start over
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <Submit label="Start over" busy="Undoing…" tone="secondary" />
         <Message state={state} />
       </div>
     </form>
