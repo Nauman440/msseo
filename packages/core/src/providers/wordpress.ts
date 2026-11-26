@@ -130,7 +130,8 @@ export class WordPressKeyMismatch extends Error {
 
 export type WordPressClient = SiteAdapter & {
   me(): Promise<{ canEdit: boolean; name: string | null }>;
-  plugin(): Promise<{ version: string; seo: string } | null>;
+  /** `signed`: the plugin holds a signing key (1.1.0+; undefined for older plugins). */
+  plugin(): Promise<{ version: string; seo: string; signed?: boolean } | null>;
   /** Full site status (plugin 1.1.0+). */
   status(): Promise<WpStatus>;
   /** Gives the plugin its signing key (the first time unsigned, later signed with the current key). */
@@ -191,7 +192,7 @@ export function createWordPressClient(cfg: { siteUrl: string; user: string; pass
     async plugin() {
       try {
         const s = await call('msscore/v1/status', 'GET', undefined, status);
-        return { version: s.version, seo: s.seo };
+        return { version: s.version, seo: s.seo, ...(typeof s.signed === 'boolean' ? { signed: s.signed } : {}) };
       } catch (err) {
         // The plugin is there but holds a signing key MS SCORE does not have (e.g. set by an earlier connection).
         if (err instanceof HttpError && err.status === 401 && /msscore_(bad_signature|no_key)/.test(err.body ?? '')) throw new WordPressKeyMismatch();
