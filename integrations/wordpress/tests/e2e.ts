@@ -30,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version.startsWith('1.3') && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
+  ok(status.version === '1.3.1' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -77,7 +77,7 @@ async function main() {
   const sm = { change_id: cid('sitemap'), type: 'sitemap', target: { site: true }, new_value: { enabled: true } } as WpChange;
   ok((await wp.apply(sm)).status === 'applied', 'sitemap: switched on');
   const idx = await raw('/sitemap.xml');
-  ok(idx.status === 200 && idx.body.includes('sitemap-page-1.xml'), 'sitemap: index served');
+  ok(idx.status === 200 && idx.body.includes('<urlset') && idx.body.includes(`<loc>${site}/</loc>`) && idx.body.includes('/contact/') && !idx.body.includes('<sitemapindex'), 'sitemap: a small site lists every page in sitemap.xml itself', idx.body.slice(0, 300));
   const pages = await raw('/sitemap-page-1.xml');
   ok(pages.body.includes(`<loc>${site}/</loc>`) && pages.body.includes('/contact/') && pages.body.includes('image:loc'), 'sitemap: pages with images', pages.body.slice(0, 400));
   ok((await raw('/wp-sitemap.xml')).status === 301, 'sitemap: core sitemap redirects to ours');
