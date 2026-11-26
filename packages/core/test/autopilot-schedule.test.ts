@@ -96,7 +96,17 @@ describe('site files: sitemap, robots.txt, llms.txt', () => {
   });
   it('adds the sitemap line to robots.txt only when it is missing', async () => {
     expect((await gen({}, 'User-agent: *\nDisallow:')).items.find((i) => i.type === 'robots_txt')?.status).toBe('draft');
-    expect((await gen({}, 'User-agent: *\nSitemap: https://shop.test/sitemap.xml')).items.find((i) => i.type === 'robots_txt')).toBeUndefined();
+    expect((await gen({}, 'User-agent: *\nSitemap: https://shop.test/sitemap.xml')).items.find((i) => i.type === 'robots_txt')?.status).toBe('keep');
+    // Names the old WordPress sitemap: change it to the new one.
+    const old = (await gen({ sitemap: { url: `${site}/wp-sitemap.xml`, by: 'wordpress' } }, 'User-agent: *\nSitemap: https://shop.test/wp-sitemap.xml')).items.find((i) => i.type === 'robots_txt')!;
+    expect(old).toMatchObject({ status: 'draft', label: 'robots.txt: point to the new sitemap' });
+  });
+  it('tells a person the exact robots.txt line when WordPress runs in a folder', async () => {
+    const folder = await generateWorkItems({ accountId: 'a', domain: 'shop.test', actions: [], inventory: { ...inv({}), status: { ...inv({}).status, home_url: `${site}/srm/`, sitemap: { url: `${site}/srm/wp-sitemap.xml`, by: 'wordpress' } } }, live: [], profile: { name: 'Paws', places: [], brands: [], services: [], bannedWords: [], competitors: [] }, keywords: new Map(), deadUrls: [], robotsTxt: 'User-agent: *\nDisallow:\n\nSitemap: https://shop.test/srm/wp-sitemap.xml', now: new Date('2026-11-26T09:00:00Z') });
+    const r = folder.items.find((i) => i.type === 'robots_txt')!;
+    expect(r.status).toBe('needs_human');
+    expect(r.url).toBe(`${site}/robots.txt`);
+    expect(r.reason).toContain('replace the Sitemap line with “Sitemap: https://shop.test/srm/sitemap.xml”');
   });
   it('checks the sitemap, robots.txt and llms.txt on the live site', () => {
     expect(visibleIn(wi({ type: 'sitemap', newValue: { enabled: true } }), '<?xml version="1.0"?><sitemapindex>')).toBe(true);
