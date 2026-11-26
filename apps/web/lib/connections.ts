@@ -1,5 +1,5 @@
 import 'server-only';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createWordPressClient, normDomain, pluginSupportsSigning, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
@@ -33,6 +33,24 @@ export async function getConnection(rawDomain: string): Promise<SiteConnection |
   } catch {
     return null;
   }
+}
+
+/** Every connected website (the scheduler's list). */
+export async function listConnections(): Promise<SiteConnection[]> {
+  if (usingDatabase()) {
+    const { listSiteConnections } = await import('@seo/db');
+    return listSiteConnections().catch(() => []);
+  }
+  const names = await readdir(DIR).catch(() => [] as string[]);
+  const out: SiteConnection[] = [];
+  for (const n of names.filter((x) => x.endsWith('.json'))) {
+    try {
+      out.push(JSON.parse(await readFile(resolve(DIR, n), 'utf8')) as SiteConnection);
+    } catch {
+      // A file being written or a broken file is skipped.
+    }
+  }
+  return out;
 }
 
 export async function saveConnection(c: SiteConnection): Promise<void> {

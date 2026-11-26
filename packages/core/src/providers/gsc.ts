@@ -12,6 +12,7 @@ import { request, requestJson, type HttpLog } from './http';
  */
 
 export const GSC_SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/webmasters.readonly'];
+
 const API = 'https://www.googleapis.com/webmasters/v3';
 
 export type GoogleOAuth = { clientId: string; clientSecret: string; redirectUri: string };
@@ -132,7 +133,7 @@ export type GscRow = { keys: string[]; clicks: number; impressions: number; ctr:
 export async function gscSearchAnalytics(
   token: string,
   property: string,
-  q: { startDate: string; endDate: string; dimensions: ('page' | 'query' | 'date' | 'device' | 'country')[]; maxRows?: number },
+  q: { startDate: string; endDate: string; dimensions: ('page' | 'query' | 'date' | 'device' | 'country')[]; maxRows?: number; page?: string },
   log?: HttpLog,
 ): Promise<GscRow[]> {
   const out: GscRow[] = [];
@@ -143,7 +144,7 @@ export async function gscSearchAnalytics(
         provider: 'gsc',
         method: 'POST',
         headers: auth(token),
-        body: { startDate: q.startDate, endDate: q.endDate, dimensions: q.dimensions, type: 'web', rowLimit: Math.min(25_000, max - startRow), startRow },
+        body: { startDate: q.startDate, endDate: q.endDate, dimensions: q.dimensions, type: 'web', rowLimit: Math.min(25_000, max - startRow), startRow, ...(q.page ? { dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'equals', expression: q.page }] }] } : {}) },
         timeoutMs: 30_000,
         retries: 1,
         log,
@@ -210,4 +211,22 @@ export async function gscInspect(token: string, property: string, url: string, l
   const json = (await res.json()) as unknown;
   if (!res.ok) throw new Error(`URL Inspection ${res.status}`);
   return { url, ...(inspectSchema.parse(json).inspectionResult.indexStatusResult ?? {}) };
+}
+
+/** Why a sitemap could not be submitted (403 = the connection is read-only or lacks owner rights). */
+export class GscSubmitError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+/**
+ * sitemaps.submit: PUT https://www.googleapis.com/webmasters/v3/sites/{siteUrl}/sitemaps/{feedpath}
+ * (scope webmasters, not .readonly; answers 204 with an empty body).
+ */
+export async function gscSubmitSitemap(token: string, property: string, feed: string, log?: HttpLog): Promise<void> {
+  const res = await request(`${API}/sites/${site(property)}/sitemaps/${encodeURIComponent(feed)}`, { provider: 'gsc', method: 'PUT', headers: auth(token), timeoutMs: 20_000, retries: 1, log });
+  if (res.ok) return;
+  const body = await res.text().catch(() => '');
+  throw new GscSubmitError(res.status === 403 ? 'Search Console is connected read-only, so the sitemap cannot be submitted automatically.' : `Search Console answered ${res.status}: ${body.slice(0, 160)}`, res.status);
 }

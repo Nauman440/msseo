@@ -27,6 +27,8 @@ export type GenerateInput = {
   deadUrls: DeadUrl[];
   /** Image address → alt text drafted earlier (Module 2 alt-text drafts). */
   altDrafts?: Map<string, string>;
+  /** The live robots.txt (null = not read), for the sitemap line. */
+  robotsTxt?: string | null;
   ai?: OpenAiClient | null;
   /** Vision alt-text drafting, injected so tests run without the model. */
   draftAlt?: (items: { page: string; src: string; title: string | null; h1: string | null }[]) => Promise<{ src: string; alt: string }[]>;
@@ -331,6 +333,61 @@ function redirectItems(c: Ctx, a: ActionItem | null) {
   }
 }
 
+/** The sitemap Google should read: MS SCORE's once it is switched on, else the one the site serves. */
+export function sitemapUrl(inv: SiteInventory): string | null {
+  const st = inv.status;
+  if (st.sitemap.by === 'msscore' || (st.seo_plugin === 'none' && ['none', 'wordpress'].includes(st.sitemap.by))) return `${st.home_url.replace(/\/+$/, '')}/sitemap.xml`;
+  return st.sitemap.url;
+}
+
+/** A short factual summary for AI assistants (llms.txt): who the business is and its main pages. Dated by month, so it is refreshed monthly. */
+export function llmsText(profile: BusinessProfile, inventory: SiteInventory, now = new Date()): string {
+  const home = inventory.items.find((i) => i.isFrontPage);
+  const pages = inventory.items
+    .filter((i) => i.url && !i.noindex && !i.isFrontPage && ['page', 'product_cat', 'category', 'product', 'post'].includes(i.type))
+    .sort((a, b) => ['page', 'product_cat', 'category', 'product', 'post'].indexOf(a.type) - ['page', 'product_cat', 'category', 'product', 'post'].indexOf(b.type))
+    .slice(0, 25);
+  const what = [profile.services?.slice(0, 6).join(', '), profile.places.length ? `in ${profile.places.slice(0, 4).join(', ')}` : ''].filter(Boolean).join(' ');
+  const clean = (s: string) => s.replace(/[\r\n]+/g, ' ').replace(/[<>]/g, '').trim();
+  return [
+    `# ${clean(profile.name)}`,
+    '',
+    ...(what ? [`> ${clean(profile.name)}: ${clean(what)}.`, ''] : []),
+    '## Main pages',
+    `- [Homepage](${home?.url ?? inventory.status.home_url})`,
+    ...pages.map((i) => `- [${clean(i.name)}](${i.url})`),
+    '',
+    `Updated: ${now.toISOString().slice(0, 7)}`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Site files every site should have, whatever the plan says: a clean XML sitemap (when no SEO
+ * plugin makes one; WordPress's own wp-sitemap.xml lists noindex and thin pages), robots.txt naming
+ * that sitemap, and llms.txt for AI assistants.
+ */
+function siteFileItems(c: Ctx) {
+  const st = c.input.inventory.status;
+  const ext = st as typeof st & { llms_served?: boolean; robots_managed?: boolean };
+  const by = st.sitemap.by;
+  if (by === 'msscore') push(c, null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: { enabled: true }, newValue: null, status: 'keep', reason: 'MS SCORE’s sitemap is on and updates itself when pages change.' });
+  else if (st.seo_plugin !== 'none' && by !== 'none' && by !== 'wordpress') push(c, null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: by, newValue: null, status: 'keep', reason: `${by} already makes the sitemap.` });
+  else push(c, null, { type: 'sitemap', target: { site: true }, url: st.home_url.replace(/\/+$/, '') + '/sitemap.xml', label: by === 'wordpress' ? 'XML sitemap (replace WordPress’s basic one)' : 'Create the XML sitemap', before: { enabled: false, by, url: st.sitemap.url }, newValue: { enabled: true }, status: 'draft', reason: by === 'wordpress' ? 'WordPress’s own sitemap lists noindex pages and has no images or dates; MS SCORE’s leaves them out and updates itself.' : 'The site has no sitemap, so Google has no list of its pages.', priorityBoost: 20, week: 1 });
+
+  // Resubmitted every month (and after the sitemap changes), even when no task asks for it.
+  const sm = sitemapUrl(c.input.inventory);
+  if (sm && !c.items.some((i) => i.type === 'gsc_sitemap_submit')) push(c, null, { type: 'gsc_sitemap_submit', target: null, url: sm, label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: sm, month: c.now.slice(0, 7) }, status: 'draft', week: 1 });
+
+  const robots = c.input.robotsTxt;
+  const sitemapLine = robots ? /^\s*sitemap:/im.test(robots) : false;
+  if (ext.robots_managed) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: true, newValue: null, status: 'keep', reason: 'MS SCORE already manages robots.txt.' });
+  else if (robots !== undefined && !sitemapLine) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt: name the sitemap', before: robots, newValue: { enabled: true }, status: 'draft', reason: 'robots.txt does not tell search engines where the sitemap is.', week: 1 });
+
+  if (st.llms_file) push(c, null, { type: 'llms_txt', target: { site: true }, url: null, label: 'llms.txt for AI assistants', before: 'file', newValue: null, status: 'keep', reason: 'The site has its own llms.txt file.' });
+  else push(c, null, { type: 'llms_txt', target: { site: true }, url: st.home_url, label: ext.llms_served ? 'llms.txt for AI assistants (monthly refresh)' : 'llms.txt for AI assistants', before: null, newValue: { content: llmsText(c.input.profile, c.input.inventory, c.input.now) }, status: 'draft', week: 2 });
+}
+
 export async function generateWorkItems(input: GenerateInput): Promise<GenerateResult> {
   const c: Ctx = {
     input,
@@ -347,7 +404,7 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
     const doer = a.plan?.doer;
     const kind = kindOf(a);
     const pages = pagesOf(c, a);
-    if (kind === 'sitemap_submit') push(c, a, { type: 'gsc_sitemap_submit', target: null, url: input.inventory.status.sitemap.url, label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: input.inventory.status.sitemap.url }, status: 'draft', week: 1 });
+    if (kind === 'sitemap_submit') push(c, a, { type: 'gsc_sitemap_submit', target: null, url: sitemapUrl(input.inventory), label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: sitemapUrl(input.inventory), month: c.now.slice(0, 7) }, status: 'draft', week: 1 });
     else if (kind === 'ai_check') push(c, a, { type: 'ai_visibility_check', target: null, url: null, label: a.title, before: null, newValue: null, status: 'draft' });
     else if (kind === 'weekly_check') push(c, a, { type: 'weekly_page_check', target: null, url: null, label: 'Check new and changed pages every week', before: null, newValue: null, status: 'draft' });
     else if (kind === 'meta_title' || kind === 'meta_description') for (const p of pages) meta.push({ a, field: kind === 'meta_title' ? 'title' : 'description', page: p });
@@ -371,6 +428,7 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
     }
   }
   await metaItems(c, meta);
+  siteFileItems(c);
   // Dead addresses are fixed in week 1 even when no task mentions redirects.
   if (!redirectsDone && input.deadUrls.length) redirectItems(c, null);
   // Canonicals first, then titles/descriptions/H1s on the same page (the plan's rule).

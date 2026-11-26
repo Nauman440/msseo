@@ -92,7 +92,7 @@ export const WP_CHANGE_TYPES = [
 export type WpChangeType = (typeof WP_CHANGE_TYPES)[number];
 /** What a change is aimed at: a post/page/product, a category, an image, or the whole site. */
 export type WpTarget = { post_id: number } | { term_id: number; taxonomy: string } | { attachment_id: number } | { site: true };
-export type WpChange = { change_id: string; type: WpChangeType; target: WpTarget; new_value: unknown };
+export type WpChange = { change_id: string; type: WpChangeType; target: WpTarget; new_value: unknown; label?: string };
 const applyResult = z.object({
   status: z.enum(['applied', 'needs_human', 'skipped', 'failed', 'rolled_back']),
   change_id: z.string().optional(),
@@ -143,7 +143,18 @@ export type WordPressClient = SiteAdapter & {
   apply(change: WpChange): Promise<WpApplyResult>;
   /** Undoes one change by its change_id. */
   rollback(changeId: string, reason?: string): Promise<WpRollbackResult>;
+  /** The plugin's change log, newest first, 50 a page (signed). */
+  changes(page?: number): Promise<WpLoggedChange[]>;
 };
+
+const loggedChange = z.object({ change_id: z.string(), type: z.string(), url: z.string().nullable().optional(), status: z.string(), note: z.string().nullable().optional(), applied_at: z.string().nullable().optional(), rolled_back_at: z.string().nullable().optional() }).passthrough();
+export type WpLoggedChange = z.infer<typeof loggedChange>;
+
+/** Whether a plugin version has the admin page and the pause switch (1.3.0 and later). */
+export function pluginSupportsPause(version: string | null | undefined): boolean {
+  const [a = 0, b = 0] = (version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
+  return a > 1 || (a === 1 && b >= 3);
+}
 
 /**
  * `signingKey`: the key MS SCORE gave the plugin. With it, every call to the plugin (`msscore/v1/…`)
@@ -221,6 +232,10 @@ export function createWordPressClient(cfg: { siteUrl: string; user: string; pass
         if (err instanceof HttpError && err.status === 404) return { status: 'failed', change_id: changeId, reason: 'The site has no record of this change.' };
         throw pluginError(err);
       }
+    },
+    async changes(page = 1) {
+      const r = await call(`msscore/v1/changes?page=${page}`, 'GET', undefined, z.object({ items: z.array(loggedChange) }).passthrough()).catch((e) => Promise.reject(pluginError(e)));
+      return r.items;
     },
     async inventory(type, page, perPage = 50) {
       const q = `type=${encodeURIComponent(type)}&page=${page}&per_page=${perPage}`;

@@ -1,4 +1,5 @@
 import type { WpChangeType, WpTarget } from '../providers/wordpress';
+import type { ResultCheck } from './schedule';
 
 /**
  * WordPress autopilot, phase 3: a plan task becomes one work item per exact change (one page, one
@@ -48,6 +49,11 @@ export type WorkItem = {
   appliedAt: string | null;
   verifiedAt: string | null;
   attempts: number;
+  /** Approve mode: a person approved this exact change (cleared when the value changes, since the id changes). */
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  /** Results measured at 7, 14 and 28 days (Search Console, the page against its own past). */
+  checks?: ResultCheck[];
 };
 
 /** FNV-1a 64-bit as hex (browser-safe, no node:crypto). */

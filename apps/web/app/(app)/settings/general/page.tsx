@@ -157,6 +157,15 @@ export default async function GeneralSettingsPage() {
                   </span>
                 </span>
               </label>
+              <label className="flex cursor-pointer items-start gap-3 sm:col-span-3">
+                <input type="checkbox" name="autopilot.wpEnabled" defaultChecked={s['autopilot.wpEnabled']} className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="block text-sm font-semibold">WordPress autopilot: make the plan’s website changes on working days</span>
+                  <span className={HINT}>
+                    For sites whose own “Run by itself” switch is on (Changes tab): Monday to Friday at the site’s run time, this month’s changes are spread over the working days, checked on the live page and measured at 7, 14 and 28 days. Off stops every site at once; the “Start implementing plan” button still works.
+                  </span>
+                </span>
+              </label>
               <label className={LABEL}>
                 Monthly cap (USD)
                 <input name="autopilot.monthlyCap" type="number" min={0} max={1000} step={1} defaultValue={s['autopilot.monthlyCap']} className={`${INPUT} tabular`} />
