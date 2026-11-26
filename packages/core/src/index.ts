@@ -15,6 +15,7 @@ export { sampleReport } from './report/sample';
 export { CUSTOMER_GOOGLE_SCOPES, exchangeGscCode, gscAuthUrl, gscCanRead, gscSearchAnalytics, listGscSites, matchGscProperties, refreshGscToken, type GoogleOAuth, type GscRow } from './providers/gsc';
 export { ga4KeyEvents, ga4LandingPages, ga4MeasurementIds, ga4Report, ga4Summary, type Ga4Row, ga4WebStreamHosts, listGa4Properties, matchGa4Properties, type Ga4Property, type Ga4Summary } from './providers/ga4';
 export { diffReports, type IssueChange, type ReportDiff } from './report/diff';
+export * from './report/strengths';
 export { issuesToCsv } from './report/csv';
 export { sitemapXml } from './report/sitemap';
 export { DEFAULT_SETTINGS, pageLimitOptions, resolveSettings, settingsSchema, type AppSettings, type SettingKey } from './settings';

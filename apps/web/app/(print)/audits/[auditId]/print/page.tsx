@@ -16,6 +16,7 @@ import { ComparisonTable } from '@/components/analysis/ComparisonTable';
 import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
 import { getReport, parseMode, reportSummary } from '@/lib/reports';
 import { PdfCover } from '@/components/pdf/PdfCover';
+import { PdfPagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { PdfChecks, PdfNextSteps, PdfSummary, PdfTopIssues } from '@/components/pdf/PdfSections';
 import { PrintToolbar } from '@/components/pdf/PrintToolbar';
 
@@ -55,6 +56,9 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
       <PdfCover report={report} mode={mode} />
       <div className="pdf-flow">
         <PdfSummary report={report} summary={summary} mode={mode} />
+        <section className="pdf-section">
+          <WorkingWell report={report} mode={mode} className="mb-10" />
+        </section>
         <PdfTopIssues report={report} mode={mode} />
         <PdfChecks report={report} mode={mode} />
         {competitors?.competitors.some((c) => c.shortlist !== 'none') && (
@@ -87,6 +91,11 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
           </section>
         )}
         <PdfNextSteps report={report} />
+        {report.pages?.length ? (
+          <section className="pdf-section">
+            <PdfPagesAudited report={report} mode={mode} />
+          </section>
+        ) : null}
       </div>
     </>
   );

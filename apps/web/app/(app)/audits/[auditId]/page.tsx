@@ -7,6 +7,7 @@ import { AuditProgress } from '@/components/report/AuditProgress';
 import { Banner, ReportBanner } from '@/components/report/Banner';
 import { ReportHeader } from '@/components/report/ReportHeader';
 import { ReportOverview } from '@/components/report/ReportOverview';
+import { PagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { AfterFixes, CheckGrid, CrawlFiles, SectionTitle } from '@/components/report/ReportSections';
 import { SpeedByTemplate } from '@/components/report/SpeedByTemplate';
 import { rowExtras } from '@/components/report/StatusRow';
@@ -69,6 +70,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
         ))}
 
         <ReportOverview report={report} mode={mode} />
+        <WorkingWell report={report} mode={mode} />
 
         {report.ai ? <AiRecommendationsCard ai={report.ai} mode={mode} /> : report.aiPending && <AiPendingCard auditId={report.auditId} />}
 
@@ -93,6 +95,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
           </>
         )}
 
+        <PagesAudited report={report} mode={mode} />
         {competitors && <CompetitorSummary ws={competitors} href={`/competitors/${competitors.domain}`} />}
         {actions && <ActionPlanSummary ws={actions} href={`/action-plan/${actions.domain}`} />}
 

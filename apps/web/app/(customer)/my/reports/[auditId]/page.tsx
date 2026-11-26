@@ -5,6 +5,7 @@ import { AuditProgress } from '@/components/report/AuditProgress';
 import { ReportBanner } from '@/components/report/Banner';
 import { DownloadPdfButton } from '@/components/report/DownloadPdfButton';
 import { ReportOverview } from '@/components/report/ReportOverview';
+import { PagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { CompetitorSummary } from '@/components/competitors/CompetitorSummary';
 import { canViewAudit } from '@/lib/access';
@@ -59,6 +60,7 @@ export default async function CustomerReportPage({ params, searchParams }: Props
       <div className="space-y-6">
         <ReportBanner report={report} mode="client" />
         <ReportOverview report={report} mode="client" />
+        <WorkingWell report={report} mode="client" />
         <SectionTitle n="01" title="Technical SEO checks" note="Only cards with issues are shown" />
         <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode="client" />
         {report.cards.some((c) => c.section === 'onpage') && (
@@ -67,6 +69,7 @@ export default async function CustomerReportPage({ params, searchParams }: Props
             <CheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode="client" />
           </>
         )}
+        <PagesAudited report={report} mode="client" />
         {competitors && <CompetitorSummary ws={competitors} href={`/my/competitors?site=${competitors.domain}`} />}
         <ActionPlanSummary ws={actions} href={`/my/actions?site=${actions.domain}`} showTop={false} />
       </div>

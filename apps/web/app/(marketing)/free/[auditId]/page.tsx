@@ -6,6 +6,7 @@ import { TopBar } from '@/components/landing/Hero';
 import { ReportBanner } from '@/components/report/Banner';
 import { AuditProgress } from '@/components/report/AuditProgress';
 import { ReportOverview } from '@/components/report/ReportOverview';
+import { PagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { getAudit } from '@/lib/audit-store';
 import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
@@ -57,6 +58,7 @@ export default async function FreeReportPage({ params }: Props) {
           <TrialCta href={trialHref} score={report.overall.score} after={report.overall.afterFixes} />
 
           <ReportOverview report={report} mode="client" />
+          <WorkingWell report={report} mode="client" />
 
           <SectionTitle n="01" title="Technical SEO checks" note="Only cards with issues are shown" />
           <CheckGrid cards={report.cards.filter((c) => c.section === 'technical')} mode="client" />
@@ -66,6 +68,8 @@ export default async function FreeReportPage({ params }: Props) {
               <CheckGrid cards={report.cards.filter((c) => c.section === 'onpage')} mode="client" />
             </>
           )}
+
+          <PagesAudited report={report} mode="client" />
 
           <TrialCta href={trialHref} score={report.overall.score} after={report.overall.afterFixes} />
         </div>

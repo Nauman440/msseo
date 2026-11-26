@@ -27,7 +27,7 @@ export function StatusRow({ row, mode, extras }: { row: CheckRow; mode: Audience
     <li className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
       <StatusPill status={row.status} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-6 text-ink">
+        <p className="text-sm font-medium leading-6 text-ink [overflow-wrap:anywhere]">
           {mode === 'expert' && <span className="mr-2 font-mono text-xs text-ink-3">{row.ruleId}</span>}
           {mode === 'expert' && row.method === 'ai' && (
             <span className="mr-2 inline-block rounded-pill bg-primary-soft px-1.5 py-px align-middle text-[11px] font-semibold text-primary-text">AI-assessed</span>

@@ -445,9 +445,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
 
   // Module 7 for customers: the Changes tab (no Google, DataForSEO unreachable).
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Changes', exact: true }).click();
-  await expect(page.getByText('Not checked yet')).toBeVisible();
+  // The tab was opened earlier in this test, which starts the content check in the background, so it may be done already.
+  await expect(page.getByText('Not checked yet').or(page.getByRole('button', { name: 'Check content again' }))).toBeVisible();
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Check content' }).click();
+  await page.getByRole('button', { name: /^Check content( again)?$/ }).click();
   await expect(page.getByText(/pages reviewed|No pages to review yet/)).toBeVisible({ timeout: 60_000 });
   await page.getByRole('button', { name: 'Draft alt text' }).click();
   await expect(page.getByText(/drafts written.$|^No images without alt text on the|Run a site audit first|could not be written/)).toBeVisible({ timeout: 60_000 });
