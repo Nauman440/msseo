@@ -382,9 +382,26 @@ function siteFileItems(c: Ctx) {
   if (sm && !c.items.some((i) => i.type === 'gsc_sitemap_submit')) push(c, null, { type: 'gsc_sitemap_submit', target: null, url: sm, label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: sm, month: c.now.slice(0, 7) }, status: 'draft', week: 1 });
 
   const robots = c.input.robotsTxt;
-  const sitemapLine = robots ? /^\s*sitemap:/im.test(robots) : false;
+  const want = sitemapUrl(c.input.inventory);
+  const lines = robots ? [...robots.matchAll(/^\s*sitemap:\s*(\S+)/gim)].map((m) => m[1]!) : [];
+  const named = want ? lines.some((l) => pageKey(l) === pageKey(want)) : lines.length > 0;
+  // WordPress in a folder (example.com/shop/) cannot change robots.txt: search engines only read it at the domain root.
+  const inFolder = (() => {
+    try {
+      return new URL(st.home_url).pathname.replace(/\/+$/, '') !== '';
+    } catch {
+      return false;
+    }
+  })();
+  const label = lines.length ? 'robots.txt: point to the new sitemap' : 'robots.txt: name the sitemap';
+  const why = lines.length ? `robots.txt names ${lines.join(', ')}, not the sitemap search engines should read (${want}).` : 'robots.txt does not tell search engines where the sitemap is.';
   if (ext.robots_managed) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: true, newValue: null, status: 'keep', reason: 'MS SCORE already manages robots.txt.' });
-  else if (robots !== undefined && !sitemapLine) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt: name the sitemap', before: robots, newValue: { enabled: true }, status: 'draft', reason: 'robots.txt does not tell search engines where the sitemap is.', week: 1 });
+  else if (robots === undefined || named) {
+    if (robots !== undefined) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: robots, newValue: null, status: 'keep', reason: 'robots.txt already names the sitemap.' });
+  } else if (inFolder && want) {
+    const root = new URL(st.home_url).origin;
+    push(c, null, { type: 'robots_txt', target: { site: true }, url: `${root}/robots.txt`, label, before: robots, newValue: { line: `Sitemap: ${want}` }, status: 'needs_human', reason: `${why} WordPress runs in a folder and search engines only read ${root}/robots.txt, so change it where that file is kept (the file on the server or the website at the domain root): ${lines.length ? `replace the Sitemap line with` : 'add the line'} “Sitemap: ${want}”.`, week: 1 });
+  } else push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label, before: robots, newValue: { enabled: true }, status: 'draft', reason: why, week: 1 });
 
   if (st.llms_file) push(c, null, { type: 'llms_txt', target: { site: true }, url: null, label: 'llms.txt for AI assistants', before: 'file', newValue: null, status: 'keep', reason: 'The site has its own llms.txt file.' });
   else push(c, null, { type: 'llms_txt', target: { site: true }, url: st.home_url, label: ext.llms_served ? 'llms.txt for AI assistants (monthly refresh)' : 'llms.txt for AI assistants', before: null, newValue: { content: llmsText(c.input.profile, c.input.inventory, c.input.now) }, status: 'draft', week: 2 });
