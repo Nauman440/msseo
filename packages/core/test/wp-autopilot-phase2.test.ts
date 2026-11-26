@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createWordPressClient, pluginSupportsApply, WP_CHANGE_TYPES } from '../src';
+import { createWordPressClient, pluginSupportsApply, WordPressKeyMismatch, WP_CHANGE_TYPES } from '../src';
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const client = () => createWordPressClient({ siteUrl: 'https://shop.test', user: 'u', password: 'p', signingKey: 'k'.repeat(43) });
@@ -39,6 +39,14 @@ describe('apply and rollback answers from plugin 1.2.0', () => {
     expect((await wp.rollback('chg-00000006', 'rank dropped')).status).toBe('rolled_back');
     expect(JSON.parse(sent[0]!.body)).toEqual({ change_id: 'chg-00000006', reason: 'rank dropped' });
     expect(await wp.rollback('chg-missing')).toMatchObject({ status: 'failed' });
+  });
+
+  it('tells a plugin that holds another signing key apart from a missing plugin', async () => {
+    const answers = [reply(401, { code: 'msscore_bad_signature', message: 'wrong' }), reply(404, { code: 'rest_no_route' })];
+    vi.stubGlobal('fetch', vi.fn(async () => answers.shift()!));
+    const wp = createWordPressClient({ siteUrl: 'https://shop.test', user: 'u', password: 'p' });
+    await expect(wp.plugin()).rejects.toBeInstanceOf(WordPressKeyMismatch);
+    expect(await wp.plugin()).toBeNull();
   });
 
   it('knows the 1.2.0 change types', () => {

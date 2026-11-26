@@ -13,7 +13,7 @@ import { getActions, saveActions } from './actions';
 import { getAltText } from './alt-text';
 import { usingDatabase } from './audit-store';
 import { prepare, isPreparing } from './auto';
-import { getConnection, saveConnection } from './connections';
+import { checkConnection, getConnection, saveConnection } from './connections';
 import { customerAudits } from './customer-data';
 import { accountIdFor, refreshInventory, getInventory } from './inventory';
 import { getKeywordWorkspace, logUsage, researchCompetitors } from './keywords';
@@ -78,8 +78,10 @@ export const autopilotRunning = (domain: string) => isPreparing(runKey(normDomai
 
 /** Why the button cannot run yet, in plain words (null = it can). */
 export async function autopilotBlocker(rawDomain: string): Promise<string | null> {
-  const c = await getConnection(normDomain(rawDomain));
+  let c = await getConnection(normDomain(rawDomain));
   if (!c || c.platform !== 'wordpress') return 'Connect your WordPress website first (Connections tab).';
+  // The stored plugin version is from the last check; after a plugin update, check again (at most every 2 minutes).
+  if (!pluginSupportsApply(c.plugin?.version) && Date.now() - new Date(c.checkedAt).getTime() > 2 * 60_000) c = await checkConnection(c);
   if (c.status !== 'ok') return c.error ?? 'The website connection needs attention (Connections tab).';
   if (!pluginSupportsApply(c.plugin?.version)) return 'Install or update the MS SCORE Connector plugin to version 1.2 or later (Connections tab).';
   const ws = await getActions(normDomain(rawDomain));
