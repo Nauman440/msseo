@@ -405,6 +405,15 @@ function msscore_apply_heading_fix( $t, $new ) {
 			: '<h1>' . esc_html( $text ) . "</h1>\n";
 		msscore_save_content( $id, $h1 . $snap['post_content'] );
 		$changed = 1;
+	} elseif ( 'set_h1_text' === $action ) {
+		$text = sanitize_text_field( isset( $new['text'] ) ? (string) $new['text'] : '' );
+		if ( '' === $text ) {
+			return new WP_Error( 'bad_request', 'set_h1_text needs the heading text.', array( 'status' => 400 ) );
+		}
+		$changed = msscore_set_h1_text( $id, $builder, $snap, $text );
+		if ( is_wp_error( $changed ) ) {
+			return $changed;
+		}
 	} elseif ( 'fix_order' === $action ) {
 		if ( ! in_array( $builder, array( 'gutenberg', 'classic' ), true ) ) {
 			return new WP_Error( 'needs_human', 'This page is built with ' . $builder . '; fix the heading order in the page builder.' );
@@ -425,6 +434,70 @@ function msscore_apply_heading_fix( $t, $new ) {
 			'hash'    => msscore_snapshot_hash( msscore_snapshot( $id ) ),
 		),
 	);
+}
+
+/**
+ * Replaces the words of the page's first H1 in the content (the heading level and styling stay).
+ *
+ * @param int    $id      Post ID.
+ * @param string $builder Builder.
+ * @param array  $snap    Snapshot.
+ * @param string $text    New heading text.
+ * @return int|WP_Error 1 when changed.
+ */
+function msscore_set_h1_text( $id, $builder, $snap, $text ) {
+	if ( 'bricks' === $builder ) {
+		$els = is_array( $snap['bricks'] ) ? $snap['bricks'] : array();
+		foreach ( $els as &$el ) {
+			if ( isset( $el['settings']['tag'] ) && 'h1' === strtolower( (string) $el['settings']['tag'] ) && isset( $el['settings']['text'] ) ) {
+				$el['settings']['text'] = esc_html( $text );
+				update_post_meta( $id, '_bricks_page_content_2', $els );
+				clean_post_cache( $id );
+				return 1;
+			}
+		}
+		return new WP_Error( 'needs_human', 'The H1 is not a Bricks element with editable text; change it in Bricks.' );
+	}
+	if ( 'elementor' === $builder ) {
+		$tree = json_decode( $snap['elementor'], true );
+		$done = false;
+		$walk = function ( $nodes ) use ( &$walk, &$done, $text ) {
+			foreach ( $nodes as &$n ) {
+				if ( ! $done && isset( $n['widgetType'], $n['settings']['header_size'] ) && 'heading' === $n['widgetType'] && 'h1' === $n['settings']['header_size'] ) {
+					$n['settings']['title'] = esc_html( $text );
+					$done                   = true;
+				}
+				if ( ! $done && ! empty( $n['elements'] ) ) {
+					$n['elements'] = $walk( $n['elements'] );
+				}
+			}
+			return $nodes;
+		};
+		$tree = is_array( $tree ) ? $walk( $tree ) : $tree;
+		if ( ! $done ) {
+			return new WP_Error( 'needs_human', 'The H1 is not an Elementor heading widget; change it in Elementor.' );
+		}
+		msscore_save_elementor( $id, $tree );
+		return 1;
+	}
+	if ( 'divi' === $builder ) {
+		return new WP_Error( 'needs_human', 'This page is built with Divi; change the H1 in the Divi builder.' );
+	}
+	$html = (string) $snap['post_content'];
+	$next = preg_replace_callback(
+		'/(<h1\b[^>]*>)(.*?)(<\/h1>)/is',
+		function ( $m ) use ( $text ) {
+			return $m[1] . esc_html( $text ) . $m[3];
+		},
+		$html,
+		1,
+		$count
+	);
+	if ( ! $count ) {
+		return new WP_Error( 'needs_human', 'The H1 is not in the page content; it comes from the theme (usually the page title). Change the page title instead.' );
+	}
+	msscore_save_content( $id, $next );
+	return 1;
 }
 
 /* ---------- content_block ---------- */

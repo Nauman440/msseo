@@ -259,6 +259,7 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     const robotsTxt = await robotsOf(home0);
     const gen = await generateWorkItems({
       accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50), robotsTxt, idSalt: s.generation ? String(s.generation) : undefined,
+      h1Drafts: new Map(mapping.rows.filter((r) => r.url && r.drafts?.h1).map((r) => [pageKey(r.url!), r.drafts!.h1])),
       altDrafts: new Map((alt?.drafts ?? []).map((d) => [d.src, d.alt])),
       ai,
       draftAlt: ai ? async (list) => {

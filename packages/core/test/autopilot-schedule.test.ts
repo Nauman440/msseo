@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyHoldList, applyOrder, visibleIn, dailyAverage, DEFAULT_AUTOPILOT_SETTINGS, dueCheckpoint, generateWorkItems, judgeResult, llmsText, localParts, onHoldList, plannedEmails,
+  applyHoldList, applyOrder, visibleIn, checkH1, dailyAverage, DEFAULT_AUTOPILOT_SETTINGS, dueCheckpoint, generateWorkItems, judgeResult, llmsText, localParts, onHoldList, plannedEmails,
   runDue, sitemapUrl, timezoneFor, todaysShare, workingDaysLeft, type InventoryItem, type RunSummary, type SiteInventory, type WorkItem, type WpStatus,
 } from '../src';
 
@@ -154,5 +154,42 @@ describe('emails', () => {
     expect(friday[0]).toMatchObject({ kind: 'friday_summary' });
     const monthly = plannedEmails({ ...base, items: [wi({ status: 'verified', appliedAt: '2026-11-25T09:00:00Z' })], now: new Date('2026-12-01T10:00:00Z') });
     expect(monthly[0]).toMatchObject({ kind: 'monthly_summary', key: 'month:2026-11' });
+  });
+});
+
+describe('main heading (H1)', () => {
+  const site = 'https://srm.test';
+  const homeHtml = '<html><head><title>Maritime Risk Management in Dubai | SRM</title></head><body><h1 class="brxe-heading">SRM Risk Management FZCO Awais</h1><h1 class="brxe-text-basic">Intelligence-Led Maritime Risk Management &amp; Shipping Operations</h1><p>We help shipowners in Dubai manage maritime risk on voyages through the Red Sea.</p></body></html>';
+  const item: InventoryItem = { id: 5, url: `${site}/`, type: 'page', name: 'Home', titleTag: null, seoTitle: null, metaDescription: null, canonical: null, noindex: false, nofollow: false, h1s: ['SRM Risk Management FZCO Awais', 'Intelligence-Led Maritime Risk Management & Shipping Operations'], images: [], wordCount: 300, schemaTypes: [], builder: 'bricks', isFrontPage: true, modified: null };
+  const status = { home_url: `${site}/`, seo_plugin: 'none', sitemap: { url: `${site}/sitemap.xml`, by: 'msscore' }, llms_file: true } as unknown as WpStatus;
+  const run = async (o: { h1Drafts?: Map<string, string> } = {}) => {
+    const { parsePageContent } = await import('../src/audit/page-content');
+    return generateWorkItems({
+      accountId: 'a', domain: 'srm.test', actions: [], inventory: { accountId: 'a', domain: 'srm.test', platform: 'wordpress', refreshedAt: '', status, items: [item], totals: {}, truncated: false, errors: [] },
+      live: [parsePageContent(homeHtml, `${site}/`)], profile: { name: 'SRM Risk Management FZCO', places: ['Dubai'], brands: [], services: ['maritime risk management'], bannedWords: [], competitors: [] },
+      keywords: new Map([['srm.test', 'maritime risk management']]), deadUrls: [], robotsTxt: undefined, ...o,
+    });
+  };
+  it('demotes the extra H1 on every page, even without an H1 task in the plan', async () => {
+    const h = (await run()).items.filter((i) => i.type === 'heading_fix');
+    expect(h[0]).toMatchObject({ status: 'draft', newValue: { action: 'demote_extra_h1', keep: 1 }, week: 1 });
+  });
+  it('rewrites a main H1 that does not say what the page is about, after the demote', async () => {
+    const h = (await run()).items.filter((i) => i.type === 'heading_fix');
+    const words = h.find((i) => (i.newValue as { action?: string })?.action === 'set_h1_text')!;
+    expect(words.before).toBe('SRM Risk Management FZCO Awais');
+    expect(words.newValue).toEqual({ action: 'set_h1_text', text: 'Maritime Risk Management in Dubai' });
+    expect(words.dependsOn).toEqual([h[0]!.id]);
+    expect(words.status).toBe('draft');
+  });
+  it('uses the page plan’s drafted H1 when it passes, and keeps an H1 that already fits', async () => {
+    const planned = await run({ h1Drafts: new Map([['srm.test', 'Maritime Risk Management for Shipowners in Dubai']]) });
+    expect(planned.items.find((i) => (i.newValue as { action?: string })?.action === 'set_h1_text')!.newValue).toEqual({ action: 'set_h1_text', text: 'Maritime Risk Management for Shipowners in Dubai' });
+    expect(checkH1('Maritime Risk Management in Dubai', { mainKeyword: 'maritime risk management', profile: { name: 'SRM', places: [], brands: [], bannedWords: [], competitors: [] } })).toEqual([]);
+    expect(checkH1('SRM Risk Management FZCO', { mainKeyword: 'maritime risk management', profile: { name: 'SRM Risk Management FZCO', places: [], brands: [], bannedWords: [], competitors: [] } }).join(' ')).toMatch(/does not say what the page is about.*only the business name/);
+  });
+  it('checks the new H1 on the live page', () => {
+    expect(visibleIn(wi({ type: 'heading_fix', newValue: { action: 'set_h1_text', text: 'Maritime Risk Management in Dubai' } }), '<h1 class="x">Maritime Risk Management in Dubai</h1><h2>Intelligence-Led</h2>')).toBe(true);
+    expect(visibleIn(wi({ type: 'heading_fix', newValue: { action: 'set_h1_text', text: 'Maritime Risk Management in Dubai' } }), '<h1>SRM Risk Management FZCO Awais</h1>')).toBe(false);
   });
 });

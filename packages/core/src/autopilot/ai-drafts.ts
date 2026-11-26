@@ -91,3 +91,24 @@ export async function draftBlock(ai: OpenAiClient, p: { kind: 'answer' | 'faq'; 
   });
   return { answer: r.data.answer.trim(), faq: r.data.faq, tokens: r.tokens };
 }
+
+const h1Schema = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['url', 'h1'], properties: { url: { type: 'string' }, h1: { type: 'string' } } } } } } as const;
+const h1Parse = z.object({ pages: z.array(z.object({ url: z.string(), h1: z.string() })) });
+
+/** A new main heading (H1) for each page: what the page offers, with its main keyword, in plain words. */
+export async function draftH1(ai: OpenAiClient, pages: { url: string; name: string; mainKeyword: string | null; currentH1: string | null; title: string | null; excerpt: string; problems: string[] }[], profile: BusinessProfile): Promise<{ drafts: Map<string, string>; tokens: number }> {
+  const r = await ai.generateJson({
+    name: 'page_h1',
+    system:
+      `You write the main heading (H1) of web pages for ${profile.name}. Each H1 is 20–65 characters, says plainly what the page offers, ` +
+      'starts with or contains the main keyword (natural wording, no stuffing), is not just the business name, has no "|" or emoji, ' +
+      'and differs from the title tag. Use only facts on the page; no guarantees, medical or legal claims, no competitor names. ' +
+      'When problems of an earlier draft are listed, fix every one.' + (profile.bannedWords.length ? ` Never use: ${profile.bannedWords.join(', ')}.` : ''),
+    user: JSON.stringify(pages.map((p) => ({ url: p.url, page_name: p.name, main_keyword: p.mainKeyword, current_h1: p.currentH1, title_tag: p.title, page_text: p.excerpt.slice(0, 1000), earlier_problems: p.problems }))),
+    jsonSchema: h1Schema as unknown as Record<string, unknown>,
+    parse: h1Parse,
+    maxOutputTokens: 1500,
+    timeoutMs: 120_000,
+  });
+  return { drafts: new Map(r.data.pages.map((p) => [p.url, p.h1.trim()])), tokens: r.tokens };
+}
