@@ -3,11 +3,10 @@ import {
   appendEmailLog, dailyAverage, dueCheckpoint, gscSearchAnalytics, judgeResult, laterHealthCheck, plannedEmails, runDue, updateAction,
   type PlannedEmail, type ResultCheck, type WorkItem,
 } from '@seo/core';
-import { wordpressSession } from '@seo/core/server';
 import { accountSites, domainOf, listAccounts } from './accounts';
 import { getActions, saveActions } from './actions';
-import { autopilotBlocker, autopilotRunning, getAutopilot, saveAutopilot, startImplementing, type AutopilotState } from './autopilot-wp';
-import { getConnection, listConnections, saveConnection } from './connections';
+import { autopilotBlocker, autopilotRunning, getAutopilot, saveAutopilot, siteSession, startImplementing, type AutopilotState } from './autopilot-wp';
+import { getConnection, listConnections } from './connections';
 import { getInventory } from './inventory';
 import { gscAccess } from './keywords';
 import { emailLayout, mailReady, notifyTeam, sendMail } from './mailer';
@@ -38,7 +37,7 @@ async function undo(domain: string, items: WorkItem[], reason: string): Promise<
   const conn = await getConnection(domain);
   const done = new Set<string>();
   if (!conn) return done;
-  const { wp } = await wordpressSession(conn, { save: saveConnection });
+  const { wp } = await siteSession(conn);
   for (const it of [...items].reverse()) {
     const r = await wp.rollback(it.id, reason).catch(() => null);
     if (r?.status === 'rolled_back') done.add(it.id);

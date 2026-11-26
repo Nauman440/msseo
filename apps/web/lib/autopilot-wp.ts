@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import {
   applyHoldList, createOpenAiClient, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
   planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
-  type ActionWorkspace, type AutopilotSettings, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
+  type ActionWorkspace, type AutopilotSettings, type SiteConnection, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
 import { wordpressSession } from '@seo/core/server';
 import { currentPlanMonth, monthOf, planStart } from '@/components/actions/PlanMonths';
@@ -54,7 +54,16 @@ const DIR = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'
 const safe = (s: string) => s.replace(/[^a-z0-9.-]/gi, '');
 const file = (accountId: string, domain: string) => resolve(DIR, `${safe(accountId)}__${safe(domain)}.json`);
 const empty = (accountId: string, domain: string): AutopilotState => ({ accountId, domain, status: 'idle', step: null, pausedReason: null, month: null, items: [], runs: [], notes: [], error: null, updatedAt: null, settings: { ...DEFAULT_AUTOPILOT_SETTINGS }, lastRunDate: null, emails: [] });
-const filled = (s: AutopilotState): AutopilotState => ({ ...s, settings: { ...DEFAULT_AUTOPILOT_SETTINGS, ...(s.settings ?? {}) }, lastRunDate: s.lastRunDate ?? null, emails: s.emails ?? [] });
+/**
+ * Runs happen in this server's memory. A state still saying "running" with no run in memory (the
+ * server restarted mid-run) is shown as stopped, so the page does not wait forever and the next
+ * press or scheduled run can start.
+ */
+const unstuck = (s: AutopilotState): AutopilotState =>
+  s.status === 'running' && !isPreparing(runKey(s.domain)) && Date.now() - Date.parse(s.updatedAt ?? '1970-01-01') > 60_000
+    ? { ...s, status: 'idle', step: null, error: s.error ?? 'The last run stopped before finishing (the server restarted). Press the button to run it again; changes already made are kept.' }
+    : s;
+const filled = (s: AutopilotState): AutopilotState => unstuck({ ...s, settings: { ...DEFAULT_AUTOPILOT_SETTINGS, ...(s.settings ?? {}) }, lastRunDate: s.lastRunDate ?? null, emails: s.emails ?? [] });
 
 export async function getAutopilot(rawDomain: string): Promise<AutopilotState> {
   const domain = normDomain(rawDomain);
@@ -92,6 +101,17 @@ export async function saveAutopilot(s: AutopilotState): Promise<void> {
   await rename(tmp, target);
 }
 
+/**
+ * A WordPress client for the site, checking the connection first when the last check is over two
+ * minutes old (this also re-keys a plugin that was deactivated and activated).
+ */
+export async function siteSession(c: SiteConnection) {
+  let conn = c;
+  if (Date.now() - new Date(conn.checkedAt).getTime() > 2 * 60_000) conn = await checkConnection(conn);
+  if (conn.status !== 'ok') throw new Error(conn.error ?? 'The website connection needs attention (Connections tab).');
+  return wordpressSession(conn, { save: saveConnection });
+}
+
 const runKey = (domain: string) => `autopilot-run:${domain}`;
 export const autopilotRunning = (domain: string) => isPreparing(runKey(normDomain(domain)));
 
@@ -100,8 +120,8 @@ export async function autopilotBlocker(rawDomain: string): Promise<string | null
   let c = await getConnection(normDomain(rawDomain));
   if (!c || c.platform !== 'wordpress') return 'Connect your WordPress website first (Connections tab).';
   // The stored plugin version is from the last check; after a plugin update, check again (at most every 2 minutes).
-  // A connection in error (e.g. the plugin was reactivated and lost its key) is checked again too.
-  if ((!pluginSupportsApply(c.plugin?.version) || c.status !== 'ok') && Date.now() - new Date(c.checkedAt).getTime() > 2 * 60_000) c = await checkConnection(c);
+  // Checked again when the last check is over two minutes old (a plugin update, or a plugin that was reactivated and lost its key).
+  if (Date.now() - new Date(c.checkedAt).getTime() > 2 * 60_000) c = await checkConnection(c);
   if (c.status !== 'ok') return c.error ?? 'The website connection needs attention (Connections tab).';
   if (!pluginSupportsApply(c.plugin?.version)) return 'Install or update the MS SCORE Connector plugin to version 1.2 or later (Connections tab).';
   const ws = await getActions(normDomain(rawDomain));
@@ -207,7 +227,7 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     await step('Reading every page on your website');
     const conn = await getConnection(domain);
     if (!conn) throw new Error('The website is not connected.');
-    const { wp } = await wordpressSession(conn, { save: saveConnection });
+    const { wp } = await siteSession(conn);
     s = { ...s, items: await syncWordPressUndos(wp, s.items) };
     let inventory = await getInventory(s.accountId, domain);
     inventory = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 ? inventory : (await refreshInventory(domain)).inventory;
@@ -290,7 +310,11 @@ export async function startImplementing(rawDomain: string, by: string, opts: { s
   if (autopilotRunning(domain)) return { started: false, problem: 'Already running. This page updates by itself.' };
   const s = await getAutopilot(domain);
   await saveAutopilot({ ...s, status: 'running', step: 'Starting', error: null, pausedReason: s.status === 'paused' ? null : s.pausedReason });
-  prepare(runKey(domain), () => job(domain, by, opts), 60_000);
+  // No cooldown: autopilotRunning() above already stops a second run at the same time.
+  if (!prepare(runKey(domain), () => job(domain, by, opts), 0)) {
+    await saveAutopilot({ ...s, status: 'idle', step: null });
+    return { started: false, problem: 'Could not start. Try again in a minute.' };
+  }
   return { started: true };
 }
 
@@ -307,7 +331,7 @@ export async function resetAutopilot(rawDomain: string): Promise<{ ok?: string; 
   if (live.length) {
     const conn = await getConnection(domain);
     if (!conn) return { error: 'The website is not connected, so the changes cannot be undone.' };
-    const { wp } = await wordpressSession(conn, { save: saveConnection });
+    const { wp } = await siteSession(conn);
     for (const it of [...live].sort((a, b) => (b.appliedAt ?? '').localeCompare(a.appliedAt ?? ''))) {
       const r = await wp.rollback(it.id, 'start over').catch(() => null);
       if (r?.status !== 'rolled_back') left.push(it.label);
@@ -359,7 +383,7 @@ export async function undoWorkItem(rawDomain: string, id: string): Promise<{ ok?
   if (!it || !['applied', 'verified'].includes(it.status)) return { error: 'This change is not on the website.' };
   const conn = await getConnection(domain);
   if (!conn) return { error: 'The website is not connected.' };
-  const { wp } = await wordpressSession(conn, { save: saveConnection });
+  const { wp } = await siteSession(conn);
   const r = await wp.rollback(id, 'undone by a person');
   if (r.status !== 'rolled_back') return { error: r.reason ?? 'The website could not undo it; it may have been edited since.' };
   const items = s.items.map((i) => (i.id === id ? { ...i, status: 'rolled_back' as const, reason: 'Undone by a person.' } : i));

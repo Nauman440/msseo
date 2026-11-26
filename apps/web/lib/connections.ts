@@ -143,7 +143,12 @@ export async function checkConnection(c: SiteConnection): Promise<SiteConnection
         if (!fresh) throw err;
         return checkConnection(fresh);
       }
-      const next = { ...c, plugin, status: 'ok' as const, error: null, checkedAt: now };
+      // We hold a key but the plugin has none (it was deactivated and activated): give it a new one.
+      if (s.signingKey && plugin && plugin.signed === false) {
+        const fresh = await rekeyWordPress(c, { save: saveConnection });
+        if (fresh) return checkConnection(fresh);
+      }
+      const next = { ...c, plugin: plugin ? { version: plugin.version, seo: plugin.seo } : null, status: 'ok' as const, error: null, checkedAt: now };
       await saveConnection(next);
       // Plugin 1.1.0+: hand it a signing key the first time; from then on every request is signed.
       if (pluginSupportsSigning(next.plugin?.version)) return (await wordpressSession(next, { save: saveConnection })).connection;
