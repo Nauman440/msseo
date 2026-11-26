@@ -52,6 +52,8 @@ export const WEEKLY_MONITOR = 'weekly-monitor';
 export const MONTHLY_REPORTS = 'monthly-reports';
 /** Autopilot phase 1: reads every connected WordPress site's pages again (Sundays). */
 export const WEEKLY_WP_INVENTORY = 'weekly-wp-inventory';
+/** WordPress autopilot clock: every 15 minutes the worker asks the web app to run due sites (APP_URL/api/autopilot/tick). */
+export const WP_AUTOPILOT_TICK = 'wp-autopilot-tick';
 
 /** Queues an autopilot run for one customer (deduplicated for 10 minutes), after `delayMs` (lets the first audit finish). */
 export async function enqueueAutopilot(userId: string, delayMs = 0): Promise<void> {
@@ -80,6 +82,7 @@ export async function ensureWeeklySchedule(): Promise<void> {
     await queue.upsertJobScheduler(MONTHLY_REPORTS, { pattern: '0 11 1 * *', tz: 'UTC' }, { name: MONTHLY_REPORTS });
     await queue.upsertJobScheduler(WEEKLY_AI_TRACKING, { pattern: '30 7 * * 1', tz: 'UTC' }, { name: WEEKLY_AI_TRACKING });
     await queue.upsertJobScheduler(WEEKLY_WP_INVENTORY, { pattern: '20 4 * * 0', tz: 'UTC' }, { name: WEEKLY_WP_INVENTORY });
+    await queue.upsertJobScheduler(WP_AUTOPILOT_TICK, { pattern: '*/15 * * * *', tz: 'UTC' }, { name: WP_AUTOPILOT_TICK });
   } finally {
     await queue.close();
   }

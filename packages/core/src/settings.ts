@@ -26,6 +26,8 @@ export const settingsSchema = z
     'autopilot.monthlyCap': z.coerce.number().min(0, 'At least 0').max(1000, 'At most 1,000').default(20),
     /** Also run autopilot monthly for the team's client sites (audited by the team in the last 120 days), under the same cap. */
     'autopilot.teamSites': z.coerce.boolean().default(true),
+    /** WordPress autopilot: makes the plan's website changes by itself on working days (each site also has its own switch). */
+    'autopilot.wpEnabled': z.coerce.boolean().default(true),
     /** "Regenerate plan" button on every action plan (team and customers); switch off before going live. */
     'plan.regenerateButton': z.coerce.boolean().default(true),
     /** AI action plan: work per month for each plan (team client sites use Growth). */

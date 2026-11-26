@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { normDomain } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
-import { startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
+import { approveWorkItems, saveAutopilotSettings, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
 
 /** "Start implementing plan" and per-change undo, for the team and the site's customer. */
 export type AutopilotActionState = { ok?: string; error?: string };
@@ -31,4 +31,26 @@ export async function undoWorkItemAction(rawDomain: string, id: string): Promise
   const r = await undoWorkItem(domain, id);
   paths(domain);
   return r;
+}
+
+export async function saveAutopilotSettingsAction(rawDomain: string, _prev: AutopilotActionState, form: FormData): Promise<AutopilotActionState> {
+  const { domain } = await guard(rawDomain);
+  const hold = String(form.get('holdList') ?? '').split(/[\n,]+/);
+  await saveAutopilotSettings(domain, {
+    enabled: form.get('enabled') === 'on',
+    mode: form.get('mode') === 'approve' ? 'approve' : 'auto',
+    timezone: String(form.get('timezone') ?? '').trim(),
+    runHour: Number(form.get('runHour') ?? 9),
+    dailyCap: Number(form.get('dailyCap') ?? 30),
+    holdList: hold,
+  });
+  paths(domain);
+  return { ok: 'Saved.' };
+}
+
+export async function approveWorkItemsAction(rawDomain: string, ids: string[] | 'all'): Promise<AutopilotActionState> {
+  const { domain, by } = await guard(rawDomain);
+  const n = await approveWorkItems(domain, ids, by);
+  paths(domain);
+  return n ? { ok: n === 1 ? 'Approved. It goes out on the next run.' : `${n} changes approved. They go out on the next runs.` } : { error: 'Nothing waiting for approval.' };
 }

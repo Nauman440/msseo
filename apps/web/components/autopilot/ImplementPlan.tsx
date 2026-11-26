@@ -2,14 +2,15 @@ import Link from 'next/link';
 import type { WorkItem } from '@seo/core';
 import { Preparing } from '@/components/customer/Preparing';
 import type { AutopilotState } from '@/lib/autopilot-wp';
-import { StartImplementingButton, UndoItemButton } from './forms';
+import { AutopilotSchedule, resultText } from './AutopilotSchedule';
+import { ApproveButton, StartImplementingButton, UndoItemButton } from './forms';
 
 /**
  * "Start implementing plan": makes this month's website changes through the WordPress plugin and
  * shows what happened to each one (made, already right, needs a person, someone else's task).
  */
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-const INTERNAL: Record<string, string> = { gsc_sitemap_submit: 'MS SCORE submits it to Search Console', ai_visibility_check: 'MS SCORE checks AI assistants', weekly_page_check: 'MS SCORE checks every week' };
+const INTERNAL: Record<string, string> = { gsc_sitemap_submit: 'MS SCORE submits it to Search Console after each run', ai_visibility_check: 'MS SCORE checks AI assistants', weekly_page_check: 'MS SCORE checks every week' };
 
 function valueText(i: WorkItem): string | null {
   const v = i.newValue as Record<string, unknown> | string | null;
@@ -26,29 +27,35 @@ function valueText(i: WorkItem): string | null {
   return null;
 }
 
-function Row({ i, domain, undo }: { i: WorkItem; domain: string; undo?: boolean }) {
+function Row({ i, domain, undo, approve }: { i: WorkItem; domain: string; undo?: boolean; approve?: boolean }) {
   const before = typeof i.before === 'string' ? i.before : null;
   const value = valueText(i);
+  const result = resultText(i);
   return (
     <li className="flex flex-col gap-1 px-5 py-3 text-[14px]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold">{i.label}</span>
         {undo && <UndoItemButton domain={domain} id={i.id} />}
+        {approve && !i.approvedAt && <ApproveButton domain={domain} ids={[i.id]} label="Approve" />}
+        {approve && i.approvedAt && <span className="text-[13px] font-semibold text-pass-text">Approved</span>}
       </div>
       {before && value && i.status !== 'keep' && <p className="text-ink-2"><span className="font-semibold">Before:</span> {before}</p>}
       {value && i.status !== 'keep' && <p><span className="font-semibold">{i.status === 'needs_human' ? 'Drafted:' : 'Now:'}</span> {value}</p>}
       {i.status === 'keep' && before && <p className="text-ink-2">{before}</p>}
       {i.reason && <p className="text-[13px] text-ink-2">{i.reason}</p>}
+      {result && <p className="text-[13px] font-semibold text-ink-2">{result}</p>}
     </li>
   );
 }
 
-function Group({ title, list, domain, undo, open }: { title: string; list: WorkItem[]; domain: string; undo?: boolean; open?: boolean }) {
+function Group({ title, list, domain, undo, open, approve }: { title: string; list: WorkItem[]; domain: string; undo?: boolean; open?: boolean; approve?: boolean }) {
   if (!list.length) return null;
+  const waiting = approve ? list.filter((i) => !i.approvedAt).length : 0;
   return (
     <details open={open} className="rounded-[14px] border border-border">
       <summary className="cursor-pointer px-5 py-3 font-semibold">{title} <span className="text-ink-2 tabular">({list.length})</span></summary>
-      <ul className="divide-y divide-border border-t border-border">{list.map((i) => <Row key={i.id} i={i} domain={domain} undo={undo} />)}</ul>
+      {waiting > 1 && <div className="border-t border-border px-5 py-3"><ApproveButton domain={domain} ids="all" label={`Approve all ${waiting}`} /></div>}
+      <ul className="divide-y divide-border border-t border-border">{list.map((i) => <Row key={i.id} i={i} domain={domain} undo={undo} approve={approve} />)}</ul>
     </details>
   );
 }
@@ -86,16 +93,19 @@ export function ImplementPlan({ domain, state: s, blocker, running, connectHref,
       {s.error && <p role="alert" className="rounded-[12px] bg-fail-bg px-4 py-3 text-sm font-semibold text-fail-text">The last run did not finish: {s.error}</p>}
       {last && (
         <p className="text-[13px] text-ink-2">
-          Last run {when(last.finishedAt)} UTC: {last.applied} changed ({last.verified} checked on the live page), {last.needsHuman} need a person, {last.failed} failed{last.rolledBack ? ', run undone' : ''}.
+          Last run {when(last.finishedAt)} UTC{last.by === 'Schedule' ? ' (scheduled)' : ''}: {last.applied} changed ({last.verified} checked on the live page), {last.needsHuman} need a person, {last.failed} failed{last.rolledBack ? ', run undone' : ''}{last.laterCheck ? (last.laterCheck.ok ? '; pages still fine an hour later' : '; undone after the later check') : ''}.
         </p>
       )}
+      {!blocker && <AutopilotSchedule domain={domain} state={s} audience={audience} />}
       <div className="flex flex-col gap-3">
         <Group title="Changed on the website" list={made.filter((i) => i.status !== 'rolled_back')} domain={domain} undo open />
         <Group title="Needs a person" list={is('needs_human', 'failed')} domain={domain} open />
-        <Group title="Ready for the next run" list={s.items.filter((i) => i.status === 'draft' && !INTERNAL[i.type])} domain={domain} />
+        {s.settings.mode === 'approve'
+          ? <Group title="Waiting for your approval" list={s.items.filter((i) => i.status === 'draft' && !INTERNAL[i.type])} domain={domain} approve open />
+          : <Group title="Ready for the next run" list={s.items.filter((i) => i.status === 'draft' && !INTERNAL[i.type])} domain={domain} />}
         <Group title="Already right, left as it is" list={is('keep')} domain={domain} />
         <Group title={audience === 'customer' ? 'For you, our team or a developer' : 'Team, client or developer tasks'} list={is('team', 'client', 'developer')} domain={domain} />
-        <Group title="MS SCORE does these itself" list={s.items.filter((i) => INTERNAL[i.type]).map((i) => ({ ...i, reason: INTERNAL[i.type]! }))} domain={domain} />
+        <Group title="MS SCORE does these itself" list={s.items.filter((i) => INTERNAL[i.type]).map((i) => ({ ...i, reason: i.reason ?? INTERNAL[i.type]! }))} domain={domain} />
         <Group title="Undone" list={made.filter((i) => i.status === 'rolled_back')} domain={domain} />
       </div>
     </section>

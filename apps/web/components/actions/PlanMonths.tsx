@@ -15,7 +15,7 @@ export function taskCounts(ws: ActionWorkspace): { todo: number; done: number } 
 }
 
 /** When the plan started: the AI plan's start date, else the first action. */
-function planStart(ws: ActionWorkspace): Date | null {
+export function planStart(ws: ActionWorkspace): Date | null {
   const s = ws.aiPlan?.startDate ?? ws.actions.map((a) => a.createdAt).sort()[0];
   return s ? new Date(s.length === 10 ? `${s}T00:00:00Z` : s) : null;
 }

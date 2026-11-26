@@ -36,7 +36,27 @@ export type RunSummary = {
   problems: string[];
   /** First run on the site: undo was tried on one change before anything else. */
   undoTested: boolean | null;
+  /** Who started it: Client, Team or Schedule. */
+  by?: string;
+  /** Pages changed in this run (up to 5), checked again later by the post-run check. */
+  changedPages?: string[];
+  /** Words on each key page before the run (for the later check). */
+  baselineWords?: Record<string, number>;
+  /** Set by the post-run check an hour or more later. */
+  laterCheck?: { at: string; ok: boolean; problems: string[] } | null;
 };
+
+/** The post-run check: the homepage and the changed pages, an hour or more after the run. */
+export async function laterHealthCheck(urls: string[], baselineWords: Map<string, number>, deps: Pick<RunDeps, 'fetchPage'>): Promise<string[]> {
+  const now = await health(urls, deps);
+  return now.flatMap((h) => {
+    if (!h.ok) return [`${h.url} stopped answering`];
+    if (!h.title) return [`${h.url} has no title`];
+    const b = baselineWords.get(h.url) ?? 0;
+    if (b > 100 && h.words < b / 2) return [`${h.url} lost most of its text (${b} → ${h.words} words)`];
+    return [];
+  });
+}
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const plain = (h: string) => h.replace(/&#0?38;|&amp;/g, '&').replace(/&#8211;/g, '–').replace(/&#8217;|&#039;/g, '’').replace(/&quot;/g, '"');
@@ -71,14 +91,22 @@ export function visibleIn(item: WorkItem, html: string): boolean | null {
       return v && typeof v === 'object' ? h.includes(`data-msscore-link="${String(v.link_id)}"`) : null;
     case 'heading_fix':
       return v && typeof v === 'object' && v.action === 'demote_extra_h1' ? (h.match(/<h1\b/gi) ?? []).length <= 1 : null;
+    case 'sitemap':
+      return v && typeof v === 'object' && v.enabled === false ? null : /<(sitemapindex|urlset)\b/.test(html);
+    case 'robots_txt':
+      return /^\s*sitemap:/im.test(html);
+    case 'llms_txt': {
+      const first = v && typeof v === 'object' ? String(v.content ?? '').split('\n')[0] ?? '' : '';
+      return first ? html.includes(first) : null;
+    }
     default:
       return null;
   }
 }
 
 /** Ready items in a safe order: dependencies first, then priority, then week. */
-export function applyOrder(items: WorkItem[]): WorkItem[] {
-  const ready = items.filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType)).sort((a, b) => a.week - b.week || b.priority - a.priority);
+export function applyOrder(items: WorkItem[], requireApproval = false): WorkItem[] {
+  const ready = items.filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType) && (!requireApproval || i.approvedAt)).sort((a, b) => a.week - b.week || b.priority - a.priority);
   const done = new Set(items.filter((i) => ['applied', 'verified', 'keep'].includes(i.status)).map((i) => i.id));
   const out: WorkItem[] = [];
   const left = [...ready];
@@ -91,10 +119,10 @@ export function applyOrder(items: WorkItem[]): WorkItem[] {
   return out;
 }
 
-const change = (i: WorkItem, id = i.id): WpChange => ({ change_id: id, type: i.type as WpChangeType, target: i.target ?? { site: true }, new_value: i.newValue });
+const change = (i: WorkItem, id = i.id): WpChange => ({ change_id: id, type: i.type as WpChangeType, target: i.target ?? { site: true }, new_value: i.newValue, label: i.label.slice(0, 160) });
 
 type Health = { url: string; ok: boolean; title: boolean; words: number };
-async function health(urls: string[], deps: RunDeps): Promise<Health[]> {
+async function health(urls: string[], deps: Pick<RunDeps, 'fetchPage'>): Promise<Health[]> {
   const out: Health[] = [];
   for (const url of urls) {
     try {
@@ -124,14 +152,15 @@ function broken(before: Health[], after: Health[]): string[] {
  * Applies up to `cap` ready items. `keyPages`: homepage first, then up to 5 key pages for the health
  * check. `firstRun`: no change was ever applied on this site, so undo is proven first.
  */
-export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { keyPages: string[]; firstRun: boolean; cap?: number }): Promise<{ items: WorkItem[]; run: RunSummary }> {
+export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { keyPages: string[]; firstRun: boolean; cap?: number; requireApproval?: boolean }): Promise<{ items: WorkItem[]; run: RunSummary }> {
   const now = () => (deps.now ? deps.now() : new Date()).toISOString();
   const wait = deps.wait ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const run: RunSummary = { id: `run-${Date.now().toString(36)}`, startedAt: now(), finishedAt: '', applied: 0, verified: 0, notVisible: 0, failed: 0, needsHuman: 0, skipped: 0, rolledBack: false, paused: false, problems: [], undoTested: null };
   const all = items.map((i) => ({ ...i }));
-  const queue = applyOrder(all).slice(0, opts.cap ?? DAILY_CAP);
+  const queue = applyOrder(all, opts.requireApproval).slice(0, opts.cap ?? DAILY_CAP);
   const keyPages = [...new Set(opts.keyPages)].slice(0, 6);
   const baseline = await health(keyPages, deps);
+  run.baselineWords = Object.fromEntries(baseline.map((b) => [b.url, b.words]));
   const appliedNow: WorkItem[] = [];
 
   for (const q of queue) {
@@ -159,7 +188,8 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
         it.reason = null;
         run.applied++;
         appliedNow.push(it);
-        const url = it.type === 'redirect_301' ? String((it.newValue as { from: string }).from) : it.type === 'llms_txt' ? null : it.url;
+        const site = (it.url ?? '').replace(/\/+$/, '');
+        const url = it.type === 'redirect_301' ? String((it.newValue as { from: string }).from) : it.type === 'llms_txt' ? (it.url ? `${site}/llms.txt` : null) : it.type === 'robots_txt' ? (it.url ? `${new URL(it.url).origin}/robots.txt` : null) : it.url;
         if (url) {
           let seen: boolean | null = null;
           for (let tryNo = 0; tryNo < 2 && seen !== true; tryNo++) {
@@ -199,6 +229,7 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
   }
 
   const bad = appliedNow.length ? broken(baseline, await health(keyPages, deps)) : [];
+  run.changedPages = [...new Set(appliedNow.map((i) => i.url).filter((u): u is string => Boolean(u)))].slice(0, 5);
   if (bad.length) {
     run.problems.push(...bad);
     for (const it of [...appliedNow].reverse()) {

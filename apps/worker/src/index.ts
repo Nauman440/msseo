@@ -2,11 +2,12 @@ import { Worker } from 'bullmq';
 import pino from 'pino';
 import { deliverReportEmail, emailConfig, executeAudit, providerConfig } from '@seo/core';
 import { createWeeklyCustomerAudits, dbAiCache, dueCustomerSites, getAuditRecord, getSettings, auditGscAccess, backlinkBrokenFor, gscSetup, pageKeywordsFor, pageRivalsFor, prisma, refreshDueInventories, runWeeklyAiTracking, runDueActionChecks, saveAuditRecord } from '@seo/db';
-import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_MONITOR, MONTHLY_REPORTS, WEEKLY_AI_TRACKING, WEEKLY_MONITOR, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, WEEKLY_WP_INVENTORY, type AuditJobData } from '@seo/db/queue';
+import { AUDIT_QUEUE, AUTOPILOT_CUSTOMER, DAILY_ACTION_CHECKS, DAILY_MONITOR, MONTHLY_REPORTS, WEEKLY_AI_TRACKING, WEEKLY_MONITOR, DAILY_AUTOPILOT, ensureWeeklySchedule, enqueueAudit, QUARTERLY_COMPETITORS, redisConnection, SCHEDULE_QUEUE, WEEKLY_CUSTOMER_AUDITS, WEEKLY_WP_INVENTORY, WP_AUTOPILOT_TICK, type AuditJobData } from '@seo/db/queue';
 import { customerAutopilot, dailyAutopilot } from './autopilot';
 import { refreshCompetitors } from './competitors';
 import { dailyMonitoring, monthlyReporting, weeklyMonitoring } from './monitor';
 import { renderPdfBytes } from './pdf/render';
+import { signPrintToken } from '@seo/core/print-token';
 
 /**
  * Audit worker (spec §5.3): runs the audits apps/web queues, with the same
@@ -89,6 +90,15 @@ const scheduler = new Worker(
     }
     if (job.name === DAILY_ACTION_CHECKS) {
       for (const r of await runDueActionChecks()) log.info(r, 'action checks');
+      return;
+    }
+    if (job.name === WP_AUTOPILOT_TICK) {
+      // The autopilot's work lives in the web app (it shares the site data there); the worker is its clock.
+      const app = (process.env.APP_URL ?? '').replace(/\/$/, '');
+      if (!app || !process.env.ENCRYPTION_KEY) return;
+      const token = await signPrintToken('autopilot-tick', process.env.ENCRYPTION_KEY, 300);
+      const res = await fetch(`${app}/api/autopilot/tick`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(290_000) });
+      log.info({ status: res.status, result: await res.json().catch(() => null) }, 'wp autopilot tick');
       return;
     }
     if (job.name === WEEKLY_WP_INVENTORY) {

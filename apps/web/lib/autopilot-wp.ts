@@ -3,11 +3,12 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  createOpenAiClient, draftAltTexts, fetchPageContents, generateWorkItems, normDomain, pageKey, pageKeywordMap, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, updateAction,
-  type ActionWorkspace, type BusinessProfile, type RunSummary, type WorkItem, type WpChangeType,
+  applyHoldList, createOpenAiClient, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
+  planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
+  type ActionWorkspace, type AutopilotSettings, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
 import { wordpressSession } from '@seo/core/server';
-import { currentPlanMonth, monthOf } from '@/components/actions/PlanMonths';
+import { currentPlanMonth, monthOf, planStart } from '@/components/actions/PlanMonths';
 import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getActions, saveActions } from './actions';
 import { getAltText } from './alt-text';
@@ -16,7 +17,9 @@ import { prepare, isPreparing } from './auto';
 import { checkConnection, getConnection, saveConnection } from './connections';
 import { customerAudits } from './customer-data';
 import { accountIdFor, refreshInventory, getInventory } from './inventory';
-import { getKeywordWorkspace, logUsage, researchCompetitors } from './keywords';
+import { getAeo, runAeo } from './aeo';
+import { getKeywordWorkspace, gscAccess, logUsage, researchCompetitors } from './keywords';
+import { updateMonitor } from './monitor';
 import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
 
@@ -37,29 +40,43 @@ export type AutopilotState = {
   notes: string[];
   error: string | null;
   updatedAt: string | null;
+  /** Per-site schedule and safety settings (phase 4). Older saved states get the defaults. */
+  settings: AutopilotSettings;
+  /** Local date (site time zone) of the last scheduled run, so it runs once a working day. */
+  lastRunDate: string | null;
+  /** Emails sent about this site (phase 5), newest first. */
+  emails: EmailLogEntry[];
 };
 
 const DIR = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'), 'autopilot');
 const safe = (s: string) => s.replace(/[^a-z0-9.-]/gi, '');
 const file = (accountId: string, domain: string) => resolve(DIR, `${safe(accountId)}__${safe(domain)}.json`);
-const empty = (accountId: string, domain: string): AutopilotState => ({ accountId, domain, status: 'idle', step: null, pausedReason: null, month: null, items: [], runs: [], notes: [], error: null, updatedAt: null });
+const empty = (accountId: string, domain: string): AutopilotState => ({ accountId, domain, status: 'idle', step: null, pausedReason: null, month: null, items: [], runs: [], notes: [], error: null, updatedAt: null, settings: { ...DEFAULT_AUTOPILOT_SETTINGS }, lastRunDate: null, emails: [] });
+const filled = (s: AutopilotState): AutopilotState => ({ ...s, settings: { ...DEFAULT_AUTOPILOT_SETTINGS, ...(s.settings ?? {}) }, lastRunDate: s.lastRunDate ?? null, emails: s.emails ?? [] });
 
 export async function getAutopilot(rawDomain: string): Promise<AutopilotState> {
   const domain = normDomain(rawDomain);
   const accountId = await accountIdFor(domain);
   if (usingDatabase()) {
     const { getAutopilotSite } = await import('@seo/db');
-    return (await getAutopilotSite<AutopilotState>(accountId, domain).catch(() => null)) ?? empty(accountId, domain);
+    const got = await getAutopilotSite<AutopilotState>(accountId, domain).catch(() => null);
+    return got ? filled(got) : await withTimezone(empty(accountId, domain));
   }
   try {
     const s = JSON.parse(await readFile(file(accountId, domain), 'utf8')) as AutopilotState;
-    return s.accountId === accountId && s.domain === domain ? s : empty(accountId, domain);
+    return s.accountId === accountId && s.domain === domain ? filled(s) : await withTimezone(empty(accountId, domain));
   } catch {
-    return empty(accountId, domain);
+    return await withTimezone(empty(accountId, domain));
   }
 }
 
-async function saveAutopilot(s: AutopilotState): Promise<void> {
+/** A new site's time zone comes from the customer's country (sign-up answer). */
+async function withTimezone(s: AutopilotState): Promise<AutopilotState> {
+  const account = (await listAccounts().catch(() => [])).find((a) => accountSites(a).some((w) => domainOf(w) === s.domain));
+  return { ...s, settings: { ...s.settings, timezone: timezoneFor(account?.country) } };
+}
+
+export async function saveAutopilot(s: AutopilotState): Promise<void> {
   const next = { ...s, updatedAt: new Date().toISOString() };
   if (usingDatabase()) {
     const { saveAutopilotSite } = await import('@seo/db');
@@ -109,7 +126,75 @@ function settleActions(ws: ActionWorkspace, items: WorkItem[]): ActionWorkspace 
   return next;
 }
 
-async function job(domain: string, by: string): Promise<void> {
+async function robotsOf(home: string): Promise<string | null | undefined> {
+  try {
+    const r = await fetch(new URL('/robots.txt', home), { headers: { 'user-agent': 'Mozilla/5.0 (compatible; MSScore-Check/1.0)' }, signal: AbortSignal.timeout(15_000) });
+    return r.ok ? await r.text() : null;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Changes a person undid on the WordPress admin page become "undone" here too. */
+async function syncWordPressUndos(wp: { changes(page?: number): Promise<{ change_id: string; status: string }[]> }, items: WorkItem[]): Promise<WorkItem[]> {
+  const undone = new Set<string>();
+  for (let page = 1; page <= 3; page++) {
+    const list = await wp.changes(page).catch(() => []);
+    for (const c of list) if (c.status === 'rolled_back') undone.add(c.change_id);
+    if (list.length < 50) break;
+  }
+  return items.map((i) => (undone.has(i.id) && ['applied', 'verified'].includes(i.status) ? { ...i, status: 'rolled_back' as const, reason: 'Undone in WordPress (MS SCORE Autopilot page).' } : i));
+}
+
+/** MS SCORE's own steps: submit the sitemap, switch on the weekly page check, check AI assistants. */
+async function internalItems(domain: string, items: WorkItem[], customer: boolean): Promise<WorkItem[]> {
+  const now = new Date().toISOString();
+  const sitemapPending = items.some((i) => i.type === 'sitemap' && i.status === 'draft');
+  const out: WorkItem[] = [];
+  for (const i of items) {
+    if (i.status !== 'draft' || !['gsc_sitemap_submit', 'weekly_page_check', 'ai_visibility_check'].includes(i.type)) {
+      out.push(i);
+      continue;
+    }
+    try {
+      if (i.type === 'gsc_sitemap_submit') {
+        if (sitemapPending) {
+          out.push({ ...i, reason: 'Waits until the new sitemap is live.' });
+          continue;
+        }
+        const access = await gscAccess(domain);
+        const feed = (i.newValue as { sitemap?: string } | null)?.sitemap ?? i.url;
+        if (!access || !feed) {
+          out.push({ ...i, status: 'needs_human', reason: `Search Console is not connected for this site. Connect it (Connections tab), or add ${feed ?? 'the sitemap'} in Search Console → Sitemaps.` });
+          continue;
+        }
+        await gscSubmitSitemap(access.token, access.property, feed);
+        out.push({ ...i, status: 'verified', appliedAt: now, verifiedAt: now, reason: `Submitted to Search Console (${access.property}).` });
+      } else if (i.type === 'weekly_page_check') {
+        await updateMonitor(domain, (ws) => {
+          ws.enabled = true;
+        });
+        out.push({ ...i, status: 'verified', appliedAt: now, verifiedAt: now, reason: 'Weekly monitoring is on: new and changed pages, rankings and alerts.' });
+      } else {
+        const last = (await getAeo(domain)).audit?.runAt;
+        if (last && Date.now() - Date.parse(last) < 25 * 86_400_000) {
+          out.push({ ...i, status: 'verified', appliedAt: now, verifiedAt: now, reason: `AI assistants were checked on ${last.slice(0, 10)}.` });
+          continue;
+        }
+        const r = await runAeo(domain, customer ? 'customer' : 'team');
+        out.push(r.ws ? { ...i, status: 'verified', appliedAt: now, verifiedAt: now, reason: 'AI assistants checked (AI search).' } : { ...i, reason: r.problem === 'cap' ? 'Waits for next month’s budget.' : r.problem === 'not-configured' ? 'AI search checks are not set up on this server.' : (r.message ?? 'Will try again on the next run.') });
+      }
+    } catch (err) {
+      const reason = err instanceof GscSubmitError
+        ? `${err.message} Add ${(i.newValue as { sitemap?: string } | null)?.sitemap ?? 'the sitemap'} in Search Console → Sitemaps (one minute), or reconnect Google with write access.`
+        : `Will try again on the next run: ${err instanceof Error ? err.message.slice(0, 120) : 'error'}`;
+      out.push({ ...i, status: err instanceof GscSubmitError && err.status === 403 ? 'needs_human' : 'draft', reason });
+    }
+  }
+  return out;
+}
+
+async function job(domain: string, by: string, opts: { scheduled?: boolean } = {}): Promise<void> {
   let s = await getAutopilot(domain);
   const step = async (text: string) => {
     s = { ...s, status: 'running', step: text, error: null };
@@ -120,6 +205,7 @@ async function job(domain: string, by: string): Promise<void> {
     const conn = await getConnection(domain);
     if (!conn) throw new Error('The website is not connected.');
     const { wp } = await wordpressSession(conn, { save: saveConnection });
+    s = { ...s, items: await syncWordPressUndos(wp, s.items) };
     let inventory = await getInventory(s.accountId, domain);
     inventory = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 ? inventory : (await refreshInventory(domain)).inventory;
 
@@ -146,8 +232,10 @@ async function job(domain: string, by: string): Promise<void> {
     let altTokens = 0;
     const dead = (audits.latest?.issues ?? []).filter((i) => i.ruleId === '1.5.1').flatMap((i) => i.urls.map((url) => ({ url, why: 'The audit found it answers 404 but pages still link to it' })));
     const keywords = new Map(Object.entries(pageKeywordMap(mapping)).map(([k, v]) => [pageKey(`https://${k}`), v]));
+    const home0 = inventory.items.find((i) => i.isFrontPage)?.url ?? inventory.status.home_url;
+    const robotsTxt = await robotsOf(home0);
     const gen = await generateWorkItems({
-      accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50),
+      accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50), robotsTxt,
       altDrafts: new Map((alt?.drafts ?? []).map((d) => [d.src, d.alt])),
       ai,
       draftAlt: ai ? async (list) => {
@@ -158,8 +246,11 @@ async function job(domain: string, by: string): Promise<void> {
     });
     if (gen.tokens + altTokens) await logUsage('openai', gen.tokens + altTokens);
     // Changes already made keep their record; everything else is replaced by the fresh drafts.
-    const kept = new Map(s.items.filter((i) => ['applied', 'verified', 'rolled_back'].includes(i.status)).map((i) => [i.id, i]));
-    const items = [...gen.items.map((i) => kept.get(i.id) ?? i), ...[...kept.values()].filter((i) => !gen.items.some((g) => g.id === i.id))];
+    // Approvals carry over to the same exact change (same id).
+    const kept = new Map(s.items.filter((i) => ['applied', 'verified', 'rolled_back'].includes(i.status) || (i.status === 'needs_human' && i.type === 'gsc_sitemap_submit')).map((i) => [i.id, i]));
+    const approved = new Map(s.items.filter((i) => i.approvedAt).map((i) => [i.id, i]));
+    const fresh = gen.items.map((i) => kept.get(i.id) ?? (approved.has(i.id) ? { ...i, approvedAt: approved.get(i.id)!.approvedAt, approvedBy: approved.get(i.id)!.approvedBy } : i));
+    let items = applyHoldList([...fresh, ...[...kept.values()].filter((i) => !gen.items.some((g) => g.id === i.id))], s.settings.holdList);
     s = { ...s, month, items, notes: gen.notes };
     await saveAutopilot(s);
 
@@ -167,27 +258,66 @@ async function job(domain: string, by: string): Promise<void> {
     const home = inventory.items.find((i) => i.isFrontPage)?.url ?? inventory.status.home_url;
     const keyPages = [home, ...items.filter((i) => i.status === 'draft' && i.url && !i.type.startsWith('redirect')).map((i) => i.url!)];
     const firstRun = !s.items.some((i) => ['applied', 'verified', 'rolled_back'].includes(i.status)) && !s.runs.some((r) => r.undoTested);
-    const r = await runWorkItems(items, { wp, fetchPage }, { keyPages, firstRun });
-    s = { ...s, items: r.items, runs: [r.run, ...s.runs].slice(0, 30), status: r.run.paused ? 'paused' : 'idle', step: null, pausedReason: r.run.paused ? r.run.problems.join(' ') : null };
+    // A scheduled run spreads the month's ready changes over the working days left in the plan month.
+    const requireApproval = s.settings.mode === 'approve';
+    const readyCount = items.filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType) && (!requireApproval || i.approvedAt)).length;
+    const start = planStart(actions);
+    const monthEnd = start ? planMonthWindow(start, month).end : new Date(Date.now() + 20 * 86_400_000);
+    const cap = opts.scheduled ? todaysShare(readyCount, new Date(), monthEnd, s.settings.timezone, s.settings.dailyCap) : s.settings.dailyCap;
+    const r = await runWorkItems(items, { wp, fetchPage }, { keyPages, firstRun, cap, requireApproval });
+    items = r.items;
+    if (!r.run.paused) {
+      await step('Submitting the sitemap and setting up checks');
+      items = await internalItems(domain, items, Boolean(account));
+    }
+    s = { ...s, items, runs: [{ ...r.run, by }, ...s.runs].slice(0, 30), status: r.run.paused ? 'paused' : 'idle', step: null, pausedReason: r.run.paused ? r.run.problems.join(' ') : null, ...(opts.scheduled ? { lastRunDate: localParts(new Date(), s.settings.timezone).date } : {}) };
     await saveAutopilot(s);
-    await saveActions(settleActions(await getActions(domain), r.items));
-    void by;
+    await saveActions(settleActions(await getActions(domain), items));
   } catch (err) {
-    s = { ...s, status: 'idle', step: null, error: err instanceof Error ? err.message.slice(0, 300) : 'Something went wrong.' };
+    s = { ...s, status: 'idle', step: null, error: err instanceof Error ? err.message.slice(0, 300) : 'Something went wrong.', ...(opts.scheduled ? { lastRunDate: localParts(new Date(), s.settings.timezone).date } : {}) };
     await saveAutopilot(s);
   }
 }
 
 /** Starts a run in the background. False when one is already running. */
-export async function startImplementing(rawDomain: string, by: string): Promise<{ started: boolean; problem?: string }> {
+export async function startImplementing(rawDomain: string, by: string, opts: { scheduled?: boolean } = {}): Promise<{ started: boolean; problem?: string }> {
   const domain = normDomain(rawDomain);
   const blocker = await autopilotBlocker(domain);
   if (blocker) return { started: false, problem: blocker };
   if (autopilotRunning(domain)) return { started: false, problem: 'Already running. This page updates by itself.' };
   const s = await getAutopilot(domain);
   await saveAutopilot({ ...s, status: 'running', step: 'Starting', error: null, pausedReason: s.status === 'paused' ? null : s.pausedReason });
-  prepare(runKey(domain), () => job(domain, by), 60_000);
+  prepare(runKey(domain), () => job(domain, by, opts), 60_000);
   return { started: true };
+}
+
+/** Saves the site's schedule and safety settings. */
+export async function saveAutopilotSettings(rawDomain: string, patch: Partial<AutopilotSettings>): Promise<AutopilotState> {
+  const s = await getAutopilot(rawDomain);
+  const next: AutopilotSettings = { ...s.settings, ...patch };
+  if (!validTimezone(next.timezone)) next.timezone = s.settings.timezone;
+  next.runHour = Math.min(23, Math.max(0, Math.round(next.runHour)));
+  next.dailyCap = Math.min(30, Math.max(1, Math.round(next.dailyCap)));
+  next.holdList = [...new Set(next.holdList.map((h) => h.trim()).filter(Boolean))].slice(0, 100);
+  // Holding a page also holds its waiting changes at once.
+  const out = { ...s, settings: next, items: applyHoldList(s.items, next.holdList), ...(s.status === 'paused' && patch.enabled ? { status: 'idle' as const, pausedReason: null } : {}) };
+  await saveAutopilot(out);
+  return out;
+}
+
+/** Approve mode: approves one change, or every change waiting ('all'). */
+export async function approveWorkItems(rawDomain: string, ids: string[] | 'all', by: string): Promise<number> {
+  const s = await getAutopilot(rawDomain);
+  const at = new Date().toISOString();
+  let n = 0;
+  const items = s.items.map((i) => {
+    if (i.status !== 'draft' || i.approvedAt || !PLUGIN_TYPES.includes(i.type as WpChangeType)) return i;
+    if (ids !== 'all' && !ids.includes(i.id)) return i;
+    n++;
+    return { ...i, approvedAt: at, approvedBy: by };
+  });
+  await saveAutopilot({ ...s, items });
+  return n;
 }
 
 /** Undoes one change on the website. */
