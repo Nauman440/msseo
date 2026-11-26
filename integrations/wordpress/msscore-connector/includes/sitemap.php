@@ -91,6 +91,7 @@ function msscore_serve_files() {
 function msscore_sitemap_cached( $name, $build ) {
 	$cache = get_transient( 'msscore_sitemap_cache' );
 	$cache = is_array( $cache ) ? $cache : array();
+	$name  = MSSCORE_CONNECTOR_VERSION . ':' . $name;
 	if ( ! isset( $cache[ $name ] ) ) {
 		$xml = $build();
 		if ( null === $xml ) {
@@ -196,11 +197,24 @@ function msscore_sitemap_index() {
 	return msscore_sitemap_cached(
 		'sitemap.xml',
 		function () {
-			$out = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+			$counts = array();
 			foreach ( msscore_sitemap_types() as $name => $type ) {
-				$n = msscore_is_term_type( $type )
+				$counts[ $name ] = msscore_is_term_type( $type )
 					? (int) wp_count_terms( array( 'taxonomy' => $type, 'hide_empty' => true ) )
 					: msscore_sitemap_posts( $type, 1, true );
+			}
+			// A site that fits in one list gets every page in sitemap.xml itself; larger sites get an index.
+			if ( array_sum( $counts ) <= MSSCORE_SITEMAP_MAX ) {
+				$out = msscore_urlset_open();
+				foreach ( $counts as $name => $n ) {
+					if ( $n > 0 ) {
+						$out .= msscore_sitemap_entries( $name, 1 );
+					}
+				}
+				return $out . '</urlset>' . "\n";
+			}
+			$out = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+			foreach ( $counts as $name => $n ) {
 				for ( $i = 1; $i <= (int) ceil( $n / MSSCORE_SITEMAP_MAX ); $i++ ) {
 					$out .= '  <sitemap><loc>' . esc_url( home_url( "/sitemap-{$name}-{$i}.xml" ) ) . '</loc><lastmod>' . esc_html( gmdate( 'c' ) ) . "</lastmod></sitemap>\n";
 				}
@@ -211,7 +225,16 @@ function msscore_sitemap_index() {
 }
 
 /**
- * One child sitemap.
+ * The opening of a list of addresses.
+ *
+ * @return string
+ */
+function msscore_urlset_open() {
+	return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
+}
+
+/**
+ * One child sitemap (used when the site is too large for one list; still served for smaller sites).
  *
  * @param string $name Type name.
  * @param int    $page 1-based page.
@@ -224,36 +247,48 @@ function msscore_sitemap_child( $name, $page ) {
 	}
 	return msscore_sitemap_cached(
 		"sitemap-{$name}-{$page}.xml",
-		function () use ( $types, $name, $page ) {
-			$type = $types[ $name ];
-			$out  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
-			if ( msscore_is_term_type( $type ) ) {
-				$terms = get_terms(
-					array(
-						'taxonomy'   => $type,
-						'hide_empty' => true,
-						'number'     => MSSCORE_SITEMAP_MAX,
-						'offset'     => ( $page - 1 ) * MSSCORE_SITEMAP_MAX,
-					)
-				);
-				foreach ( is_wp_error( $terms ) ? array() : $terms as $term ) {
-					$f    = msscore_term_seo_fields( $term );
-					$link = get_term_link( $term );
-					if ( $f['noindex'] || is_wp_error( $link ) ) {
-						continue;
-					}
-					$out .= '  <url><loc>' . esc_url( $link ) . "</loc></url>\n";
-				}
-			} else {
-				foreach ( msscore_sitemap_posts( $type, $page ) as $p ) {
-					$out .= '  <url><loc>' . esc_url( get_permalink( $p ) ) . '</loc><lastmod>' . esc_html( get_post_modified_time( 'c', true, $p ) ) . '</lastmod>';
-					foreach ( array_slice( msscore_post_images( $p ), 0, 10 ) as $img ) {
-						$out .= '<image:image><image:loc>' . esc_url( $img['url'] ) . '</image:loc></image:image>';
-					}
-					$out .= "</url>\n";
-				}
-			}
-			return $out . '</urlset>' . "\n";
+		function () use ( $name, $page ) {
+			return msscore_urlset_open() . msscore_sitemap_entries( $name, $page ) . '</urlset>' . "\n";
 		}
 	);
+}
+
+/**
+ * The <url> entries of one content type and page.
+ *
+ * @param string $name Type name.
+ * @param int    $page 1-based page.
+ * @return string
+ */
+function msscore_sitemap_entries( $name, $page ) {
+	$types = msscore_sitemap_types();
+	$type  = $types[ $name ];
+	$out   = '';
+	if ( msscore_is_term_type( $type ) ) {
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $type,
+				'hide_empty' => true,
+				'number'     => MSSCORE_SITEMAP_MAX,
+				'offset'     => ( $page - 1 ) * MSSCORE_SITEMAP_MAX,
+			)
+		);
+		foreach ( is_wp_error( $terms ) ? array() : $terms as $term ) {
+			$f    = msscore_term_seo_fields( $term );
+			$link = get_term_link( $term );
+			if ( $f['noindex'] || is_wp_error( $link ) ) {
+				continue;
+			}
+			$out .= '  <url><loc>' . esc_url( $link ) . "</loc></url>\n";
+		}
+		return $out;
+	}
+	foreach ( msscore_sitemap_posts( $type, $page ) as $p ) {
+		$out .= '  <url><loc>' . esc_url( get_permalink( $p ) ) . '</loc><lastmod>' . esc_html( get_post_modified_time( 'c', true, $p ) ) . '</lastmod>';
+		foreach ( array_slice( msscore_post_images( $p ), 0, 10 ) as $img ) {
+			$out .= '<image:image><image:loc>' . esc_url( $img['url'] ) . '</image:loc></image:image>';
+		}
+		$out .= "</url>\n";
+	}
+	return $out;
 }
