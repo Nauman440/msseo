@@ -129,13 +129,14 @@ function msscore_log_insert( array $row ) {
  */
 function msscore_log_rolled_back( $change_id, $note = '' ) {
 	global $wpdb;
-	$t = msscore_tables();
+	$t   = msscore_tables();
+	$old = msscore_log_get( $change_id );
 	$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$t['changes'],
 		array(
 			'status'         => 'rolled_back',
 			'rolled_back_at' => current_time( 'mysql', true ),
-			'note'           => $note,
+			'note'           => trim( ( $old && $old['note'] ? $old['note'] . ' · ' : '' ) . 'Undone: ' . $note ),
 		),
 		array( 'change_id' => $change_id )
 	);
@@ -151,9 +152,11 @@ function msscore_log_rolled_back( $change_id, $note = '' ) {
 function msscore_log_list( $limit = 50, $offset = 0 ) {
 	global $wpdb;
 	$t    = msscore_tables();
-	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT change_id, type, target, url, status, note, applied_at, rolled_back_at FROM {$t['changes']} ORDER BY id DESC LIMIT %d OFFSET %d", $limit, $offset ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT change_id, type, target, url, status, note, applied_at, rolled_back_at, before_value, after_value FROM {$t['changes']} ORDER BY id DESC LIMIT %d OFFSET %d", $limit, $offset ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	foreach ( $rows as &$r ) {
-		$r['target'] = json_decode( $r['target'], true );
+		$r['target']       = json_decode( $r['target'], true );
+		$r['before_value'] = null === $r['before_value'] ? null : json_decode( $r['before_value'], true );
+		$r['after_value']  = null === $r['after_value'] ? null : json_decode( $r['after_value'], true );
 	}
 	return $rows;
 }
