@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 // Phase 2 end-to-end against the local WordPress (http://localhost:8089).
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createWordPressClient, newSigningKey, type WpChange } from '../../../packages/core/src/index';
@@ -29,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version.startsWith('1.2') && status.signed, 'signed status 1.2.0', status.seo_backend as string);
+  ok(status.version.startsWith('1.3') && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -82,6 +83,13 @@ async function main() {
   ok((await raw('/wp-sitemap.xml')).status === 301, 'sitemap: core sitemap redirects to ours');
   const s2 = await wp.status();
   ok(s2.sitemap.by === 'msscore', 'sitemap: status reports ours');
+  // The sitemap follows changes at once: a page set to noindex leaves it, and comes back after undo.
+  const ni = { change_id: cid('noindex'), type: 'robots_noindex', target: { post_id: ids.classic }, new_value: 'noindex' } as WpChange;
+  const before = await raw('/sitemap-page-1.xml');
+  ok((await wp.apply(ni)).status === 'applied', 'sitemap: noindex applied');
+  const without = await raw('/sitemap-page-1.xml');
+  ok(before.body.split('<url>').length - 1 === without.body.split('<url>').length, 'sitemap: noindexed page left out at once', `${before.body.split('<url>').length} → ${without.body.split('<url>').length}`);
+  ok((await wp.rollback(ni.change_id)).status === 'rolled_back' && (await raw('/sitemap-page-1.xml')).body.split('<url>').length === before.body.split('<url>').length, 'sitemap: page back after undo');
   ok((await wp.rollback(sm.change_id)).status === 'rolled_back', 'sitemap: rolled back');
   const after = await raw('/sitemap.xml');
   ok(after.status !== 200 && (await raw('/wp-sitemap.xml')).status === 200, 'sitemap: back to the core sitemap', `${after.status} ${after.location}`);
@@ -93,6 +101,23 @@ async function main() {
   const robots = (await raw('/robots.txt')).body;
   ok(robots.includes('Disallow: /?s=') && robots.includes('Allow: /wp-admin/admin-ajax.php') && robots.includes('Sitemap: ') && !/Disallow: .*\.(css|js)/.test(robots), 'robots_txt: rules + sitemap, CSS/JS not blocked');
   ok((await wp.rollback(rt.change_id)).status === 'rolled_back' && !(await raw('/robots.txt')).body.includes('Disallow: /?s='), 'robots_txt: rolled back');
+
+  // Pause from WordPress: no new changes while paused; the change log carries the label.
+  const wpOption = (php: string) => execSync(`php -r ${JSON.stringify(`define('WP_USE_THEMES', false); require '${D}/core/wp-load.php'; ${php}`)}`, { encoding: 'utf8' });
+  wpOption("update_option('msscore_autopilot_paused', true);");
+  const paused = await wp.apply({ change_id: cid('paused'), type: 'meta_title', target: { post_id: ids.gut }, new_value: 'Paused title', label: 'Title tag · Test' });
+  ok(paused.status === 'skipped' && /paused/i.test(paused.reason ?? '') && (await wp.status()).paused === true, 'pause: no change while paused', paused.reason ?? '');
+  wpOption("update_option('msscore_autopilot_paused', false);");
+  const labelled = { change_id: cid('label'), type: 'meta_title', target: { post_id: ids.gut }, new_value: 'Labelled title for the log', label: 'Title tag · Test' } as WpChange;
+  ok((await wp.apply(labelled)).status === 'applied', 'pause: changes again after resume');
+  const log = await wp.changes();
+  ok(log[0]?.change_id === labelled.change_id && log[0]?.note === 'Title tag · Test', 'change log: newest first with its label', JSON.stringify(log[0]));
+  // The admin page's undo uses the same code path as /rollback.
+  wpOption(`wp_set_current_user(1); msscore_do_rollback('${labelled.change_id}', 'by Admin in WordPress');`);
+  const after2 = (await wp.changes()).find((c) => c.change_id === labelled.change_id);
+  ok(after2?.status === 'rolled_back' && /Undone: by Admin/.test(after2.note ?? ''), 'admin undo: logged and visible to MS SCORE', JSON.stringify(after2));
+  const admin = wpOption("require_once ABSPATH . 'wp-admin/includes/template.php'; wp_set_current_user(1); ob_start(); msscore_admin_page(); echo ob_get_clean();");
+  ok(admin.includes('MS SCORE Autopilot') && admin.includes('Pause the autopilot') && admin.includes('Changes made'), 'admin page renders', admin.slice(0, 200));
 
   // Unsupported / validation.
   ok((await wp.apply({ change_id: cid('x'), type: 'meta_title' as const, target: { post_id: 999999 }, new_value: 'x' })).status === 'failed', 'unknown post refused');

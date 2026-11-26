@@ -3,7 +3,7 @@ Contributors: morosoft
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 
 Lets MS SCORE apply SEO changes you have approved.
@@ -26,6 +26,12 @@ Only editors and administrators can use it, through an Application Password you 
 2. In MS SCORE, open Connections and press "Connect WordPress".
 
 == Changelog ==
+
+= 1.3.0 =
+* New "MS SCORE Autopilot" admin page: connection, running or paused, last change, the sitemap, and every change with an Undo button.
+* Pause the autopilot from WordPress; while paused, MS SCORE makes no new changes.
+* The sitemap is rebuilt after every change and undo (a page set to noindex leaves it at once).
+* Each change is logged with its plain-language label.
 
 = 1.2.1 =
 * Image alt text also updates Bricks image blocks that set their own alt text.

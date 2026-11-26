@@ -68,6 +68,9 @@ function msscore_rest_apply( WP_REST_Request $req ) {
 		return new WP_REST_Response( array( 'status' => 'failed', 'reason' => 'change_id must be 8–64 letters, digits, - or _.' ), 400 );
 	}
 	$done = msscore_log_get( $change_id );
+	if ( ! $done && msscore_autopilot_paused() ) {
+		return new WP_REST_Response( array( 'status' => 'skipped', 'change_id' => $change_id, 'reason' => 'The autopilot is paused in WordPress (MS SCORE Autopilot page).' ), 200 );
+	}
 	if ( $done ) {
 		return new WP_REST_Response(
 			array(
@@ -138,8 +141,10 @@ function msscore_rest_apply( WP_REST_Request $req ) {
 			'before'    => $result['before'],
 			'after'     => $result['after'],
 			'status'    => 'applied',
+			'note'      => sanitize_text_field( (string) $req->get_param( 'label' ) ),
 		)
 	);
+	delete_transient( 'msscore_sitemap_cache' );
 	$purged = msscore_purge_cache( $t['url'], 'post' === $t['kind'] ? $t['id'] : null );
 	return new WP_REST_Response(
 		array(
@@ -161,19 +166,32 @@ function msscore_rest_apply( WP_REST_Request $req ) {
  * @return WP_REST_Response
  */
 function msscore_rest_rollback( WP_REST_Request $req ) {
-	$change_id = (string) $req->get_param( 'change_id' );
-	$done      = msscore_log_get( $change_id );
+	$o = msscore_do_rollback( (string) $req->get_param( 'change_id' ), (string) $req->get_param( 'reason' ) );
+	$http = $o['http'];
+	unset( $o['http'] );
+	return new WP_REST_Response( $o, $http );
+}
+
+/**
+ * Undoes one change (REST and the admin page).
+ *
+ * @param string $change_id Change id.
+ * @param string $reason    Why.
+ * @return array Answer with an 'http' code.
+ */
+function msscore_do_rollback( $change_id, $reason ) {
+	$done = msscore_log_get( $change_id );
 	if ( ! $done ) {
-		return new WP_REST_Response( array( 'status' => 'failed', 'reason' => 'No change with this id.' ), 404 );
+		return array( 'status' => 'failed', 'reason' => 'No change with this id.', 'http' => 404 );
 	}
 	if ( 'applied' !== $done['status'] ) {
-		return new WP_REST_Response( array( 'status' => $done['status'], 'change_id' => $change_id, 'repeat' => true ), 200 );
+		return array( 'status' => $done['status'], 'change_id' => $change_id, 'repeat' => true, 'http' => 200 );
 	}
 	$handlers = msscore_change_handlers();
 	$h        = isset( $handlers[ $done['type'] ] ) ? $handlers[ $done['type'] ] : null;
 	$t        = msscore_resolve_target( ! empty( $h['site'] ) ? array( 'site' => true ) : $done['target'] );
 	if ( ! $h || is_wp_error( $t ) ) {
-		return new WP_REST_Response( array( 'status' => 'needs_human', 'reason' => 'The page or setting this change was made on no longer exists.' ), 200 );
+		return array( 'status' => 'needs_human', 'reason' => 'The page or setting this change was made on no longer exists.', 'http' => 200 );
 	}
 	try {
 		$r = isset( $h['get'] )
@@ -184,18 +202,17 @@ function msscore_rest_rollback( WP_REST_Request $req ) {
 	}
 	if ( is_wp_error( $r ) ) {
 		$o = msscore_error_outcome( $r );
-		return new WP_REST_Response( array( 'status' => $o['status'], 'change_id' => $change_id, 'reason' => $o['reason'] ), $o['http'] );
+		return array( 'status' => $o['status'], 'change_id' => $change_id, 'reason' => $o['reason'], 'http' => $o['http'] );
 	}
-	msscore_log_rolled_back( $change_id, (string) $req->get_param( 'reason' ) );
+	msscore_log_rolled_back( $change_id, $reason );
+	delete_transient( 'msscore_sitemap_cache' );
 	$purged = msscore_purge_cache( $t['url'], 'post' === $t['kind'] ? $t['id'] : null );
-	return new WP_REST_Response(
-		array(
-			'status'    => 'rolled_back',
-			'change_id' => $change_id,
-			'restored'  => $done['before_value'],
-			'purged'    => $purged,
-		),
-		200
+	return array(
+		'status'    => 'rolled_back',
+		'change_id' => $change_id,
+		'restored'  => $done['before_value'],
+		'purged'    => $purged,
+		'http'      => 200,
 	);
 }
 

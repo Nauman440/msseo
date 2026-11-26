@@ -168,5 +168,6 @@ function msscore_site_status() {
 		'seo_backend'     => $seo,
 		'llms_served'     => '' !== (string) get_option( 'msscore_llms_txt', '' ),
 		'robots_managed'  => (bool) get_option( 'msscore_robots_enabled' ),
+		'paused'          => msscore_autopilot_paused(),
 	);
 }
