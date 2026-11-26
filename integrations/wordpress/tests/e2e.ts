@@ -30,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version === '1.3.1' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
+  ok(status.version === '1.3.2' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -56,6 +56,7 @@ async function main() {
   await roundTrip('image_alt', { type: 'image_alt', target: { attachment_id: ids.img }, new_value: { alt: 'Grey orthopaedic dog bed with memory foam', post_ids: [ids.gut] } }, '/', (h) => h.includes('alt="Grey orthopaedic dog bed with memory foam"'), (h) => !h.includes('Grey orthopaedic dog bed'));
   await roundTrip('heading_fix demote (Gutenberg)', { type: 'heading_fix', target: { post_id: ids.gut }, new_value: { action: 'demote_extra_h1', keep: 0 } }, '/', (h) => (h.match(/<h1\b/g) ?? []).length === 1 && h.includes('wp-block-post-title') && h.includes('Second H1</h2>'), (h) => h.includes('Second H1</h1>'));
   await roundTrip('heading_fix demote (Classic)', { type: 'heading_fix', target: { post_id: ids.classic }, new_value: { action: 'demote_extra_h1' } }, '/contact/', (h) => h.includes('Extra</h2>') && h.includes('Contact us</h1>'), (h) => h.includes('Extra</h1>'));
+  await roundTrip('heading_fix set H1 words (Classic)', { type: 'heading_fix', target: { post_id: ids.classic }, new_value: { action: 'set_h1_text', text: 'Contact Our Dog Bed Makers in Leeds' } }, '/contact/', (h) => h.includes('Contact Our Dog Bed Makers in Leeds</h1>'), (h) => h.includes('Contact us</h1>'));
   await roundTrip('heading_fix order', { type: 'heading_fix', target: { post_id: ids.gut }, new_value: { action: 'fix_order' } }, '/', (h) => h.includes('Sizes</h2>'), (h) => h.includes('Sizes</h4>'));
   await roundTrip('content_block answer', { type: 'content_block', target: { post_id: ids.gut }, new_value: { block_id: 'answer1', kind: 'answer', position: 'after_first_paragraph', html: '<p>Our beds suit dogs of every size, with washable covers.</p>' } }, '/', (h) => h.includes('washable covers'), (h) => !h.includes('washable covers'));
   await roundTrip('content_block faq + FAQPage schema', { type: 'content_block', target: { post_id: ids.gut }, new_value: { block_id: 'faq1', kind: 'faq', position: 'end', faq: [{ q: 'Are the covers washable?', a: 'Yes, at 40 degrees.' }] } }, '/', (h) => h.includes('Are the covers washable?</h3>') && h.includes('"@type":"FAQPage"'), (h) => !h.includes('Are the covers washable') && !h.includes('FAQPage'));

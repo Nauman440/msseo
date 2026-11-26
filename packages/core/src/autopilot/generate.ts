@@ -3,8 +3,8 @@ import type { PageContent } from '../audit/page-content';
 import type { InventoryItem, SiteInventory } from '../connections/inventory';
 import type { OpenAiClient } from '../providers/openai';
 import type { WpChangeType, WpTarget } from '../providers/wordpress';
-import { draftBlock, draftMeta, type MetaAsk } from './ai-drafts';
-import { checkAlt, checkBlock, checkDescription, checkTitle, type BusinessProfile } from './quality';
+import { draftBlock, draftH1, draftMeta, type MetaAsk } from './ai-drafts';
+import { checkAlt, checkBlock, checkDescription, checkH1, checkTitle, type BusinessProfile } from './quality';
 import { matchRedirects, type DeadUrl } from './redirects';
 import { itemPriority, workItemId, type InternalChangeType, type WorkItem, type WorkItemStatus } from './work-items';
 
@@ -27,6 +27,8 @@ export type GenerateInput = {
   deadUrls: DeadUrl[];
   /** Image address → alt text drafted earlier (Module 2 alt-text drafts). */
   altDrafts?: Map<string, string>;
+  /** Page address → the page plan's drafted H1 (Module 5), used before asking the model. */
+  h1Drafts?: Map<string, string>;
   /** Changes after "Start over" get new ids (the plugin never applies the same id twice). */
   idSalt?: string;
   /** The live robots.txt (null = not read), for the sitemap line. */
@@ -49,6 +51,8 @@ type Ctx = {
   items: WorkItem[];
   tokens: number;
   notes: string[];
+  /** Pages whose H1 words are checked against their keyword (after the count is fixed). */
+  h1Text: { a: ActionItem | null; page: InventoryItem; after: string | null }[];
 };
 
 function push(c: Ctx, a: ActionItem | null, w: { type: WpChangeType | InternalChangeType | 'manual'; target: WpTarget | null; url: string | null; label: string; before: unknown; newValue: unknown; status: WorkItemStatus; reason?: string | null; priorityBoost?: number; week?: number }) {
@@ -207,12 +211,15 @@ async function metaItems(c: Ctx, jobs: { a: ActionItem; field: 'title' | 'descri
   }
 }
 
-function h1Item(c: Ctx, a: ActionItem, i: InventoryItem) {
+function h1Item(c: Ctx, a: ActionItem | null, i: InventoryItem) {
   const live = i.url ? c.live.get(pageKey(i.url)) : undefined;
   const liveH1 = live ? live.headings.filter((h) => h.level === 1).length : null;
   const label = `Main heading (H1) · ${nameOf(i)}`;
   if (liveH1 === null) return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: 'The live page could not be read.' });
-  if (liveH1 === 1) return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: 1, newValue: null, status: 'keep', reason: 'The page has exactly one H1.' });
+  if (liveH1 === 1) {
+    c.h1Text.push({ a, page: i, after: null });
+    return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: 1, newValue: null, status: 'keep', reason: 'The page has exactly one H1.' });
+  }
   if (liveH1 === 0) {
     const text = i.isFrontPage ? c.input.profile.name : i.name;
     const ok = i.builder === 'gutenberg' || i.builder === 'classic';
@@ -221,7 +228,72 @@ function h1Item(c: Ctx, a: ActionItem, i: InventoryItem) {
   // More than one H1: H1s outside the content come from the theme; keep at most one in total.
   const theme = Math.max(0, liveH1 - i.h1s.length);
   if (!i.h1s.length) return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: liveH1, newValue: null, status: 'needs_human', reason: 'The extra H1 comes from the theme or a template, not the page content.' });
-  push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: liveH1, newValue: { action: 'demote_extra_h1', keep: theme ? 0 : 1 }, status: 'draft' });
+  push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: liveH1, newValue: { action: 'demote_extra_h1', keep: theme ? 0 : 1 }, status: 'draft', reason: `${liveH1} H1s on the page; the ${theme ? 'theme’s stays and the ones in the content' : 'first stays and the others'} become H2s.`, week: 1 });
+  if (!theme) c.h1Text.push({ a, page: i, after: c.items[c.items.length - 1]?.id ?? null });
+}
+
+/** The main H1's words: they should say what the page is about (its page-plan keyword). */
+async function h1TextItems(c: Ctx) {
+  type Job = { a: ActionItem | null; page: InventoryItem; after: string | null; current: string; keyword: string; draft: string | null; problems: string[] };
+  const jobs: Job[] = [];
+  for (const j of c.h1Text) {
+    const live = j.page.url ? c.live.get(pageKey(j.page.url)) : undefined;
+    const current = j.page.h1s[0] ?? live?.headings.find((h) => h.level === 1)?.text ?? null;
+    const keyword = c.input.keywords.get(pageKey(j.page.url ?? '')) ?? null;
+    const label = `Main heading (H1) words · ${nameOf(j.page)}`;
+    if (!current || !keyword) continue;
+    const ctx = { mainKeyword: keyword, profile: c.input.profile, title: live?.title ?? null };
+    // KEEP rule: a heading that already passes stays.
+    if (!checkH1(current, ctx).length) {
+      push(c, j.a, { type: 'heading_fix', target: target(j.page), url: j.page.url, label, before: current, newValue: null, status: 'keep', reason: `Already says what the page is about (“${keyword}”).` });
+      continue;
+    }
+    if (!j.page.h1s.length) {
+      push(c, j.a, { type: 'heading_fix', target: target(j.page), url: j.page.url, label, before: current, newValue: null, status: 'needs_human', reason: `The H1 “${current}” comes from the theme (usually the page title). Change the page title so it says what the page is about: “${keyword}”.` });
+      continue;
+    }
+    const planned = c.input.h1Drafts?.get(pageKey(j.page.url ?? '')) ?? null;
+    jobs.push({ ...j, current, keyword, draft: planned, problems: planned ? checkH1(planned, ctx) : ['no draft yet'] });
+  }
+  for (let round = 0; round < 2 && c.input.ai; round++) {
+    const ask = jobs.filter((j) => j.problems.length);
+    if (!ask.length) break;
+    try {
+      const r = await draftH1(c.input.ai, ask.map((j) => {
+        const live = c.live.get(pageKey(j.page.url ?? ''));
+        return { url: j.page.url!, name: nameOf(j.page), mainKeyword: j.keyword, currentH1: j.current, title: live?.title ?? null, excerpt: live?.text ?? '', problems: j.draft ? j.problems : [] };
+      }), c.input.profile);
+      c.tokens += r.tokens;
+      for (const j of ask) {
+        const d = r.drafts.get(j.page.url!);
+        if (d) {
+          j.draft = d;
+          j.problems = checkH1(d, { mainKeyword: j.keyword, profile: c.input.profile, title: c.live.get(pageKey(j.page.url ?? ''))?.title ?? null });
+        }
+      }
+    } catch (err) {
+      c.notes.push(`Drafting headings failed: ${err instanceof Error ? err.message.slice(0, 120) : 'model error'}`);
+      break;
+    }
+  }
+  for (const j of jobs) {
+    // Without a model or a page-plan draft: the keyword itself, in title case (and the place, when it is not in the keyword).
+    if (!j.draft) {
+      const place = c.input.profile.places[0];
+      const kw = j.keyword.replace(/\b\p{L}/gu, (m) => m.toUpperCase());
+      j.draft = place && !j.keyword.toLowerCase().includes(place.toLowerCase()) ? `${kw} in ${place}` : kw;
+      j.problems = checkH1(j.draft, { mainKeyword: j.keyword, profile: c.input.profile });
+    }
+    const label = `Main heading (H1) words · ${nameOf(j.page)}`;
+    const ok = !j.problems.length && ['gutenberg', 'classic', 'bricks', 'elementor'].includes(j.page.builder ?? 'classic');
+    push(c, j.a, {
+      type: 'heading_fix', target: target(j.page), url: j.page.url, label, before: j.current, newValue: { action: 'set_h1_text', text: j.draft }, status: ok ? 'draft' : 'needs_human',
+      reason: ok ? `The H1 does not say what the page is about (main keyword “${j.keyword}”).` : j.problems.length ? `Draft did not pass the rules: ${j.problems.join('; ')}` : `Change the H1 to “${j.draft}” in ${j.page.builder ?? 'the editor'}.`,
+      week: 1,
+    });
+    const it = c.items[c.items.length - 1]!;
+    if (j.after) it.dependsOn = [j.after];
+  }
 }
 
 function canonicalItem(c: Ctx, a: ActionItem, i: InventoryItem) {
@@ -416,6 +488,7 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
     items: [],
     tokens: 0,
     notes: [],
+    h1Text: [],
   };
   const meta: { a: ActionItem; field: 'title' | 'description'; page: InventoryItem }[] = [];
   let redirectsDone = false;
@@ -447,13 +520,17 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
     }
   }
   await metaItems(c, meta);
+  // Every page gets one H1 that says what it is about, whether or not this month's plan has an H1 task.
+  const h1Done = new Set(c.items.filter((i) => i.type === 'heading_fix').map((i) => pageKey(i.url ?? '')));
+  for (const p of input.inventory.items.filter((i) => i.url && !i.noindex && ['page', 'post', 'product'].includes(i.type) && c.live.has(pageKey(i.url!)) && !h1Done.has(pageKey(i.url!)))) h1Item(c, null, p);
+  await h1TextItems(c);
   siteFileItems(c);
   // Dead addresses are fixed in week 1 even when no task mentions redirects.
   if (!redirectsDone && input.deadUrls.length) redirectItems(c, null);
   // Canonicals first, then titles/descriptions/H1s on the same page (the plan's rule).
   for (const it of c.items) {
     if (['meta_title', 'meta_description', 'heading_fix'].includes(it.type) && it.status === 'draft') {
-      it.dependsOn = c.items.filter((x) => x.type === 'canonical' && x.status === 'draft' && x.url && it.url && pageKey(x.url) === pageKey(it.url)).map((x) => x.id);
+      it.dependsOn = [...new Set([...it.dependsOn, ...c.items.filter((x) => x.type === 'canonical' && x.status === 'draft' && x.url && it.url && pageKey(x.url) === pageKey(it.url)).map((x) => x.id)])];
     }
   }
   c.items.sort((x, y) => y.priority - x.priority || x.week - y.week);

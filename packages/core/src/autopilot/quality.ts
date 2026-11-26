@@ -108,3 +108,31 @@ export function checkBlock(text: string, c: { kind: 'answer' | 'faq' | 'section'
   if (unknown.length) p.push(`uses numbers that are not on the site: ${[...new Set(unknown)].join(', ')}`);
   return [...p, ...textProblems(plain, c.profile)];
 }
+
+const STOP = new Set(['a', 'an', 'the', 'and', 'or', 'for', 'of', 'in', 'on', 'to', 'with', 'near', 'me', 'best', 'top', 'uk', 'usa']);
+/** Share of the keyword's meaningful words (plurals and case ignored) that appear in the text. */
+export function keywordCoverage(text: string, keyword: string): number {
+  const stem = (w: string) => w.toLowerCase().replace(/[’']s$/, '').replace(/(ies)$/, 'y').replace(/(?<=[a-z]{3})s$/, '');
+  const have = new Set(words(text).map(stem));
+  const want = [...new Set(words(keyword).map(stem))].filter((w) => !STOP.has(w));
+  if (!want.length) return 1;
+  return want.filter((w) => have.has(w)).length / want.length;
+}
+
+/** Rules for a page's main heading (H1): says what the page is about in plain words. */
+export function checkH1(h1: string, c: { mainKeyword: string | null; profile: BusinessProfile; title?: string | null }): string[] {
+  const p: string[] = [];
+  const t = h1.trim();
+  if (t.length < 15) p.push('shorter than 15 characters');
+  if (t.length > 70) p.push('longer than 70 characters');
+  if (/[|]/.test(t)) p.push('has a "|" (that belongs in the title tag, not the heading)');
+  // Words that are only part of the business name do not count ("SRM Risk Management FZCO" is a name, not a topic).
+  const name = c.profile.name.trim();
+  const rest = name ? t.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ') : t;
+  if (c.mainKeyword) {
+    const need = words(c.mainKeyword).filter((w) => !STOP.has(w.toLowerCase())).length <= 3 ? 1 : 0.75;
+    if (keywordCoverage(rest, c.mainKeyword) < need) p.push(`does not say what the page is about (main keyword “${c.mainKeyword}”)`);
+  }
+  if (name && words(rest).filter((w) => !STOP.has(w.toLowerCase())).length <= 1) p.push('is only the business name');
+  return [...p, ...textProblems(t, c.profile)];
+}

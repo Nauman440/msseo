@@ -90,7 +90,9 @@ export function visibleIn(item: WorkItem, html: string): boolean | null {
     case 'internal_link':
       return v && typeof v === 'object' ? h.includes(`data-msscore-link="${String(v.link_id)}"`) : null;
     case 'heading_fix':
-      return v && typeof v === 'object' && v.action === 'demote_extra_h1' ? (h.match(/<h1\b/gi) ?? []).length <= 1 : null;
+      if (v && typeof v === 'object' && v.action === 'demote_extra_h1') return (h.match(/<h1\b/gi) ?? []).length <= 1;
+      if (v && typeof v === 'object' && v.action === 'set_h1_text') return (h.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '').replace(/<[^>]+>/g, '').trim() === plain(esc(String(v.text))).replace(/&amp;/g, '&');
+      return null;
     case 'sitemap':
       return v && typeof v === 'object' && v.enabled === false ? null : /<(sitemapindex|urlset)\b/.test(html);
     case 'robots_txt':
