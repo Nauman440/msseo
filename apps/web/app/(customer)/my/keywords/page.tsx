@@ -8,6 +8,7 @@ import { loadCustomerSite } from '@/lib/customer-site';
 import { freshKeywords } from '@/lib/keywords';
 import { freshMapping } from '@/lib/mapping';
 import { restoreKeywordsAfterFast } from '@/lib/keyword-restore';
+import { insightsFor } from '@/lib/keyword-insights';
 import { Preparing } from '@/components/customer/Preparing';
 
 export const metadata: Metadata = { title: 'Your keywords' };
@@ -25,6 +26,7 @@ export default async function CustomerKeywordsPage({ searchParams }: Props) {
   const restoring = await restoreKeywordsAfterFast(s.domain);
   const ws = await freshKeywords(s.domain);
   const mapping = await freshMapping(s.domain);
+  const insights = await insightsFor(ws, mapping);
   return (
     <SiteFrame s={s} tab="keywords">
       {restoring && <Preparing what="your full keyword list again" />}
@@ -42,6 +44,7 @@ export default async function CustomerKeywordsPage({ searchParams }: Props) {
           mapping: { topic, show, all, mode },
         }}
         mappedTopics={mapping.rows.length}
+        insights={insights}
       />
     </SiteFrame>
   );

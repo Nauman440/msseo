@@ -300,3 +300,10 @@ export function updateCluster(ws: KeywordWorkspace, id: string, patch: { name?: 
     ),
   };
 }
+
+/** What kind of site a result is: a directory or review site, a big retailer or reference site, or another (often smaller) business. */
+export function siteKind(url: string): 'directory' | 'big' | 'other' {
+  const host = hostOf(url);
+  return isDirectory(host) ? 'directory' : isBig(host) ? 'big' : 'other';
+}
+export const resultHost = hostOf;

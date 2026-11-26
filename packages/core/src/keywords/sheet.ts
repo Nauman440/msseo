@@ -1,6 +1,8 @@
 import { blogIdeas } from '../mapping/blog-ideas';
 import { pathOf, type MappingWorkspace } from '../mapping/mapping';
-import type { Sheet } from '../report/xlsx';
+import type { Sheet, SheetCell } from '../report/xlsx';
+import type { KeywordInsights } from './insights';
+import { localOf } from './local-volume';
 import { normTerm } from './clean';
 import type { KeywordRecord, KeywordWorkspace } from './types';
 
@@ -14,7 +16,9 @@ const SOURCE: Record<string, string> = { seed: 'Your services', ranked: 'You ran
 const yes = (b: boolean) => (b ? 'yes' : '');
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-export function keywordResearchSheets(kw: KeywordWorkspace, mapping: MappingWorkspace | null | undefined): Sheet[] {
+/** insights: the verdict and top moves (FEATURE_KEYWORD_INSIGHTS); they open the Summary sheet, and local volume gets its own column. */
+export function keywordResearchSheets(kw: KeywordWorkspace, mapping: MappingWorkspace | null | undefined, insights: KeywordInsights | null = null): Sheet[] {
+  const localPlace = insights ? kw.localPlaces?.find((p) => p.locationName)?.place ?? null : null;
   const clusters = new Map(kw.clusters.map((c) => [c.id, c]));
   const rows = new Map((mapping?.rows ?? []).map((r) => [r.clusterId, r]));
   // A keyword's topic for the page plan: moved by hand there, else its research topic.
@@ -38,13 +42,14 @@ export function keywordResearchSheets(kw: KeywordWorkspace, mapping: MappingWork
 
   const keywords: Sheet = {
     name: 'Keywords',
-    header: ['Keyword', 'Topic', 'Role', 'Page', 'Intent', 'Searches a month', 'Difficulty (0-100)', 'CPC (USD)', 'Your position', 'Topic traffic potential', 'Topic priority (1-25)', 'Quick win', 'Found from', 'Competitor gap', 'Google page-1 features'],
+    header: ['Keyword', 'Topic', 'Role', 'Page', 'Intent', 'Searches a month', 'Difficulty (0-100)', 'CPC (USD)', 'Your position', 'Topic traffic potential', 'Topic priority (1-25)', 'Quick win', 'Found from', 'Competitor gap', 'Google page-1 features', ...(localPlace ? [`Searches a month in ${localPlace}`] : [])],
     rows: kept.map((k) => {
       const cid = topicOf(k);
       const c = cid ? clusters.get(cid) : undefined;
       return [
         k.term, c?.name ?? '', role(k, cid), page(cid), k.intent ? INTENT[k.intent] : '', k.volume, k.difficulty, k.cpc === null ? null : Math.round(k.cpc * 100) / 100, k.position,
         c?.trafficPotential ?? null, c?.priority ?? null, yes(Boolean(k.position && k.position >= 4 && k.position <= 20)), k.sources.map((s) => SOURCE[s] ?? s).join(', '), yes(Boolean(k.gapFrom?.length)), (k.serpFeatures ?? []).join(', '),
+        ...(localPlace ? [localOf(k, localPlace)?.volume ?? null] : []),
       ];
     }),
   };
@@ -107,6 +112,19 @@ export function keywordResearchSheets(kw: KeywordWorkspace, mapping: MappingWork
       ['New pages needed', (mapping?.rows ?? []).filter((r) => !r.url).length],
       ['Blog ideas', blog.rows.length],
       ['Competing pages', competing.rows.length],
+      ...(insights
+        ? [
+            ['', ''],
+            ['Verdict', insights.verdict],
+            ...insights.moves.flatMap((m, i): SheetCell[][] => [
+              [`Move ${i + 1}`, `${m.topic}: ${m.url ? `improve ${m.url}` : `new page at ${m.newPath}`}`],
+              ['  Demand', `${m.demand.toLocaleString('en-US')} searches a month${m.localDemand !== null && m.localPlace ? ` (${m.localDemand.toLocaleString('en-US')} in ${m.localPlace})` : ''}; difficulty ${m.difficulty ?? 'unknown'}; position ${m.position === null ? 'not ranking' : `#${Math.round(m.position)}`}`],
+              ['  Title', m.title],
+              ['  Sections', m.sections.join('; ')],
+              ['  Why', m.why],
+            ]),
+          ]
+        : []),
     ],
   };
   return [summary, topics, keywords, plan, blog, competing, removed];

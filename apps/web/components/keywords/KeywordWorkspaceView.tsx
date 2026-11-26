@@ -1,4 +1,4 @@
-import { keywordStats, LOW_VOLUME, queryKeywords, type KeywordFrom, type KeywordRole, type KeywordWorkspace } from '@seo/core';
+import { keywordStats, LOW_VOLUME, queryKeywords, type KeywordFrom, type KeywordInsights, type KeywordRole, type KeywordWorkspace } from '@seo/core';
 import { MappingSection, type MappingParams } from '@/components/mapping/MappingSection';
 import { Term } from '@/components/ui/Term';
 import { cn } from '@/lib/tones';
@@ -11,6 +11,7 @@ import { KeywordTabs, viewHref, type KeywordOpen, type KeywordView } from './Key
 import type { TopicOrder } from './labels';
 import { TopTopics } from './TopTopics';
 import { KeywordTypes } from './KeywordTypes';
+import { KeywordInsightsCard } from './KeywordInsightsCard';
 
 /**
  * Keywords (Module 4) and the page plan (Module 5), written for someone who knows nothing about SEO.
@@ -34,14 +35,17 @@ function Chevron() {
   );
 }
 
-export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }: {
+export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics, insights = null }: {
   ws: KeywordWorkspace;
   audience: 'team' | 'customer';
   base: string;
   state: KeywordPageState;
   /** Topics in the page plan (Module 5), for the tab count. */
   mappedTopics: number;
+  /** Verdict and top moves (FEATURE_KEYWORD_INSIGHTS); null hides them and the local column. */
+  insights?: KeywordInsights | null;
 }) {
+  const localPlace = insights ? ws.localPlaces?.find((p) => p.locationName)?.place ?? null : null;
   const stats = keywordStats(ws);
   const kept = ws.keywords.filter((k) => k.status === 'kept');
   const shop = ws.businessType === 'shop';
@@ -62,6 +66,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
       {state.view === 'keywords' && (
         <>
           <AutopilotPanel ws={ws} kept={stats.kept} topics={stats.clusters} audience={audience} />
+
+          {insights && <KeywordInsightsCard insights={insights} />}
 
           <details id="research-inputs" open={state.open === 'inputs' || !ws.seeds.services.length} className={FOLD}>
             <summary className={FOLD_SUMMARY}>
@@ -130,6 +136,8 @@ export function KeywordWorkspaceView({ ws, audience, base, state, mappedTopics }
                 initial={queryKeywords(ws, { from: state.from, role: state.role, minVolume: LOW_VOLUME })}
                 initialFrom={state.from ?? ''}
                 initialRole={state.role ?? ''}
+                insights={Boolean(insights)}
+                localPlace={localPlace}
               />
               <section aria-labelledby="add-keywords" className="flex flex-col gap-3.5 border-t border-border pt-5">
                 <div>

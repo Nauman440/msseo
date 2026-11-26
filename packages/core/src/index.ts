@@ -85,3 +85,6 @@ export * from './autopilot/redirects';
 export * from './autopilot/ai-drafts';
 export * from './autopilot/generate';
 export * from './autopilot/run';
+export { addLocalVolume, keywordInsightsEnabled, LOCAL_PLACES, localMax, localOf } from './keywords/local-volume';
+export { keywordInsights, pageOneOf, showsMap, whyText, type KeywordInsights, type KeywordMove, type PageOne } from './keywords/insights';
+export { createLocalVolumeClient, matchAdsLocation, type AdsLocation, type LocalVolumeClient } from './providers/dataforseo-keywords';

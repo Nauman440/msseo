@@ -7,6 +7,7 @@ import { INPUT } from '@/components/competitors/forms';
 import { cn } from '@/lib/tones';
 import { CHIP, difficultyBar, INTENT_CHIP, intentLabel, positionChip, ROLE_CHIP, ROLE_LABEL } from './labels';
 import { Term } from '@/components/ui/Term';
+import { NewTag } from '@/components/ui/NewTag';
 
 const COLUMNS: { key: KeywordSort; label: string; right?: boolean }[] = [
   { key: 'term', label: 'Keyword' },
@@ -26,7 +27,8 @@ const BUTTON = 'inline-flex min-h-10 items-center rounded-control border border-
  * Sortable, filterable keyword list with keep/remove per row (4.4 manual override). The server
  * sends one page at a time (`/api/keywords/<domain>`); the first page comes with the HTML.
  */
-export function KeywordTable({ domain, business, topics, initial, initialFrom = '', initialRole = '' }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number }; initialFrom?: string; initialRole?: string }) {
+/** insights: FEATURE_KEYWORD_INSIGHTS (local searches column, map-results marker); localPlace: the place measured. */
+export function KeywordTable({ domain, business, topics, initial, initialFrom = '', initialRole = '', insights = false, localPlace = null }: { domain: string; business: BusinessType; topics: { id: string; name: string }[]; initial: { rows: KeywordRow[]; total: number }; initialFrom?: string; initialRole?: string; insights?: boolean; localPlace?: string | null }) {
   const [filters, setFilters] = useState<Filters>({ ...DEFAULTS, from: initialFrom, role: initialRole });
   const [data, setData] = useState(initial);
   const [offset, setOffset] = useState(0);
@@ -160,6 +162,11 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                     </button>
                   </th>
                 ))}
+                {insights && localPlace && (
+                  <th className={cn(TH, 'text-right')}>
+                    Searches in {localPlace} <NewTag className="ml-1" />
+                  </th>
+                )}
                 <th className={TH}>Type</th>
                 <th className={TH}>Topic</th>
                 <th className={TH}>What they want</th>
@@ -175,6 +182,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                       {r.term}
                       {r.status === 'kept' && !r.volume && <span className="ml-2 rounded-full bg-info-bg px-1.5 py-px text-[11px] font-semibold text-info-text">Customer language</span>}
                       {r.gap && <span className="ml-2 rounded-full bg-primary-soft px-1.5 py-px text-[11px] font-semibold text-primary-text" title="A competitor ranks for this and you do not">Competitor gap</span>}
+                      {insights && r.features.some((x) => /^map/i.test(x)) && <span className="ml-2 inline-block whitespace-nowrap rounded-full bg-teal-chip px-1.5 py-px text-[11px] font-semibold text-teal-text" title="Google shows map results (nearby businesses) for this search">Map results</span>}
                       {r.features.length > 0 && <span className="sr-only">. On Google: {r.features.join(', ')}</span>}
                       {r.reason && <span className="block text-[12px] font-normal">{r.reason}</span>}
                     </td>
@@ -195,6 +203,7 @@ export function KeywordTable({ domain, business, topics, initial, initialFrom = 
                     <td className={TD}>
                       {r.position === null ? <span className="text-ink-2">Not showing</span> : <span className={cn('rounded-[8px] px-[9px] py-[3px] text-[13px] font-extrabold tabular', positionChip(r.position))}>#{r.position}</span>}
                     </td>
+                    {insights && localPlace && <td className={cn(TD, 'text-right tabular')}>{r.localVolume === undefined || r.localVolume === null ? '–' : r.localVolume.toLocaleString('en-US')}</td>}
                     <td className={TD}>{r.role ? <span className={cn(CHIP, ROLE_CHIP[r.role])}>{ROLE_LABEL[r.role]}</span> : '–'}</td>
                     <td className={TD}>{r.cluster ?? '–'}</td>
                     <td className={TD}>{intent && r.intent ? <span className={cn(CHIP, INTENT_CHIP[r.intent])}>{intent}</span> : '–'}</td>

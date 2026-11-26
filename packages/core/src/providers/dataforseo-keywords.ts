@@ -221,6 +221,78 @@ export function createKeywordClient(cfg: DfsConfig) {
 export type KeywordClient = ReturnType<typeof createKeywordClient>;
 
 /**
+ * Local search volume (Google Ads Keywords Data), docs checked 2026-11-26:
+ *  - GET  /v3/keywords_data/google_ads/locations/$country → result[] { location_code, location_name
+ *    ("Leeds,England,United Kingdom"), location_code_parent, country_iso_code, location_type }
+ *  - POST /v3/keywords_data/google_ads/search_volume/live → one task, up to 1,000 keywords (80 characters,
+ *    10 words each), billed per task ($0.09 live, whatever the number of keywords); result[] is the list of
+ *    keywords { keyword, search_volume, cpc, competition, monthly_searches } (search_volume null without data).
+ * Live endpoints allow 12 requests a minute per account, so callers keep to one or two places per run.
+ */
+const adsLocation = z.object({ location_code: z.number(), location_name: z.string(), location_type: str, country_iso_code: str }).passthrough();
+const adsVolume = z.object({ keyword: z.string(), search_volume: num, cpc: num }).passthrough();
+const adsEnvelope = (item: z.ZodTypeAny) =>
+  z.object({
+    status_code: z.number(),
+    status_message: z.string(),
+    cost: z.number().optional(),
+    tasks: z.array(z.object({ status_code: z.number(), status_message: z.string(), result: z.array(item).nullable().optional() }).passthrough()).default([]),
+  });
+export type AdsLocation = { code: number; name: string; type: string | null };
+
+const locationCache = new Map<string, { at: number; list: AdsLocation[] }>();
+/** Place types searched in this order: a city first, then larger areas. */
+const PLACE_TYPES = ['City', 'Municipality', 'Neighborhood', 'District', 'County', 'Region', 'Province', 'State', 'Borough'];
+
+/** Picks the Google Ads location for a place typed in the research inputs ("Leeds" → "Leeds,England,United Kingdom"). */
+export function matchAdsLocation(list: AdsLocation[], place: string): AdsLocation | null {
+  const want = place.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!want) return null;
+  const head = (l: AdsLocation) => l.name.split(',')[0]!.trim().toLowerCase();
+  const exact = list.filter((l) => head(l) === want || l.name.toLowerCase() === want);
+  const rank = (l: AdsLocation) => {
+    const i = PLACE_TYPES.indexOf(l.type ?? '');
+    return i < 0 ? PLACE_TYPES.length : i;
+  };
+  return exact.sort((a, b) => rank(a) - rank(b) || a.name.length - b.name.length)[0] ?? null;
+}
+
+export function createLocalVolumeClient(cfg: DfsConfig) {
+  const auth = `Basic ${Buffer.from(`${cfg.login}:${cfg.password}`).toString('base64')}`;
+  const base = cfg.baseUrl.replace(/\/$/, '');
+  return {
+    /** Google Ads locations of one country (cached for a day per server). */
+    async locations(countryIso: string): Promise<AdsLocation[]> {
+      const key = countryIso.toLowerCase();
+      const hit = locationCache.get(key);
+      if (hit && Date.now() - hit.at < 86_400_000) return hit.list;
+      const json = await requestJson<unknown>(`${base}/v3/keywords_data/google_ads/locations/${encodeURIComponent(key)}`, { provider: 'dataforseo', method: 'GET', headers: { authorization: auth }, timeoutMs: 60_000, retries: 1, log: cfg.log });
+      const parsed = adsEnvelope(adsLocation).parse(json);
+      if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
+      const list = (parsed.tasks[0]?.result ?? []).map((l) => ({ code: l.location_code as number, name: l.location_name as string, type: (l.location_type as string | null) ?? null }));
+      locationCache.set(key, { at: Date.now(), list });
+      return list;
+    },
+    /** Monthly searches and ad price in one place for up to 1,000 keywords (one paid task). */
+    async volume(keywords: string[], locationName: string, language: string): Promise<{ rows: { term: string; volume: number | null; cpc: number | null }[]; cost: number }> {
+      const list = [...new Set(keywords.map((k) => k.toLowerCase().trim()).filter(validKeyword))].slice(0, 1000);
+      if (!list.length) return { rows: [], cost: 0 };
+      const json = await requestJson<unknown>(`${base}/v3/keywords_data/google_ads/search_volume/live`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [{ keywords: list, location_name: locationName, language_code: language }], timeoutMs: 90_000, retries: 0, log: cfg.log });
+      const parsed = adsEnvelope(adsVolume).parse(json);
+      if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
+      const t = parsed.tasks[0];
+      if (!t) throw new HttpError('DataForSEO returned no task', 0);
+      if (t.status_code >= 40000 && t.status_code !== 40102) throw new HttpError(`DataForSEO task error: ${t.status_message}`, t.status_code);
+      return {
+        cost: parsed.cost ?? 0,
+        rows: (t.result ?? []).map((r) => ({ term: String(r.keyword).toLowerCase(), volume: (r.search_volume as number | null | undefined) ?? null, cpc: (r.cpc as number | null | undefined) ?? null })),
+      };
+    },
+  };
+}
+export type LocalVolumeClient = ReturnType<typeof createLocalVolumeClient>;
+
+/**
  * Account balance (free call). The per-call `cost` DataForSEO reports for Labs live calls has been
  * well below what is charged (live test 2026-11-17: $0.054 reported, $0.24 charged), so paid runs
  * record the balance difference when it is larger.

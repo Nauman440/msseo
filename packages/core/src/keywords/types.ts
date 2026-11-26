@@ -36,7 +36,11 @@ export type KeywordRecord = {
   fromPages?: string[];
   clusterId: string | null;
   addedAt: string;
+  /** Searches and ad price in the places the business serves (Google Ads data per city; FEATURE_KEYWORD_INSIGHTS). */
+  local?: LocalVolume[];
 };
+
+export type LocalVolume = { place: string; volume: number | null; cpc: number | null };
 
 export type ClusterPageType = 'home' | 'service' | 'location' | 'service_location' | 'blog_post' | 'directory' | 'product' | 'category';
 
@@ -113,4 +117,6 @@ export type KeywordWorkspace = {
   siteWords?: string[];
   /** Version of the quality rules the list was last cleaned with (`KEYWORD_QUALITY_VERSION`). */
   qualityVersion?: number;
+  /** Places measured for local search volume: the Google Ads location found for each and when it was last fetched. */
+  localPlaces?: { place: string; locationName: string | null; at: string }[];
 };

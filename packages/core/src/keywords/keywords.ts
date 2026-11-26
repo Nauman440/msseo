@@ -1,7 +1,8 @@
 import { keywordRoles, type KeywordRole } from './roles';
 import { COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, normDomain } from '../competitors/competitors';
 import { csvCell } from '../report/csv';
-import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale } from '../providers/dataforseo-keywords';
+import { validKeyword, type KeywordClient, type KeywordMetrics, type Locale, type LocalVolumeClient } from '../providers/dataforseo-keywords';
+import { addLocalVolume, localOf } from './local-volume';
 import { brandStems, cleanKeywords, KEYWORD_QUALITY_VERSION, siteVocabulary, dedupeKey, normTerm, removalReason, topicWords } from './clean';
 import { namesPlace } from './cluster';
 import type { BusinessType, KeywordRecord, KeywordSeeds, KeywordSource, KeywordStatus, KeywordWorkspace } from './types';
@@ -117,7 +118,7 @@ const SOURCE_RANK: Record<KeywordSource, number> = { manual: 0, import: 0, gsc: 
 export async function researchKeywords(
   client: KeywordClient,
   ws: KeywordWorkspace,
-  opts: { competitors?: string[]; competitorNames?: string[]; gsc?: GscQuery[]; now?: Date; reuseDays?: number; /** Titles and H1s of the site's audited pages (relevance). */ pageTitles?: string[] } = {},
+  opts: { competitors?: string[]; competitorNames?: string[]; gsc?: GscQuery[]; now?: Date; reuseDays?: number; /** Titles and H1s of the site's audited pages (relevance). */ pageTitles?: string[]; /** Local search volume per place served (FEATURE_KEYWORD_INSIGHTS); omitted = country only. */ localVolume?: LocalVolumeClient | null } = {},
 ): Promise<{ workspace: KeywordWorkspace; cost: number; errors: string[]; added: number; calls: number; reused: number }> {
   const nowDate = opts.now ?? new Date();
   const now = nowDate.toISOString();
@@ -258,7 +259,18 @@ export async function researchKeywords(
   const asked = new Set(needMetrics);
   const filled = [...keep.values()].map((k) => (k.volume === null && asked.has(k.term) && !metricsFailed ? { ...k, volume: 0 } : k));
   const siteWords = opts.pageTitles?.length ? siteVocabulary(opts.pageTitles) : ws.siteWords;
-  const cleaned = { ...cleanKeywords({ ...ws, siteWords, keywords: sortKeywords(filled) }, opts.competitorNames ?? opts.competitors ?? []), qualityVersion: KEYWORD_QUALITY_VERSION };
+  // Local search volume before cleaning, so the focus list can keep searches people make in the places served.
+  let withLocal = filled;
+  let localPlaces = ws.localPlaces;
+  if (opts.localVolume) {
+    const lv = await addLocalVolume(opts.localVolume, ws, filled, { now: nowDate, reuseDays: opts.reuseDays });
+    withLocal = lv.keywords;
+    localPlaces = lv.localPlaces;
+    cost += lv.cost;
+    calls += lv.calls;
+    errors.push(...lv.errors);
+  }
+  const cleaned = { ...cleanKeywords({ ...ws, localPlaces, siteWords, keywords: sortKeywords(withLocal) }, opts.competitorNames ?? opts.competitors ?? []), qualityVersion: KEYWORD_QUALITY_VERSION };
   return { workspace: { ...cleaned, lastRunAt: now, fetched: { scope, at: fetched } }, cost, errors, added: Math.max(0, keep.size - before), calls, reused };
 }
 
@@ -349,6 +361,8 @@ export type KeywordRow = {
   features: string[];
   /** Kept keywords: intent (a topic's main buying search), supporting or informational. */
   role: KeywordRole | null;
+  /** Searches a month in the first place served (local volume; undefined when not measured). */
+  localVolume?: number | null;
 };
 export type KeywordSort = 'term' | 'volume' | 'difficulty' | 'cpc' | 'position';
 export type KeywordFrom = 'gap' | 'pages' | 'ranked' | 'gsc' | 'ideas';
@@ -385,6 +399,7 @@ export function queryKeywords(ws: KeywordWorkspace, query: KeywordQuery): { rows
       gap: isGap(k),
       features: featureLabels(k.serpFeatures),
       role: roles.get(k) ?? null,
+      ...(k.local?.length ? { localVolume: localOf(k)?.volume ?? null } : {}),
       _k: k,
     }))
     .filter((r) => (show === 'all' || r.status === show) && (!query.intent || r.intent === query.intent) && (!query.role || r.role === query.role) && (!query.topic || r._k.clusterId === query.topic) && fromMatches(r._k, query.from) && (!query.minVolume || (r.volume ?? 0) >= query.minVolume || typedByHand(r._k)) && (!needle || r.term.includes(needle) || Boolean(r.cluster?.toLowerCase().includes(needle))))

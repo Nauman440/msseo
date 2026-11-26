@@ -10,6 +10,7 @@ import { freshKeywords } from '@/lib/keywords';
 import { freshMapping } from '@/lib/mapping';
 import { restoreKeywordsAfterFast } from '@/lib/keyword-restore';
 import { Preparing } from '@/components/customer/Preparing';
+import { insightsFor } from '@/lib/keyword-insights';
 import { requireUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
   const restoring = await restoreKeywordsAfterFast(domain);
   const ws = await freshKeywords(domain);
   const mapping = await freshMapping(domain);
+  const insights = await insightsFor(ws, mapping);
   const link = 'inline-flex min-h-11 items-center rounded-button border border-border-strong bg-surface px-5 text-sm font-semibold hover:border-ink-3';
   return (
     <Container className="flex flex-col gap-8 py-12">
@@ -57,6 +59,7 @@ export default async function TeamKeywordsPage({ params, searchParams }: Props) 
           mapping: { topic, show, all, mode },
         }}
         mappedTopics={mapping.rows.length}
+        insights={insights}
       />
     </Container>
   );

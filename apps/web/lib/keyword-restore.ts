@@ -1,5 +1,5 @@
 import 'server-only';
-import { clusterKeywords, createKeywordClient, dataforseoBalance, MAX_CLUSTER_SERPS, researchKeywords, type KeywordWorkspace } from '@seo/core';
+import { clusterKeywords, createKeywordClient, createLocalVolumeClient, dataforseoBalance, keywordInsightsEnabled, MAX_CLUSTER_SERPS, researchKeywords, type KeywordWorkspace } from '@seo/core';
 import { prepare } from './auto';
 import { customerAudits } from './customer-data';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from './keywords';
@@ -32,7 +32,8 @@ async function restore(domain: string): Promise<void> {
   const api = createKeywordClient({ ...env.dataforseo, log: (e) => void (e.provider === 'dataforseo' && calls++) });
   const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
   const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
-  const r = await researchKeywords(api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });
+  const localVolume = keywordInsightsEnabled() ? createLocalVolumeClient({ ...env.dataforseo, log: (e) => void (e.provider === 'dataforseo' && calls++) }) : null;
+  const r = await researchKeywords(api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles, localVolume });
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
   const cl = kept ? await clusterKeywords(api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
   await saveKeywordWorkspace(strip(cl?.workspace ?? r.workspace));

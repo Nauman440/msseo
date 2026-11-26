@@ -1,5 +1,6 @@
 import { KNOWN_CITIES } from '../audit/templates';
 import { dedupeKey, GENERIC, normTerm, sameWord } from './clean';
+import { localMax } from './local-volume';
 import type { KeywordRecord, KeywordWorkspace } from './types';
 
 /**
@@ -35,6 +36,8 @@ const INFO_SHARE = 0.2;
 const INFO_MIN = 5;
 /** Searches without a place this big are national: out of reach for a local business. */
 const BROAD_VOLUME = 1000;
+/** Monthly searches in a place served that make a broad search worth keeping for a local business. */
+const LOCAL_BROAD_MIN = 20;
 /** Keywords that match no service (built from symptoms or other inputs) share one small bucket. */
 const OTHER_CAP = 10;
 const NO_TOPICS_CAP = 60;
@@ -168,7 +171,10 @@ export function focusPass(list: KeywordRecord[], ws: Pick<KeywordWorkspace, 'see
     const showsUp = k.position !== null && k.position <= 50;
     if (k.volume !== null && k.volume < MIN_VOLUME && !showsUp && !lowLocal(k)) return remove(k, `Too few searches (under ${MIN_VOLUME} a month)`);
     // Phrases built from the research inputs are on topic by construction; tool finds must fit a service.
-    if (local && (k.volume ?? 0) >= BROAD_VOLUME && k.intent !== 'informational' && !isLocalSearch(k.term, locations) && !showsUp) {
+    // A broad search ("plumber") is kept when local data shows people in the places served make it:
+    // Google shows nearby businesses for it, so it is a real local target (FEATURE_KEYWORD_INSIGHTS).
+    const searchedLocally = (localMax(k) ?? 0) >= LOCAL_BROAD_MIN;
+    if (local && (k.volume ?? 0) >= BROAD_VOLUME && k.intent !== 'informational' && !isLocalSearch(k.term, locations) && !showsUp && !searchedLocally) {
       return remove(k, 'Too broad for a local business (no place in the search)');
     }
     if (k.difficulty !== null && k.difficulty > strength.reach + BEYOND_REACH && !showsUp) {

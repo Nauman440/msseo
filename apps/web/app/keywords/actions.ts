@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createOpenAiClient, dataforseoBalance, fillMetrics,
+  addKeywords, clusterKeywords, COMPETITOR_COUNTRIES, COMPETITOR_LANGUAGES, competitorSearchesFromClusters, createKeywordClient, createLocalVolumeClient, keywordInsightsEnabled, createOpenAiClient, dataforseoBalance, fillMetrics,
   addPrompt, editPrompt, generatePrompts, seedsKey, MAX_CLUSTER_SERPS, mergePrompts, normDomain, setTrackedPrompts, parseKeywordCsv, researchKeywords, SEED_LIMITS, setKeywordStatus, updateCluster, type KeywordStatus,
 } from '@seo/core';
 import { competitorAccess, getWorkspace, saveWorkspace } from '@/lib/competitors';
@@ -42,6 +42,8 @@ async function dfs() {
   return {
     calls: () => calls,
     api: createKeywordClient({ ...cfg, log: (e) => void (e.provider === 'dataforseo' && calls++) }),
+    /** Local search volume per place served, only where FEATURE_KEYWORD_INSIGHTS=1 (staging first). */
+    local: keywordInsightsEnabled() ? createLocalVolumeClient({ ...cfg, log: (e) => void (e.provider === 'dataforseo' && calls++) }) : null,
     /** The balance drop when it is larger than DataForSEO's per-call figures (they under-report Labs). */
     charged: async (reported: number) => {
       const after = before === null ? null : await dataforseoBalance(cfg);
@@ -91,7 +93,7 @@ export async function researchKeywordsAction(rawDomain: string): Promise<Keyword
   const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
   // The site's own pages (titles and H1s) keep the list about what this website really covers.
   const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
-  const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });
+  const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles, localVolume: c.local });
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;
   const cl = kept ? await clusterKeywords(c.api, r.workspace, { maxSerps: MAX_CLUSTER_SERPS }) : null;
   await saveKeywordWorkspace(cl?.workspace ?? r.workspace);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
+  AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createLocalVolumeClient, keywordInsightsEnabled, createOpenAiClient, dataforseoBalance, defaultSearches,
   discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
@@ -231,7 +231,7 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       const kc = createKeywordClient(env.dataforseo);
       const audited = await latestPages(domain);
       const pageTitles = (audited?.report.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
-      const r = await researchKeywords(kc, keywords, { competitors: rivals.map((c) => c.domain), competitorNames: [...rivals.map((c) => c.domain), ...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors], gsc, now, pageTitles });
+      const r = await researchKeywords(kc, keywords, { competitors: rivals.map((c) => c.domain), competitorNames: [...rivals.map((c) => c.domain), ...rivals.map((c) => c.name ?? '').filter(Boolean), ...site.competitors], gsc, now, pageTitles, localVolume: keywordInsightsEnabled() ? createLocalVolumeClient(env.dataforseo) : null });
       reported += r.cost;
       const cl = await clusterKeywords(kc, r.workspace, { now });
       reported += cl.cost;
