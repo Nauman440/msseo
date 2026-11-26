@@ -47,6 +47,12 @@ export async function GET(req: NextRequest) {
   } catch {
     return done('error', 'WordPress did not accept the new application password. A security plugin may block it.');
   }
+  let plugin: SiteConnection['plugin'];
+  try {
+    plugin = await wp.plugin();
+  } catch (err) {
+    return done('error', err instanceof Error ? err.message : 'The plugin did not answer.');
+  }
   const now = new Date().toISOString();
   const c: SiteConnection = {
     domain: state.domain,
@@ -55,7 +61,7 @@ export async function GET(req: NextRequest) {
     account: user,
     secret: encryptSecret(JSON.stringify({ password, ...(signingKey ? { signingKey } : {}) } satisfies WordPressSecret)),
     scopes: null,
-    plugin: await wp.plugin(),
+    plugin,
     status: 'ok',
     error: null,
     connectedAt: now,

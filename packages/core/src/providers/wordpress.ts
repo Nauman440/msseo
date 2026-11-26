@@ -120,6 +120,14 @@ export function pluginSupportsSigning(version: string | null | undefined): boole
 }
 const resource = z.object({ id: z.union([z.number(), z.string()]), type: z.string(), title: z.string(), seo_title: z.string().nullable(), seo_description: z.string().nullable(), edit_url: z.string().nullable() }).passthrough();
 
+/** The Connector plugin refuses our requests because it was given a different signing key. */
+export class WordPressKeyMismatch extends Error {
+  constructor() {
+    super('The MS SCORE Connector plugin was set up by an earlier connection. In WordPress, deactivate and then activate MS SCORE Connector (Plugins page), then check the connection again.');
+    this.name = 'WordPressKeyMismatch';
+  }
+}
+
 export type WordPressClient = SiteAdapter & {
   me(): Promise<{ canEdit: boolean; name: string | null }>;
   plugin(): Promise<{ version: string; seo: string } | null>;
@@ -173,7 +181,9 @@ export function createWordPressClient(cfg: { siteUrl: string; user: string; pass
       try {
         const s = await call('msscore/v1/status', 'GET', undefined, status);
         return { version: s.version, seo: s.seo };
-      } catch {
+      } catch (err) {
+        // The plugin is there but holds a signing key MS SCORE does not have (e.g. set by an earlier connection).
+        if (err instanceof HttpError && err.status === 401 && /msscore_(bad_signature|no_key)/.test(err.body ?? '')) throw new WordPressKeyMismatch();
         return null;
       }
     },
