@@ -35,6 +35,10 @@ export type PageContent = {
   images: { src: string; alt?: string }[];
   /** Open Graph tags present (og:title, og:description, og:image); missing on pages parsed before 2026-11-24. */
   openGraph?: { title: boolean; description: boolean; image: boolean };
+  /** <meta name="twitter:card"> present (how links look on X); missing on pages parsed before 2026-11-26. */
+  twitterCard?: boolean;
+  /** A published or updated date was found (schema, article meta, <time> or visible "Updated …" text); missing before 2026-11-26. */
+  dated?: boolean;
   jsonLd: Record<string, unknown>[];
   schemaTypes: string[];
   hreflang: { lang: string; href: string }[];
@@ -188,6 +192,8 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
       description: Boolean(root.querySelector('meta[property="og:description"]')?.getAttribute('content')),
       image: Boolean(root.querySelector('meta[property="og:image"]')?.getAttribute('content')),
     },
+    twitterCard: Boolean(root.querySelector('meta[name="twitter:card"]')?.getAttribute('content')),
+    dated: hasDate(root, jsonLd, fullText),
     jsonLd,
     schemaTypes,
     hreflang: root.querySelectorAll('link[rel="alternate"][hreflang]').map((l) => ({ lang: l.getAttribute('hreflang') ?? '', href: l.getAttribute('href') ?? '' })),
@@ -201,6 +207,15 @@ export function parsePageContent(html: string, url: string, status = 200): PageC
     fullText,
     hints: HINTS.filter(([, re]) => re.test(html)).map(([name]) => name),
   };
+}
+
+/** A published or updated date: in the page's schema, article meta tags, a <time> element or visible text. */
+const DATE_TEXT = /\b(published|updated|last updated|posted|reviewed)(?: on)?\s*:?\s*(?:\d{1,2}(?:st|nd|rd|th)?\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[/.-])/i;
+function hasDate(root: HTMLElement, jsonLd: Record<string, unknown>[], fullText: string): boolean {
+  if (/"date(Published|Modified)"\s*:\s*"\d{4}/.test(JSON.stringify(jsonLd))) return true;
+  if (root.querySelector('meta[property="article:published_time"], meta[property="article:modified_time"], meta[itemprop="datePublished"], meta[itemprop="dateModified"]')) return true;
+  if (root.querySelector('time[datetime]')) return true;
+  return DATE_TEXT.test(fullText);
 }
 
 /** Fetches and parses up to `urls.length` pages, 6 at a time; failed pages are skipped. */

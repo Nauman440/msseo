@@ -13,10 +13,11 @@ import { indexFunnel, gscRules } from './rules-gsc';
 import { correctedSitemapUrls } from '../report/sitemap';
 import { templateRules } from './rules-templates';
 import { trustRules } from './rules-trust';
+import { geoRules } from './rules-geo';
 import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
 
-export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...templateRules, ...gscRules, ...aiRules];
+export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...geoRules, ...templateRules, ...gscRules, ...aiRules];
 
 const CATEGORY_ORDER: Category[] = ['technical', 'onpage', 'speed', 'mobile', 'ai', 'trust', 'security'];
 
