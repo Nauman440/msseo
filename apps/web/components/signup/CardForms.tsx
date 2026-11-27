@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { createAccountForCardAction, finishCardSetupAction, startCardSetupAction } from '@/app/(signup)/signup/actions';
-import { CardNote, useCardField } from './CardField';
+import { CardNote, checkCard, confirmCard, useCardField } from './CardField';
 
 type Props = { publishableKey: string; trialDays: number; price: string; testMode: boolean };
 const BUTTON = 'inline-flex min-h-[54px] items-center gap-2 rounded-button bg-primary px-8 text-base font-extrabold text-primary-ink shadow-[0_8px_24px_-8px_rgba(249,115,22,0.6)] transition-colors hover:bg-primary-hover disabled:opacity-60';
@@ -12,14 +12,13 @@ const BUTTON = 'inline-flex min-h-[54px] items-center gap-2 rounded-button bg-pr
 /** Saves the card on the open trial subscription: setup secret → Stripe confirms in the browser → we check it. */
 async function saveCard(api: ReturnType<typeof useCardField>['api']): Promise<string | null> {
   const s = api.current;
-  if (!s) return 'The secure card field is still loading.';
-  const checked = await s.elements.submit();
-  if (checked.error) return checked.error.message ?? 'Check your card details.';
+  const problem = await checkCard(s);
+  if (problem || !s) return problem ?? 'The secure card field is still loading.';
   const setup = await startCardSetupAction();
   if (setup.error) return setup.error;
   if (setup.done) return null;
   if (!setup.clientSecret) return 'Stripe did not start the card setup. Please try again.';
-  const r = await s.stripe.confirmSetup({ elements: s.elements, clientSecret: setup.clientSecret, confirmParams: { return_url: `${window.location.origin}/api/stripe/card-return` }, redirect: 'if_required' });
+  const r = await confirmCard(s, setup.clientSecret);
   if (r.error) return r.error.message ?? 'Your card was not accepted. Try another card.';
   if (!r.setupIntent) return 'Your card was not confirmed. Please try again.';
   const done = await finishCardSetupAction(r.setupIntent.id);
@@ -49,8 +48,8 @@ export function AccountWithCardForm({ children, footer, ...p }: Props & { childr
     setError(null);
     try {
       const form = new FormData(e.currentTarget);
-      const checked = await card.api.current?.elements.submit();
-      if (checked?.error) return setError(checked.error.message ?? 'Check your card details.');
+      const problem = await checkCard(card.api.current);
+      if (problem) return setError(problem);
       if (!created) {
         const made = await createAccountForCardAction(form);
         if (made.error) return setError(made.error);
