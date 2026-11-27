@@ -16,6 +16,7 @@ const TONE: Record<TaskState, string> = {
   failed: 'bg-fail-bg text-fail-text',
   manual: 'bg-sunken text-ink-2',
   waiting: 'bg-sunken text-ink-2',
+  later: 'bg-sunken text-ink-2',
 };
 const ITEM: Record<string, string> = { draft: 'Ready', keep: 'Already right', needs_human: 'Needs you', skipped: 'Skipped', team: 'Our team', client: 'You', developer: 'Developer', applied: 'Applied', verified: 'Verified', failed: 'Failed', rolled_back: 'Undone', scheduled: 'Scheduled' };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC' : null);

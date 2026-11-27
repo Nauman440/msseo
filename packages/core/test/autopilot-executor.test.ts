@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  executionPlan, mapPlanTasks, orderTasks, runWorkItems, taskExec, taskFinished, taskProgress, waitingFor,
+  dedupeWorkItems, executionPlan, mapPlanTasks, orderTasks, planWeek, runWorkItems, taskExec, taskFinished, taskProgress, waitingFor,
   type ActionItem, type ActionWorkspace, type WorkItem, type WpApplyResult, type WpChange,
 } from '../src';
 
@@ -145,5 +145,46 @@ describe('sections and new pages are plugin work, not notes', () => {
     expect(taskExec(task('Build location pages for Dubai and Fujairah')).actionType).toBe('create_page');
     expect(taskExec(task('Add trust badges to the About page')).actionType).not.toBe('create_page');
     expect(taskExec(task('Write a new article on Red Sea transit risk', { doer: 'team' })).actionType).toBe('manual');
+  });
+});
+
+describe('one change is made once, and the month is paced by week', () => {
+  it('a later task asking for a change another task makes is covered, not queued twice', async () => {
+    const all = task('New titles for every page', { week: 1, taskId: '1.01' });
+    const contact = task('Fix the title tag on Contact', { week: 2, taskId: '1.05' });
+    const items = [item(all.id, 'all-contact', { target: { post_id: 6 } }), item(all.id, 'all-home', { target: { post_id: 5 } }), item(contact.id, 'contact', { target: { post_id: 6 }, newValue: 'Another title' })];
+    const d = dedupeWorkItems(items, [all, contact], 1);
+    expect(d.find((i) => i.id === 'contact')).toMatchObject({ status: 'skipped', coveredBy: 'all-contact' });
+    expect(executionPlan([all, contact], d, { month: 1 }).order).toEqual(['all-contact', 'all-home']);
+    // The covered task is done once the covering change is verified.
+    expect(taskFinished(contact, d)).toBe(false);
+    const after = d.map((i) => (i.actionId === all.id ? { ...i, status: 'verified' as const } : i));
+    expect(taskFinished(contact, after)).toBe(true);
+    expect(taskProgress(contact, after).label).toBe('Done & verified');
+  });
+  it('a change already made by another task wins over a task that comes earlier', () => {
+    const early = task('Titles A', { week: 1, taskId: '1.01' });
+    const late = task('Titles B', { week: 1, taskId: '1.02' });
+    const items = [item(early.id, 'a', { target: { post_id: 1 } }), item(late.id, 'b', { target: { post_id: 1 }, status: 'verified' })];
+    expect(dedupeWorkItems(items, [early, late], 1).find((i) => i.id === 'a')).toMatchObject({ status: 'skipped', coveredBy: 'b' });
+  });
+  it('tasks wait for their week; "Run next task now" may take one early', () => {
+    const w1 = task('Week 1 titles', { week: 1 });
+    const w3 = task('Week 3 descriptions', { week: 3 });
+    const items = [item(w1.id, 'x', { status: 'verified' }), item(w3.id, 'y')];
+    expect(executionPlan([w1, w3], items, { month: 1, week: 1 })).toMatchObject({ order: [], tasks: [{ step: 'nothing' }, { step: 'later' }] });
+    expect(executionPlan([w1, w3], items, { month: 1, week: 3 }).order).toEqual(['y']);
+    expect(executionPlan([w1, w3], items, { month: 1, week: 1, onlyNext: true }).order).toEqual(['y']);
+    expect(taskProgress(w3, items, { month: 1, week: 1 }).label).toBe('Planned for week 3');
+    // Earlier months' unfinished tasks are overdue, never "later".
+    const old = task('Month 1 leftover', { month: 1, week: 4 });
+    expect(executionPlan([old], [item(old.id, 'z')], { month: 2, week: 1 }).order).toEqual(['z']);
+  });
+  it('counts the plan week from the start date', () => {
+    const start = new Date('2026-11-01T00:00:00Z');
+    expect(planWeek(start, 1, new Date('2026-11-03T00:00:00Z'))).toBe(1);
+    expect(planWeek(start, 1, new Date('2026-11-16T00:00:00Z'))).toBe(3);
+    expect(planWeek(start, 1, new Date('2026-11-30T00:00:00Z'))).toBe(4);
+    expect(planWeek(start, 2, new Date('2026-12-02T00:00:00Z'))).toBe(1);
   });
 });

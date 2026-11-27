@@ -54,6 +54,8 @@ export type WorkItem = {
   /** Approve mode: a person approved this exact change (cleared when the value changes, since the id changes). */
   approvedAt?: string | null;
   approvedBy?: string | null;
+  /** Same change as another task's item (that item's id): not sent twice; settled when that one is. */
+  coveredBy?: string;
   /** Results measured at 7, 14 and 28 days (Search Console, the page against its own past). */
   checks?: ResultCheck[];
 };

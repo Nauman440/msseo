@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  applyHoldList, createOpenAiClient, executionPlan, mapPlanTasks, orderTasks, pluginId, reverifyApplied, taskFinished, taskProgress, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
+  applyHoldList, createOpenAiClient, dedupeWorkItems, executionPlan, planWeek, mapPlanTasks, orderTasks, pluginId, reverifyApplied, taskFinished, taskProgress, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
   planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
   type ActionWorkspace, type AutopilotSettings, type SiteConnection, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
@@ -298,7 +298,8 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     const kept = new Map(s.items.filter((i) => ['applied', 'verified', 'rolled_back'].includes(i.status) || (i.status === 'needs_human' && i.type === 'gsc_sitemap_submit') || (i.status === 'failed' && i.reason?.startsWith('Failed twice'))).map((i) => [i.id, i]));
     const approved = new Map(s.items.filter((i) => i.approvedAt).map((i) => [i.id, i]));
     const fresh = gen.items.map((i) => kept.get(i.id) ?? (approved.has(i.id) ? { ...i, approvedAt: approved.get(i.id)!.approvedAt, approvedBy: approved.get(i.id)!.approvedBy } : i));
-    let items = applyHoldList([...fresh, ...[...kept.values()].filter((i) => !gen.items.some((g) => g.id === i.id))], s.settings.holdList);
+    // One change is made once: a later task asking for a change another task already makes waits for that one.
+    let items = dedupeWorkItems(applyHoldList([...fresh, ...[...kept.values()].filter((i) => !gen.items.some((g) => g.id === i.id))], s.settings.holdList), actions.actions, month);
     s = { ...s, month, items, notes: gen.notes };
     await saveAutopilot(s);
 
@@ -312,18 +313,21 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     const firstRun = !s.items.some((i) => ['applied', 'verified', 'rolled_back'].includes(i.status)) && !s.runs.some((r) => r.undoTested);
     // A scheduled run spreads the month's ready changes over the working days left in the plan month.
     const requireApproval = s.settings.mode === 'approve';
-    const readyCount = items.filter((i) => i.status === 'draft' && PLUGIN_TYPES.includes(i.type as WpChangeType) && (!requireApproval || i.approvedAt)).length;
     const start = planStart(actions);
+    // Task by task, in plan order: the site's own changes, then each open task's changes; manual and
+    // waiting tasks are passed over, and tasks planned for a later week of this month wait for it.
+    const week = planWeek(start, month);
+    const queue = executionPlan(actions.actions, items, { month, week, onlyNext: opts.onlyNext, requireApproval });
+    // A scheduled run spreads this week's changes over the working days left in the week.
     const monthEnd = start ? planMonthWindow(start, month).end : new Date(Date.now() + 20 * 86_400_000);
-    const cap = opts.scheduled ? todaysShare(readyCount, new Date(), monthEnd, s.settings.timezone, s.settings.dailyCap) : s.settings.dailyCap;
-    // Task by task, in plan order: the site's own changes, then each open task's changes; manual and waiting tasks are passed over.
-    const queue = executionPlan(actions.actions, items, { month, onlyNext: opts.onlyNext, requireApproval });
+    const weekEnd = start && week < 4 ? new Date(start.getTime() + ((month - 1) * 30 + week * 7) * 86_400_000) : monthEnd;
+    const cap = opts.scheduled ? todaysShare(queue.order.length, new Date(), weekEnd, s.settings.timezone, s.settings.dailyCap) : s.settings.dailyCap;
     const r = await runWorkItems(items, { wp, fetchPage }, { keyPages, firstRun, cap, requireApproval, order: queue.order });
     items = r.items;
     r.run.tasks = queue.tasks.map((t) => {
       const mine = items.filter((i) => i.actionId === t.id && i.appliedAt && i.appliedAt >= r.run.startedAt);
       const a = actions.actions.find((x) => x.id === t.id)!;
-      return { id: t.id, title: t.title, step: t.step, applied: mine.length, verified: mine.filter((i) => i.status === 'verified').length, failed: items.filter((i) => i.actionId === t.id && i.status === 'failed').length, state: taskProgress(a, items).label };
+      return { id: t.id, title: t.title, step: t.step, applied: mine.length, verified: mine.filter((i) => i.status === 'verified').length, failed: items.filter((i) => i.actionId === t.id && i.status === 'failed').length, state: taskProgress(a, items, { month, week }).label };
     });
     r.run.reverified = again.verified;
     if (!r.run.paused) {

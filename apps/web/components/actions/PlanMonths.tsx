@@ -1,4 +1,5 @@
-import { ACTION_BUCKETS, type ActionItem, type ActionWorkspace } from '@seo/core';
+import { ACTION_BUCKETS, orderTasks, planWeek, taskProgress, type ActionItem, type ActionWorkspace, type WorkItem } from '@seo/core';
+import { TASK_STATE_TONE } from '@/lib/tones';
 import type { ConnectionView } from '@/lib/connections';
 import { ActionRow } from './ActionRow';
 
@@ -9,9 +10,10 @@ export const monthOf = (a: ActionItem) => a.plan?.month ?? Math.max(1, ACTION_BU
 /** Done or checked after the fix. */
 export const isDone = (a: ActionItem) => a.status === 'done' || a.status === 'verified';
 /** "To do" and "Done" counts for the Changes tab's sub-tabs. */
-export function taskCounts(ws: ActionWorkspace): { todo: number; done: number } {
+export function taskCounts(ws: ActionWorkspace, current?: number): { todo: number; done: number } {
   const shown = ws.actions.filter((a) => a.status !== 'dismissed');
-  return { todo: shown.filter((a) => !isDone(a)).length, done: shown.filter(isDone).length };
+  // To do: this month's open tasks (and any left over from earlier months), not the whole six months.
+  return { todo: shown.filter((a) => !isDone(a) && (current === undefined || monthOf(a) <= current)).length, done: shown.filter(isDone).length };
 }
 
 /** When the plan started: the AI plan's start date, else the first action. */
@@ -32,7 +34,7 @@ export function currentPlanMonth(ws: ActionWorkspace, now = new Date()): number 
  * the other months show as locked (future months say when they open). `show` limits the rows to the
  * tasks still left ("todo") or the finished ones ("done"; every month, none locked, newest month first).
  */
-export function PlanMonths({ ws, audience, site = null, connectHref, current, title = 'Your 6-month plan', show }: {
+export function PlanMonths({ ws, audience, site = null, connectHref, current, title = 'Your 6-month plan', show, items }: {
   ws: ActionWorkspace;
   audience: 'team' | 'customer';
   site?: ConnectionView | null;
@@ -40,7 +42,10 @@ export function PlanMonths({ ws, audience, site = null, connectHref, current, ti
   current?: number;
   title?: string;
   show?: 'todo' | 'done';
+  /** The autopilot's changes, for each task's progress in the To do list. */
+  items?: WorkItem[];
 }) {
+  if (show === 'todo' && current !== undefined) return <MonthQueue ws={ws} audience={audience} site={site} connectHref={connectHref} current={current} title={title} items={items ?? []} />;
   const shown = ws.actions.filter((a) => a.status !== 'dismissed');
   const keep = (a: ActionItem) => (show === 'done' ? isDone(a) : show === 'todo' ? !isDone(a) : true);
   const locking = show === 'done' ? undefined : current;
@@ -106,6 +111,34 @@ export function PlanMonths({ ws, audience, site = null, connectHref, current, ti
           <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">Dismissed ({dismissed.length})</summary>
           <ul className="divide-y divide-border">{rows(dismissed)}</ul>
         </details>
+      )}
+    </section>
+  );
+}
+
+/**
+ * To do: only this plan month's open tasks (and earlier ones not finished), numbered in the order the
+ * autopilot does them, each with where it stands (Queued, Planned for week 2, Applying 3 of 12…).
+ */
+function MonthQueue({ ws, audience, site, connectHref, current, title, items }: { ws: ActionWorkspace; audience: 'team' | 'customer'; site: ConnectionView | null; connectHref?: string; current: number; title: string; items: WorkItem[] }) {
+  const tasks = orderTasks(ws.actions, current);
+  const week = planWeek(planStart(ws), current);
+  const theme = ws.aiPlan?.months?.find((m) => m.month === current);
+  return (
+    <section aria-labelledby="month-queue" className="flex flex-col gap-3">
+      <h2 id="month-queue" className="font-display text-xl font-bold">{title}</h2>
+      <p className="-mt-1 text-sm text-ink-2">
+        Month {current}{theme?.theme ? ` · ${theme.theme}` : ''} · week {week} of 4. Tasks are done in this order, each in its planned week, so the month’s work is spread over the month. Later months open when this one ends.
+      </p>
+      {tasks.length ? (
+        <ul aria-label={`Month ${current} to-dos`} className="divide-y divide-border rounded-[18px] border border-border bg-surface">
+          {tasks.map((a, n) => {
+            const p = taskProgress(a, items, { actions: ws.actions, month: current, week });
+            return <ActionRow key={a.id} domain={ws.domain} action={a} audience={audience} site={site} connectHref={connectHref} order={n + 1} progress={{ label: `${monthOf(a) < current ? `From month ${monthOf(a)} · ` : ''}${p.label}`, tone: TASK_STATE_TONE[p.state] }} />;
+          })}
+        </ul>
+      ) : (
+        <p className="rounded-[18px] border border-border bg-surface px-5 py-4 text-sm text-ink-2">Everything planned for this month is done.</p>
       )}
     </section>
   );
