@@ -100,7 +100,8 @@ export function checkBlock(text: string, c: { kind: 'answer' | 'faq' | 'section'
   const plain = text.replace(/<[^>]+>/g, ' ');
   const n = words(plain).length;
   const p: string[] = [];
-  if (c.kind === 'answer' && (n < 40 || n > 60)) p.push(`direct answer has ${n} words (needs 40–60)`);
+  // 40–80 words: the same range as the audit's check 2.8.1.
+  if (c.kind === 'answer' && (n < 40 || n > 80)) p.push(`direct answer has ${n} words (needs 40–80)`);
   if (c.kind === 'section' && (n < 60 || n > 220)) p.push(`section has ${n} words (needs 60–220)`);
   const source = `${c.sourceText} ${c.profile.places.join(' ')} ${c.profile.brands.join(' ')}`.toLowerCase();
   const numbers = plain.match(/\d[\d,.]*\s?%?/g) ?? [];

@@ -23,7 +23,7 @@ const item = (id: number, path: string, o: Partial<InventoryItem> = {}): Invento
   id, url: `${site}${path}`, type: 'page', name: o.name ?? `Page ${id}`, titleTag: null, seoTitle: null, metaDescription: null, canonical: null,
   noindex: false, nofollow: false, h1s: [], images: [], wordCount: 300, schemaTypes: [], builder: 'gutenberg', isFrontPage: path === '/', modified: null, ...o,
 });
-const status = { home_url: `${site}/`, sitemap: { url: `${site}/sitemap.xml`, by: 'msscore' } } as unknown as WpStatus;
+const status = { version: '1.4.0', home_url: `${site}/`, sitemap: { url: `${site}/sitemap.xml`, by: 'msscore' } } as unknown as WpStatus;
 const inventory = (items: InventoryItem[]): SiteInventory => ({ accountId: 'acc', domain: 'shop.test', platform: 'wordpress', refreshedAt: '', status, items, totals: {}, truncated: false, errors: [] });
 const page = (path: string, head: string, body: string) => parsePageContent(`<html><head>${head}</head><body>${body}</body></html>`, `${site}${path}`);
 
@@ -127,7 +127,7 @@ describe('generateWorkItems', () => {
   it('drafts a direct answer for Gutenberg and Bricks pages, but leaves Divi to a person', async () => {
     const answer = 'Paws Beds makes orthopaedic dog beds by hand in Leeds, with memory foam and washable covers for older dogs and dogs with sore joints. Every bed is cut to size for your dog, and you can order online for delivery across the UK.';
     const ai = fakeAi({ content_block: [{ answer, faq: [] }, { answer, faq: [] }] });
-    const live = [page('/', '', `<h1>Paws Beds</h1><p>${answer}</p>`), page('/b/', '', `<h1>B</h1><p>${answer}</p>`)];
+    const live = [page('/', '', '<h1>Paws Beds</h1><p>Handmade in Leeds with memory foam and washable covers for older dogs.</p>'), page('/b/', '', '<h1>B</h1><p>Beds made in Leeds.</p>')];
     const r = await generateWorkItems({
       accountId: 'acc', domain: 'shop.test',
       actions: [action('Direct answer at the top of Homepage', {}, { urls: [`${site}/`, `${site}/b/`] })],
@@ -208,5 +208,31 @@ describe('sections and new pages (plugin 1.4.0)', () => {
     // The same page already on the site: nothing to make.
     const again = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([item(1, '/'), item(2, '/orthopaedic-dog-beds/')]), live: [], profile, keywords: new Map(), deadUrls: [], ai: fakeAi({}), newPages });
     expect(again.items.find((i) => i.type === 'create_page')).toMatchObject({ status: 'keep' });
+  });
+});
+
+describe('direct answer without a passing AI draft (Bricks homepage)', () => {
+  const body = '<h1>SRM Risk Management</h1><p>Dubai-based maritime risk management for ships transiting the Red Sea.</p><div>More about SRMWhere Our Support Is FocusedHover over a region.</div><p>We provide risk management support and maritime security-related services to ships transiting high-risk areas, together with shipping operations support.</p>';
+  const head = '<title>SRM</title><meta name="description" content="Dubai-based maritime risk management and shipping operations support for vessels in the Red Sea, Gulf of Aden, Arabian Sea and Indian Ocean.">';
+  it('builds the answer from the page’s own sentences and sends it to the Bricks page', async () => {
+    const a = action('Direct answer at the top of Homepage', { doer: 'team' }, { urls: [`${site}/`] });
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([item(1, '/', { builder: 'bricks' })]), live: [page('/', head, body)], profile, keywords: new Map(), deadUrls: [], ai: fakeAi({}) });
+    const it2 = r.items.find((i) => i.type === 'content_block')!;
+    expect(it2).toMatchObject({ status: 'draft', newValue: { position: 'after_h1' }, reason: expect.stringMatching(/sentences already on the page/) });
+    const text = String((it2.newValue as { html: string }).html);
+    expect(text).toContain('Dubai-based maritime risk management and shipping operations support');
+    expect(text).toContain('We provide risk management support');
+    expect(text).not.toMatch(/Hover|SRMWhere/);
+  });
+  it('asks for plugin 1.4.0 on builder pages with an older plugin', async () => {
+    const old = { ...inventory([item(1, '/', { builder: 'bricks' })]) };
+    old.status = { ...old.status, version: '1.3.3' } as WpStatus;
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [action('Direct answer at the top of Homepage', {}, { urls: [`${site}/`] })], inventory: old, live: [page('/', head, body)], profile, keywords: new Map(), deadUrls: [] });
+    expect(r.items.find((i) => i.type === 'content_block')).toMatchObject({ status: 'needs_human', reason: expect.stringMatching(/1\.4\.0/) });
+  });
+  it('leaves a page that already opens with a 40–80 word answer', async () => {
+    const answer = Array.from({ length: 50 }, () => 'support').join(' ');
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [action('Direct answer at the top of Homepage', {}, { urls: [`${site}/`] })], inventory: inventory([item(1, '/')]), live: [page('/', head, `<h1>SRM</h1><p>${answer}.</p>`)], profile, keywords: new Map(), deadUrls: [] });
+    expect(r.items.find((i) => i.type === 'content_block')).toMatchObject({ status: 'keep' });
   });
 });

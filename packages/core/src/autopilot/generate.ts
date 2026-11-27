@@ -378,6 +378,10 @@ async function sectionItems(c: Ctx, a: ActionItem, kind: 'section' | 'comparison
       push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: 'Testimonials, reviews and case studies must be real: send us the client quotes (or connect Google Business Profile) and the section is added from them. The autopilot never writes them itself.' });
       continue;
     }
+    if (!pluginBuilds(c, i.builder)) {
+      push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: `Update the MS SCORE Connector plugin to 1.4.0 or later: it adds sections on ${i.builder} pages.` });
+      continue;
+    }
     let section: DraftedSection | null = null;
     let problems: string[] = [c.input.ai ? 'no draft yet' : 'no AI drafting set up (OpenAI)'];
     const source = `${live?.text ?? ''} ${(c.input.profile.services ?? []).join(' ')}`;
@@ -435,6 +439,10 @@ async function pageItems(c: Ctx, a: ActionItem) {
     push(c, a, { type: 'create_page', target: { site: true }, url: null, label, before: null, newValue: null, status: 'keep', reason: `A page at /${path}/ already exists.` });
     return;
   }
+  if (!pluginBuilds(c, 'bricks')) {
+    push(c, a, { type: 'create_page', target: { site: true }, url: null, label: `New page · /${path}/`, before: null, newValue: null, status: 'needs_human', reason: 'Update the MS SCORE Connector plugin to 1.4.0 or later: it creates new pages as drafts.' });
+    return;
+  }
   const siteText = [...c.live.values()].map((p) => p.text ?? '').join(' ').slice(0, 6000);
   const suffix = autoSuffix(c);
   let page: DraftedPage | null = null;
@@ -476,10 +484,20 @@ async function blockItems(c: Ctx, a: ActionItem, kind: 'answer' | 'faq', pages: 
       push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: 'FAQ', newValue: null, status: 'keep', reason: 'The page already has an FAQ.' });
       continue;
     }
+    const opening = (live?.firstParagraph ?? '').trim().split(/\s+/).filter(Boolean).length;
+    if (kind === 'answer' && opening >= 40 && opening <= 80) {
+      push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: live!.firstParagraph, newValue: null, status: 'keep', reason: 'The page already opens with a direct answer of 40–80 words.' });
+      continue;
+    }
+    if (!pluginBuilds(c, i.builder)) {
+      push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: `Update the MS SCORE Connector plugin to 1.4.0 or later: it adds sections on ${i.builder} pages.` });
+      continue;
+    }
     let answer = '';
     let faq: { q: string; a: string }[] = [];
     let problems: string[] = ['no draft yet'];
-    const source = `${live?.text ?? ''} ${c.input.profile.places.join(' ')}`;
+    let fromPage = false;
+    const source = `${live?.text ?? ''} ${live?.description ?? ''} ${c.input.profile.places.join(' ')}`;
     for (let round = 0; round < 2 && c.input.ai && problems.length; round++) {
       try {
         const r = await draftBlock(c.input.ai, { kind, url: i.url ?? '', name: nameOf(i), mainKeyword: c.input.keywords.get(pageKey(i.url ?? '')) ?? null, text: live?.text ?? '', problems: round ? problems : [] }, c.input.profile);
@@ -494,13 +512,61 @@ async function blockItems(c: Ctx, a: ActionItem, kind: 'answer' | 'faq', pages: 
         break;
       }
     }
+    // No AI draft that passes (or no AI set up): the answer is built from the page's own sentences.
+    if (kind === 'answer' && problems.length && live) {
+      const own = answerFromPage(live);
+      if (own && !checkBlock(own, { kind: 'answer', profile: c.input.profile, sourceText: source }).length) {
+        answer = own;
+        problems = [];
+        fromPage = true;
+      }
+    }
     const value = kind === 'answer'
       ? { block_id: `answer-${i.id}`, kind, position: 'after_h1', html: `<p>${answer.replace(/</g, '&lt;')}</p>` }
       : { block_id: `faq-${i.id}`, kind, position: 'end', faq };
     if (problems.length) push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: answer || faq.length ? value : null, status: 'needs_human', reason: `Draft did not pass the rules: ${problems.join('; ')}` });
     else if (!editable) push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'needs_human', reason: `This page is built with ${i.builder}; paste the drafted ${kind === 'answer' ? 'answer' : 'FAQ'} in the page builder.` });
-    else push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'draft' });
+    else push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'draft', reason: fromPage ? 'Written from sentences already on the page (no AI draft passed the rules).' : null });
   }
+}
+
+/** Page builders the plugin can add sections to need plugin 1.4.0; Gutenberg and Classic work from 1.2.0. */
+function pluginBuilds(c: Ctx, builder: string | null | undefined): boolean {
+  if (builder !== 'bricks' && builder !== 'elementor') return true;
+  const [x = 0, y = 0] = String(c.input.inventory.status?.version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
+  return x > 1 || (x === 1 && y >= 4);
+}
+
+/**
+ * A direct answer made only of the page's own sentences (its meta description and opening text):
+ * whole sentences of 8+ words, no repeats, until 40–80 words. Null when the page has too little.
+ */
+export function answerFromPage(p: Pick<PageContent, 'description' | 'firstParagraph' | 'text' | 'headings'>): string | null {
+  const heads = new Set((p.headings ?? []).map((h) => h.text.trim().toLowerCase()));
+  const sentences = [p.description ?? '', p.firstParagraph ?? '', (p.text ?? '').slice(0, 4000)]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .match(/[A-Z][^.!?]{20,400}[.!?](?=\s|$)/g) ?? [];
+  const out: string[] = [];
+  const chosen: Set<string>[] = [];
+  const bag = (t: string) => new Set(t.toLowerCase().split(/[^a-z0-9]+/).filter((x) => x.length > 2));
+  // Mostly the same words as a sentence already taken (the meta description often repeats the opening line).
+  const repeats = (b: Set<string>) => chosen.some((c) => [...b].filter((x) => c.has(x)).length / Math.max(1, Math.min(b.size, c.size)) >= 0.6);
+  let n = 0;
+  for (const raw of sentences) {
+    const t = raw.trim();
+    const w = t.split(' ').length;
+    const b = bag(t);
+    // Page furniture is left out: labels run together ("SRMWhere"), interface words, cookie notices.
+    const furniture = /[a-z][A-Z]/.test(t) || /\b(click|tap|hover|scroll|select a|menu|cookie|subscribe|copyright|all rights|read more|learn more|more about)\b/i.test(t);
+    if (w < 8 || repeats(b) || heads.has(t.toLowerCase()) || furniture) continue;
+    if (n + w > 80) continue;
+    chosen.push(b);
+    out.push(t);
+    n += w;
+    if (n >= 40) break;
+  }
+  return n >= 40 ? out.join(' ') : null;
 }
 
 function redirectItems(c: Ctx, a: ActionItem | null) {
