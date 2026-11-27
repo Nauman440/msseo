@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import type { AutopilotSettings } from '@seo/core';
-import { approveWorkItemsAction, pauseAutopilotAction, resetAutopilotAction, runNextTaskAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
+import { approveWorkItemsAction, pauseAutopilotAction, resetAutopilotAction, runNextTaskAction, saveAutopilotSettingsAction, startImplementingAction, undoWorkItemAction, redoWorkItemAction, type AutopilotActionState } from '@/app/autopilot/actions';
 import { Message, Submit } from '@/components/competitors/forms';
 
 export function StartImplementingButton({ domain, label }: { domain: string; label: string }) {
@@ -20,6 +20,16 @@ export function UndoItemButton({ domain, id }: { domain: string; id: string }) {
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
       <Submit label="Undo" busy="Undoing…" tone="secondary" />
+      <Message state={state} />
+    </form>
+  );
+}
+
+export function RedoItemButton({ domain, id }: { domain: string; id: string }) {
+  const [state, action] = useActionState<AutopilotActionState>(redoWorkItemAction.bind(null, domain, id), {});
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <Submit label="Redo" busy="Saving…" tone="secondary" />
       <Message state={state} />
     </form>
   );

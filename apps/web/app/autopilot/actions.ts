@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { normDomain } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
-import { approveWorkItems, resetAutopilot, saveAutopilotSettings, setAutopilotPaused, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
+import { approveWorkItems, resetAutopilot, saveAutopilotSettings, setAutopilotPaused, startImplementing, undoWorkItem, redoWorkItem } from '@/lib/autopilot-wp';
 
 /** "Start implementing plan" and per-change undo, for the team and the site's customer. */
 export type AutopilotActionState = { ok?: string; error?: string };
@@ -29,6 +29,13 @@ export async function startImplementingAction(rawDomain: string): Promise<Autopi
 export async function undoWorkItemAction(rawDomain: string, id: string): Promise<AutopilotActionState> {
   const { domain } = await guard(rawDomain);
   const r = await undoWorkItem(domain, id);
+  paths(domain);
+  return r;
+}
+
+export async function redoWorkItemAction(rawDomain: string, id: string): Promise<AutopilotActionState> {
+  const { domain } = await guard(rawDomain);
+  const r = await redoWorkItem(domain, id);
   paths(domain);
   return r;
 }

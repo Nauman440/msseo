@@ -1,6 +1,6 @@
 import type { WorkItem } from '@seo/core';
 import { resultText } from './AutopilotSchedule';
-import { ApproveButton, UndoItemButton } from './forms';
+import { ApproveButton, RedoItemButton, UndoItemButton } from './forms';
 
 /** One website change: what it was, what it is now (or the draft for a person), and its result. */
 export const INTERNAL: Record<string, string> = { gsc_sitemap_submit: 'MS SCORE submits it to Search Console after each run', ai_visibility_check: 'MS SCORE checks AI assistants', weekly_page_check: 'MS SCORE checks every week' };
@@ -30,6 +30,7 @@ export function ItemRow({ i, domain, undo, approve }: { i: WorkItem; domain: str
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold">{i.label}</span>
         {undo && <UndoItemButton domain={domain} id={i.id} />}
+        {i.status === 'rolled_back' && <RedoItemButton domain={domain} id={i.id} />}
         {approve && !i.approvedAt && <ApproveButton domain={domain} ids={[i.id]} label="Approve" />}
         {approve && i.approvedAt && <span className="text-[13px] font-semibold text-pass-text">Approved</span>}
       </div>

@@ -64,14 +64,15 @@ export function TaskResults({ actions, month, items, domain }: { actions: Action
   const person: TaskBlock[] = [];
   for (const a of open) {
     const list = mine(a.id);
-    const stuck = list.filter((i) => i.status === 'needs_human' || i.status === 'failed' || (i.status === 'skipped' && i.reason?.startsWith('Failed twice')));
+    const stuck = list.filter((i) => i.status === 'needs_human' || i.status === 'failed' || i.status === 'rolled_back' || (i.status === 'skipped' && i.reason?.startsWith('Failed twice')));
     const people = list.filter((i) => PEOPLE[i.status]);
     const manual = a.exec?.actionType === 'manual';
     if (!stuck.length && !people.length && !manual) continue;
     const who = PEOPLE[a.exec?.manualFor ?? people[0]?.status ?? ''] ?? null;
-    person.push({ id: a.id, title: ownerText(a.title), note: stuck.length ? `${stuck.length} change${stuck.length === 1 ? '' : 's'} to make by hand` : who ? `For: ${who.toLowerCase()}` : undefined, items: stuck });
+    const undone = stuck.filter((i) => i.status === 'rolled_back').length;
+    person.push({ id: a.id, title: ownerText(a.title), note: undone ? `${undone} undone by a person · press Redo to make ${undone === 1 ? 'it' : 'them'} again` : stuck.length ? `${stuck.length} change${stuck.length === 1 ? '' : 's'} to make by hand` : who ? `For: ${who.toLowerCase()}` : undefined, items: stuck });
   }
-  const siteStuck = mine(SITE_TASK).filter((i) => i.status === 'needs_human' || i.status === 'failed');
+  const siteStuck = mine(SITE_TASK).filter((i) => i.status === 'needs_human' || i.status === 'failed' || i.status === 'rolled_back');
   if (siteStuck.length) person.unshift({ id: SITE_TASK, title: 'Site essentials', note: `${siteStuck.length} to do by hand`, items: siteStuck });
 
   return (
