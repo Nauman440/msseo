@@ -31,7 +31,9 @@ const pluginItem = (i: WorkItem) => PLUGIN_TYPES.includes(i.type as WpChangeType
  */
 const settledIn = (items: WorkItem[]) => {
   const byId = new Map(items.map((i) => [i.id, i]));
-  const own = (i: WorkItem) => ['verified', 'keep', 'skipped'].includes(i.status) && !(i.status === 'skipped' && i.reason?.startsWith('Failed twice'));
+  // Skipped counts as settled only when nothing needs doing: the page is on the hold list.
+  // (A change the website refused is "needs_human"; one that failed twice is still failed.)
+  const own = (i: WorkItem) => i.status === 'verified' || i.status === 'keep' || (i.status === 'skipped' && Boolean(i.reason?.startsWith('On the safety hold list')));
   return (i: WorkItem): boolean => {
     if (!i.coveredBy) return own(i);
     const w = byId.get(i.coveredBy);
@@ -187,4 +189,18 @@ export function planWeek(start: Date | null, month: number, now = new Date()): n
   if (!start) return 4;
   const monthStart = start.getTime() + (month - 1) * 30 * 86_400_000;
   return Math.max(1, Math.min(4, Math.floor((now.getTime() - monthStart) / (7 * 86_400_000)) + 1));
+}
+
+/**
+ * Tasks a run marked done although nothing was made: every change was refused by the website
+ * (e.g. while it was paused in WordPress). They are opened again so the next run makes them.
+ */
+export function reopenUnmade(actions: ActionItem[], items: WorkItem[]): string[] {
+  const out: string[] = [];
+  for (const a of actions) {
+    if (a.status !== 'done') continue;
+    const mine = items.filter((i) => i.actionId === a.id && pluginItem(i));
+    if (mine.length && mine.every((i) => i.status === 'skipped' && !i.coveredBy && !i.reason?.startsWith('On the safety hold list'))) out.push(a.id);
+  }
+  return out;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  dedupeWorkItems, executionPlan, mapPlanTasks, orderTasks, planWeek, runWorkItems, taskExec, taskFinished, taskProgress, waitingFor,
+  dedupeWorkItems, executionPlan, mapPlanTasks, orderTasks, planWeek, reopenUnmade, runWorkItems, taskExec, taskFinished, taskProgress, waitingFor,
   type ActionItem, type ActionWorkspace, type WorkItem, type WpApplyResult, type WpChange,
 } from '../src';
 
@@ -186,5 +186,33 @@ describe('one change is made once, and the month is paced by week', () => {
     expect(planWeek(start, 1, new Date('2026-11-16T00:00:00Z'))).toBe(3);
     expect(planWeek(start, 1, new Date('2026-11-30T00:00:00Z'))).toBe(4);
     expect(planWeek(start, 2, new Date('2026-12-02T00:00:00Z'))).toBe(1);
+  });
+});
+
+describe('a change the website did not make is never counted as done', () => {
+  const run = async (answer: WpApplyResult) => {
+    const sent: string[] = [];
+    const wp = { async apply(c: WpChange): Promise<WpApplyResult> { sent.push(c.change_id); return answer; }, async rollback() { return { status: 'rolled_back' as const }; } };
+    const items = [item('t1', 'a'), item('t1', 'b')];
+    const r = await runWorkItems(items, { wp, fetchPage: async () => ({ status: 200, html: '<title>x</title>', location: null }), wait: async () => undefined }, { keyPages: ['https://site.test/'], firstRun: false, order: ['a', 'b'] });
+    return { sent, r };
+  };
+  it('paused in WordPress: the run stops, the changes stay queued and the task stays open', async () => {
+    const { sent, r } = await run({ status: 'skipped', reason: 'The autopilot is paused in WordPress (MS SCORE Autopilot page).' });
+    expect(sent).toEqual(['a']);
+    expect(r.run.paused).toBe(true);
+    expect(r.run.problems.join(' ')).toMatch(/Resume the autopilot/);
+    expect(r.items.map((i) => i.status)).toEqual(['draft', 'draft']);
+    expect(taskFinished({ ...task('Titles'), id: 't1' }, r.items)).toBe(false);
+  });
+  it('any other refusal goes to a person with the reason', async () => {
+    const { r } = await run({ status: 'skipped', reason: 'The phrase was not found on the page.' });
+    expect(r.items[0]).toMatchObject({ status: 'needs_human', reason: expect.stringMatching(/did not make this change: The phrase was not found/) });
+    expect(taskFinished({ ...task('x'), id: 't1' }, r.items)).toBe(false);
+  });
+  it('reopens tasks an earlier run marked done although every change was refused', () => {
+    const done = { ...task('Direct answer'), status: 'done' as const };
+    expect(reopenUnmade([done], [item(done.id, 'a', { status: 'skipped', reason: 'The autopilot is paused in WordPress.' })])).toEqual([done.id]);
+    expect(reopenUnmade([done], [item(done.id, 'a', { status: 'verified' })])).toEqual([]);
   });
 });

@@ -235,9 +235,19 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
           it.reason = 'Confirmed by the website (this change has nothing to read on the page).';
           run.verified++;
         }
-      } else if (r.status === 'needs_human' || r.status === 'skipped') {
-        it.status = r.status;
+      } else if (r.status === 'skipped' && /paused/i.test(r.reason ?? '')) {
+        // Paused in WordPress: nothing goes out; the change stays queued for the next run.
+        run.paused = true;
+        run.problems.push('The autopilot is paused in WordPress (MS SCORE Autopilot page). Press "Resume the autopilot" there, then run again.');
+        break;
+      } else if (r.status === 'skipped' && /already (exists|has|there)/i.test(r.reason ?? '')) {
+        it.status = 'keep';
         it.reason = r.reason ?? null;
+        run.skipped++;
+      } else if (r.status === 'needs_human' || r.status === 'skipped') {
+        // The website did not make it: a person looks (never counted as done).
+        it.status = 'needs_human';
+        it.reason = r.status === 'skipped' ? `The website did not make this change: ${r.reason ?? 'no reason given'}` : (r.reason ?? null);
         if (r.status === 'needs_human') run.needsHuman++;
         else run.skipped++;
       } else {
