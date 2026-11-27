@@ -66,7 +66,7 @@ function PlanPages({ rows }: { rows: NonNullable<NonNullable<ActionItem['plan']>
 }
 
 /** One action: summary line, then details (12.4 fields, 12.5 before-state, 12.6 checks). */
-export function ActionRow({ domain, action: a, audience, site = null, connectHref }: { domain: string; action: ActionItem; audience: 'team' | 'customer'; site?: ConnectionView | null; connectHref?: string }) {
+export function ActionRow({ domain, action: a, audience, site = null, connectHref, order, progress }: { domain: string; action: ActionItem; audience: 'team' | 'customer'; site?: ConnectionView | null; connectHref?: string; order?: number; progress?: { label: string; tone: keyof typeof TONE_SOFT } }) {
   const waiting = a.approval !== 'none' && !a.approvedAt;
   const canApprove = waiting && (audience === 'team' || a.approval === 'client');
   const b = a.before;
@@ -74,10 +74,10 @@ export function ActionRow({ domain, action: a, audience, site = null, connectHre
     <li className="flex flex-col gap-3 px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <p className={cn('font-semibold leading-snug', a.status === 'dismissed' && 'text-ink-3 line-through')}>{ownerText(a.title)}</p>
+          <p className={cn('font-semibold leading-snug', a.status === 'dismissed' && 'text-ink-3 line-through')}>{order !== undefined && <span className="mr-2 text-ink-3 tabular">{order}.</span>}{ownerText(a.title)}</p>
           <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2">
             <Chip tone={SEVERITY_TONE[a.severity]}>{SEVERITY_LABEL[a.severity]}</Chip>
-            <Chip tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Chip>
+            {progress ? <Chip tone={progress.tone}>{progress.label}</Chip> : <Chip tone={ACTION_STATUS_TONE[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Chip>}
             <span>{BUCKET_LABEL[a.bucket]}</span>
             {a.dueDate && <span>· due {date(a.dueDate)}</span>}
             {a.owner && <span>· {a.owner}</span>}

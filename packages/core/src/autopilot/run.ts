@@ -37,7 +37,7 @@ export type RunSummary = {
   /** First run on the site: undo was tried on one change before anything else. */
   undoTested: boolean | null;
   /** The tasks this run worked on, in plan order (plan executor). */
-  tasks?: { id: string; title: string; step: 'apply' | 'waiting' | 'manual' | 'needs_you' | 'nothing'; applied: number; verified: number; failed: number; state: string }[];
+  tasks?: { id: string; title: string; step: 'apply' | 'waiting' | 'manual' | 'needs_you' | 'nothing' | 'later'; applied: number; verified: number; failed: number; state: string }[];
   /** Changes from earlier runs verified on the live page at the start of this run. */
   reverified?: number;
   /** Who started it: Client, Team or Schedule. */

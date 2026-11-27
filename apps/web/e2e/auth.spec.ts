@@ -386,10 +386,18 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByRole('heading', { name: 'Top 10 to do now' })).toHaveCount(0);
   await expect(page.getByText('Waiting for approval', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Your 6-month plan' })).toHaveCount(0);
-  // The to-dos live on the Changes tab: only this month is open, the others are locked.
+  // The to-dos live on the Changes tab: only this month's tasks, numbered in the order they are done.
   await page.getByRole('navigation', { name: 'Site sections' }).getByRole('link', { name: 'Changes', exact: true }).click();
   await expect(page.getByRole('heading', { name: "This month's changes" })).toBeVisible();
-  await expect(page.getByText('Month 1 is open now', { exact: false })).toBeVisible();
+  await expect(page.getByText('Tasks are done in this order', { exact: false })).toBeVisible();
+  const monthList = page.getByRole('list', { name: 'Month 1 to-dos' });
+  await expect(monthList.getByRole('listitem').first()).toContainText('1.');
+  // Every listed task belongs to this month (not the whole six months).
+  const todoCount = Number((await page.getByRole('navigation', { name: 'Tasks' }).getByRole('link', { name: /To do/ }).innerText()).replace(/\D+/g, ''));
+  await expect(monthList.locator(':scope > li')).toHaveCount(todoCount);
+  // The autopilot card has just two lists: Done and Needs a person.
+  await expect(page.getByText('Changed on the website', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('Already right, left as it is', { exact: false })).toHaveCount(0);
   await page.waitForLoadState('networkidle');
   // The WordPress autopilot card asks for a connected site before it can start.
   await expect(page.getByRole('heading', { name: 'Make this month’s changes on your website' })).toBeVisible();

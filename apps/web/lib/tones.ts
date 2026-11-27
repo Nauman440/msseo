@@ -99,3 +99,8 @@ export function lighthouseTone(score: number): Tone {
 
 /** Sparkline strokes (competitor trends): teal up, red down; mirror `teal.DEFAULT` and `high` in tailwind.config.ts. */
 export const TREND_HEX = { up: '#0F766E', down: '#B91C1C' } as const;
+
+/** Autopilot task progress (plan executor) → chip colour. */
+export const TASK_STATE_TONE: Record<import('@seo/core').TaskState, Tone> = {
+  queued: 'info', later: 'info', waiting: 'info', preparing: 'primary', applying: 'primary', done: 'pass', needs_you: 'warn', failed: 'fail', manual: 'info',
+};

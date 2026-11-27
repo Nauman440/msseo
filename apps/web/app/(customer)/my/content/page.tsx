@@ -34,7 +34,7 @@ export default async function CustomerContentPage({ searchParams }: Props) {
         <ImplementPlan domain={s.domain} state={auto} blocker={blocker} running={autopilotRunning(s.domain)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} audience="customer" actions={plan.ws.actions} month={currentPlanMonth(plan.ws)} />
       )}
       {plan.ws.actions.length > 0 && (() => {
-        const counts = taskCounts(plan.ws);
+        const counts = taskCounts(plan.ws, currentPlanMonth(plan.ws));
         const href = (t: string) => `/my/content?site=${encodeURIComponent(s.domain)}${t === 'done' ? '&tasks=done' : ''}`;
         return (
           <SubTabs
@@ -55,6 +55,7 @@ export default async function CustomerContentPage({ searchParams }: Props) {
         current={currentPlanMonth(plan.ws)}
         title={show === 'done' ? 'Changes already made' : "This month's changes"}
         show={show}
+        items={auto.items}
       />
       <ContentView audit={audit} domain={s.domain} audience="customer" alt={alt} />
     </SiteFrame>
