@@ -11,7 +11,7 @@ const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '
 const host = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
 export type BillingView = { enabled: boolean; test: boolean; notice?: string | null };
-const BILLING_STATUS: Record<string, string> = { trialing: 'Card on file · free trial', active: 'Paid monthly by card', past_due: 'Last payment failed: update your card', canceled: 'No active payment', unpaid: 'Unpaid: update your card', incomplete: 'Payment not finished', incomplete_expired: 'Payment not finished', paused: 'Paused: add a card' };
+const BILLING_STATUS: Record<string, string> = { trialing: 'Card on file · free trial', active: 'Paid monthly by card', past_due: 'Last payment failed: update your card', canceled: 'No active payment', unpaid: 'Unpaid: update your card', incomplete: 'Payment not finished', incomplete_expired: 'Payment not finished', paused: 'Paused: add a card', card_needed: 'No card saved yet' };
 const NOTICES: Record<string, string> = { ok: 'Thank you: your card is saved with Stripe.', portal: 'The payment settings page is not ready yet. Please contact us and we will update your card.', error: 'We could not confirm that payment page. Please try again.' };
 
 export function PlanSettings({ account, sites, billing }: { account: Account; sites: string[]; billing?: BillingView }) {
@@ -45,7 +45,7 @@ export function PlanSettings({ account, sites, billing }: { account: Account; si
       </dl>
 
       {billing?.notice && NOTICES[billing.notice] && <p role="status" className="mt-4 rounded-tile bg-sunken px-4 py-3 text-sm">{NOTICES[billing.notice]}</p>}
-      {billing?.enabled && !cancelled && !account.stripeSubscriptionId && (
+      {billing?.enabled && !cancelled && (!account.stripeSubscriptionId || account.billingStatus === 'card_needed') && (
         <div className="mt-5 border-t border-border pt-5">
           <p className="mb-3 text-sm text-ink-2">Add a card to keep your plan running after the trial. Nothing is charged until the trial ends.</p>
           <ActionForm action={restartPlanAction} submit="Add a card">

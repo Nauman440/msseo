@@ -43,6 +43,8 @@ export const billingError = (err: unknown) =>
 
 /** A Checkout page for the account's plan; returns its address. */
 export async function checkoutUrl(p: { account: Account; email: string | null; origin: string; trial: boolean; cancelPath: string }): Promise<string> {
+  // A trial whose card was never saved (card field): drop it, so Checkout does not make a second subscription.
+  if (p.account.stripeSubscriptionId && p.account.billingStatus === 'card_needed') await client().cancel(await client().getSubscription(p.account.stripeSubscriptionId), true).catch(() => undefined);
   const s = await client().createCheckout({
     price: await priceFor(p.account.plan),
     trialDays: p.trial ? Math.max(1, Math.ceil((Date.parse(p.account.trialEndsAt) - Date.now()) / 86_400_000)) : 0,
@@ -57,13 +59,16 @@ export async function checkoutUrl(p: { account: Account; email: string | null; o
   return s.url;
 }
 
+/** A trial created before its card: the card setup is still open (our status `card_needed`). */
+const cardMissing = (sub: StripeSubscription) => !sub.default_payment_method && Boolean(sub.pending_setup_intent) && sub.status === 'trialing';
+
 /** Copies a subscription's state onto the account it belongs to. */
 async function save(userId: string, sub: StripeSubscription) {
   const plan = await planOfPrice(sub.items.data[0]?.price.id);
   await updateAccount(userId, {
     stripeCustomerId: sub.customer,
     stripeSubscriptionId: sub.id,
-    billingStatus: sub.status,
+    billingStatus: cardMissing(sub) ? 'card_needed' : sub.status,
     status: accountStatusFor(sub.status),
     ...(sub.trial_end ? { trialEndsAt: new Date(sub.trial_end * 1000).toISOString() } : {}),
     ...(plan ? { plan } : {}),
@@ -91,6 +96,52 @@ export async function syncSubscription(subscriptionId: string): Promise<boolean>
   if (!account) return false;
   await save(account.userId, sub);
   return true;
+}
+
+/** The publishable key for the card field (pk_test_… / pk_live_…), or null. */
+export const stripePublishableKey = () => (stripeEnabled() && /^pk_(test|live)_/.test(process.env.STRIPE_PUBLISHABLE_KEY?.trim() ?? '') ? process.env.STRIPE_PUBLISHABLE_KEY!.trim() : null);
+
+/** The card is saved with Stripe (trial, active or past due with a card on file). */
+export const cardOnFile = (a: Pick<Account, 'billingStatus'>) => liveSubscription(a);
+
+/**
+ * Card field during sign-up: makes sure the account has a Stripe customer and a trial
+ * subscription (trial days left, card only), and returns the client secret the browser
+ * confirms the card with. `done` when a card is already saved.
+ */
+export async function startCardSetup(account: Account, who: { email: string | null; name: string | null }): Promise<{ clientSecret?: string; done?: boolean }> {
+  const stripe = client();
+  if (account.stripeSubscriptionId) {
+    const sub = await stripe.getSubscriptionWithSetup(account.stripeSubscriptionId);
+    if (['trialing', 'active', 'past_due'].includes(sub.status)) {
+      const si = sub.pending_setup_intent;
+      if (sub.default_payment_method || !si) {
+        await save(account.userId, sub);
+        return { done: true };
+      }
+      if (typeof si === 'object' && si.client_secret) return { clientSecret: si.client_secret };
+    }
+  }
+  const customer = account.stripeCustomerId ?? (await stripe.createCustomer({ email: who.email, name: who.name ?? account.businessName, userId: account.userId })).id;
+  const trialDays = Math.max(1, Math.ceil((Date.parse(account.trialEndsAt) - Date.now()) / 86_400_000));
+  const sub = await stripe.createTrialSubscription({ customer, price: await priceFor(account.plan), trialDays, userId: account.userId, metadata: { plan: account.plan, business: account.businessName.slice(0, 200) } });
+  await save(account.userId, sub);
+  const si = sub.pending_setup_intent;
+  if (si && typeof si === 'object' && si.client_secret) return { clientSecret: si.client_secret };
+  return { done: Boolean(sub.default_payment_method) };
+}
+
+/** After the browser confirmed the card: it must be this customer's; it becomes the subscription's default card. */
+export async function finishCardSetup(account: Account, setupIntentId: string): Promise<{ ok?: true; error?: string }> {
+  if (!account.stripeSubscriptionId || !account.stripeCustomerId) return { error: 'Add your card again.' };
+  const stripe = client();
+  const si = await stripe.getSetupIntent(setupIntentId);
+  if (si.customer !== account.stripeCustomerId) return { error: 'This card belongs to another account.' };
+  if (si.status !== 'succeeded' || !si.payment_method) return { error: 'Your card was not confirmed. Please try again.' };
+  let sub = await stripe.getSubscription(account.stripeSubscriptionId);
+  if (!sub.default_payment_method) sub = await stripe.setDefaultCard(sub.id, si.payment_method);
+  await save(account.userId, sub);
+  return { ok: true };
 }
 
 const subscriptionOf = async (account: Account) => (account.stripeSubscriptionId ? client().getSubscription(account.stripeSubscriptionId) : null);

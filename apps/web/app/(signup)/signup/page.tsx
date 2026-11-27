@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SignupShell, StepHeading } from '@/components/signup/SignupShell';
 import { getAccountByUserId, isPlan, PLANS, TRIAL_DAYS } from '@/lib/accounts';
+import { stripePublishableKey } from '@/lib/billing';
 import { getSessionUser } from '@/lib/session';
 import { CONTACT_HREF } from '@/lib/site';
 import { freeAuditSummary, stepPath } from '@/lib/signup';
@@ -32,7 +33,7 @@ export default async function ChoosePlanPage({ searchParams }: Props) {
 
   return (
     <SignupShell step={0} plan={null} audit={audit} signedIn={Boolean(user?.id && user.role === 'customer')}>
-      <StepHeading title="Choose your plan" intro={`Start with a ${TRIAL_DAYS}-day free trial. Nothing to pay today: you confirm payment before your plan starts.`} />
+      <StepHeading title="Choose your plan" intro={stripePublishableKey() ? `Start with a ${TRIAL_DAYS}-day free trial. Nothing to pay today: add a card when you create your account and it is charged only after ${TRIAL_DAYS} days. Cancel any time before then.` : `Start with a ${TRIAL_DAYS}-day free trial. Nothing to pay today: you confirm payment before your plan starts.`} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {(Object.keys(PLANS) as (keyof typeof PLANS)[]).map((id) => {
           const p = PLANS[id];

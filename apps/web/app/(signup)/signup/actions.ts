@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { headers } from 'next/headers';
 import { CONNECTIONS, createAccount, getAccountByUserId, isPlan, PLANS, TRIAL_DAYS, updateAccount, type Connection } from '@/lib/accounts';
-import { billingError, checkoutUrl, liveSubscription, stripeEnabled } from '@/lib/billing';
+import { billingError, cardOnFile, checkoutUrl, finishCardSetup, startCardSetup, stripeEnabled, stripePublishableKey } from '@/lib/billing';
 import { publicOrigin } from '@/lib/google-oauth';
 import { completeOnboarding } from '@/lib/onboarding';
 import { signIn } from '@/lib/auth';
@@ -37,8 +37,8 @@ const aboutYou = z.object({
   password: z.string().min(8, 'Use at least 8 characters').max(200),
 });
 
-/** Step 1: create the customer login + account (7-day trial), then sign in. */
-export async function createAccountAction(_prev: SignupState, form: FormData): Promise<SignupState> {
+/** Creates the customer login + account (7-day trial) and sends the welcome email. */
+async function createCustomerAccount(form: FormData): Promise<{ error: string } | { email: string; password: string }> {
   if (!authEnabled()) return { error: 'Sign-up is not available on this server yet.' };
   const plan = form.get('plan');
   if (!isPlan(plan)) return { error: 'Choose a plan first.' };
@@ -74,14 +74,54 @@ export async function createAccountAction(_prev: SignupState, form: FormData): P
       button: base ? { label: 'Continue setup', href: `${base}/signup/website` } : undefined,
     }),
   );
+  return { email: parsed.data.email, password: parsed.data.password };
+}
 
+/** Step 1 (no card field): create the account, then sign in and go to step 2. */
+export async function createAccountAction(_prev: SignupState, form: FormData): Promise<SignupState> {
+  const made = await createCustomerAccount(form);
+  if ('error' in made) return made;
   try {
-    await signIn('credentials', { email: parsed.data.email, password: parsed.data.password, redirectTo: stepPath(2) });
+    await signIn('credentials', { email: made.email, password: made.password, redirectTo: stepPath(2) });
   } catch (err) {
     if (err instanceof CredentialsSignin || err instanceof AuthError) redirect('/login?next=/signup/website');
     throw err; // the success redirect is thrown too
   }
   return {};
+}
+
+/** Step 1 with the card field: create the account and sign in without leaving the page (the browser then saves the card). */
+export async function createAccountForCardAction(form: FormData): Promise<SignupState & { ok?: true }> {
+  const made = await createCustomerAccount(form);
+  if ('error' in made) return made;
+  try {
+    await signIn('credentials', { email: made.email, password: made.password, redirect: false });
+  } catch (err) {
+    if (err instanceof CredentialsSignin || err instanceof AuthError) return { error: 'Your account was created, but signing in failed. Log in to continue.' };
+    throw err;
+  }
+  return { ok: true };
+}
+
+/** Card field: the client secret the browser confirms the card with (or done when a card is saved). */
+export async function startCardSetupAction(): Promise<{ clientSecret?: string; done?: boolean; error?: string }> {
+  const { user, account } = await currentCustomer();
+  try {
+    return await startCardSetup(account, { email: user.email ?? null, name: user.name });
+  } catch (err) {
+    return { error: billingError(err) };
+  }
+}
+
+/** Card field: after Stripe confirmed the card in the browser. */
+export async function finishCardSetupAction(setupIntentId: string): Promise<{ ok?: true; error?: string }> {
+  const { account } = await currentCustomer();
+  if (!/^seti_[A-Za-z0-9_]+$/.test(setupIntentId)) return { error: 'Your card was not confirmed. Please try again.' };
+  try {
+    return await finishCardSetup(account, setupIntentId);
+  } catch (err) {
+    return { error: billingError(err) };
+  }
 }
 
 /** Step 2: the website all work focuses on. */
@@ -134,7 +174,8 @@ export async function finishSignupAction(_prev: SignupState, form: FormData): Pr
   const consent = form.get('consent') === 'on';
   await updateAccount(user.id!, { connections, consentChanges: consent, consentAt: consent ? new Date().toISOString() : null });
   const me = { id: user.id!, name: user.name, email: user.email ?? null };
-  if (stripeEnabled() && !liveSubscription(account)) {
+  if (stripePublishableKey() && !cardOnFile(account)) return { error: 'Add your card above first. Nothing is charged during the free trial.' };
+  if (stripeEnabled() && !cardOnFile(account)) {
     let url: string;
     try {
       url = await checkoutUrl({ account, email: me.email, origin: publicOrigin(await headers()), trial: true, cancelPath: '/signup/connect?payment=cancelled' });

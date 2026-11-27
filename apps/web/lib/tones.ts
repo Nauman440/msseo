@@ -104,3 +104,19 @@ export const TREND_HEX = { up: '#0F766E', down: '#B91C1C' } as const;
 export const TASK_STATE_TONE: Record<import('@seo/core').TaskState, Tone> = {
   queued: 'info', later: 'info', waiting: 'info', preparing: 'primary', applying: 'primary', done: 'pass', needs_you: 'warn', failed: 'fail', manual: 'info',
 };
+
+/** Stripe's card field (an iframe, so no Tailwind): the same colours and fonts as the sign-up form. */
+export const STRIPE_APPEARANCE = {
+  theme: 'stripe',
+  variables: {
+    colorPrimary: '#F97316',
+    colorText: '#0F1B2D',
+    colorTextSecondary: '#4B5563',
+    colorDanger: '#7F1D1D',
+    colorBackground: '#FFFFFF',
+    fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
+    borderRadius: '10px',
+  },
+  rules: { '.Input': { border: '1px solid #D6CFC2', boxShadow: 'none' }, '.Input:focus': { borderColor: '#F97316', boxShadow: '0 0 0 3px rgba(249,115,22,0.3)' } },
+} as const;
+export const STRIPE_FONTS = [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap' }] as const;
