@@ -12,7 +12,7 @@ import { SIGNUP_HINT, SIGNUP_LABEL } from './styles';
  * nothing is charged until the trial ends.
  */
 type StripeError = { message?: string };
-type StripeElements = { create: (type: 'payment', o: object) => { mount: (el: HTMLElement) => void; on: (ev: 'ready' | 'change', cb: (e: { complete?: boolean }) => void) => void; destroy: () => void }; submit: () => Promise<{ error?: StripeError }> };
+type StripeElements = { create: (type: 'payment', o: object) => { mount: (el: HTMLElement) => void; on: (ev: 'ready' | 'change' | 'loaderror', cb: (e: { complete?: boolean; error?: StripeError }) => void) => void; destroy: () => void }; submit: () => Promise<{ error?: StripeError }> };
 export type StripeJs = {
   elements: (o: object) => StripeElements;
   confirmSetup: (o: { elements: StripeElements; clientSecret: string; confirmParams: { return_url: string }; redirect: 'if_required' }) => Promise<{ error?: StripeError; setupIntent?: { id: string; status: string } }>;
@@ -30,7 +30,7 @@ export function useCardField(publishableKey: string) {
   const box = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const api = useRef<{ stripe: StripeJs; elements: StripeElements } | null>(null);
 
   useEffect(() => {
@@ -38,14 +38,35 @@ export function useCardField(publishableKey: string) {
   }, []);
   useEffect(() => {
     if (!loaded || !box.current || !window.Stripe || api.current) return;
-    const stripe = window.Stripe(publishableKey);
+    let stripe: StripeJs;
+    try {
+      stripe = window.Stripe(publishableKey);
+    } catch (err) {
+      setFailed(err instanceof Error ? err.message : 'Stripe did not start.');
+      return;
+    }
     // Card only, matching the subscription's payment_settings.payment_method_types.
-    const elements = stripe.elements({ mode: 'subscription', amount: 0, currency: 'usd', allowedPaymentMethodTypes: ['card'], appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS });
-    const card = elements.create('payment', { layout: 'tabs', business: { name: 'MS SCORE' } });
+    let card: ReturnType<StripeElements['create']>;
+    let elements: StripeElements;
+    try {
+      elements = stripe.elements({ mode: 'subscription', amount: 0, currency: 'usd', allowedPaymentMethodTypes: ['card'], appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS });
+      card = elements.create('payment', { layout: 'tabs', business: { name: 'MS SCORE' } });
+    } catch (err) {
+      console.error('Stripe card field', err);
+      setFailed(err instanceof Error ? err.message : 'The card field could not be created.');
+      return;
+    }
     card.on('ready', () => setReady(true));
+    // Stripe answers here when it refuses to load the form (key, account or payment-method settings).
+    card.on('loaderror', (e) => {
+      console.error('Stripe card field loaderror', e.error);
+      setFailed(e.error?.message ?? 'Stripe could not load the card form.');
+    });
     card.mount(box.current);
     api.current = { stripe, elements };
+    const slow = window.setTimeout(() => setFailed((f) => f ?? (api.current && !box.current?.querySelector('iframe') ? 'The secure card field did not appear. Reload the page; if it stays empty, a browser extension may be blocking Stripe.' : null)), 15_000);
     return () => {
+      window.clearTimeout(slow);
       card.destroy();
       api.current = null;
     };
@@ -53,11 +74,11 @@ export function useCardField(publishableKey: string) {
 
   const field = (
     <div className="flex flex-col gap-1.5">
-      <Script src={STRIPE_JS} strategy="afterInteractive" onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />
+      <Script src={STRIPE_JS} strategy="afterInteractive" onLoad={() => setLoaded(true)} onError={() => setFailed('The secure card field could not load. Check your connection, turn off ad blockers for this page and reload.')} />
       <span className={SIGNUP_LABEL}>Card details</span>
       <div ref={box} className="min-h-[56px]" aria-busy={!ready} />
       {!ready && !failed && <span className={SIGNUP_HINT}>Loading the secure card field…</span>}
-      {failed && <span role="alert" className="text-sm font-medium text-fail-text">The secure card field could not load. Check your connection and reload the page.</span>}
+      {failed && <span role="alert" className="text-sm font-medium text-fail-text">{failed}</span>}
     </div>
   );
   return { field, ready, api };
