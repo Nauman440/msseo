@@ -4,6 +4,7 @@ import type { InventoryItem, SiteInventory } from '../connections/inventory';
 import type { OpenAiClient } from '../providers/openai';
 import type { WpChangeType, WpTarget } from '../providers/wordpress';
 import { draftBlock, draftH1, draftMeta, type MetaAsk } from './ai-drafts';
+import { taskExec } from './task-map';
 import { checkAlt, checkBlock, checkDescription, checkH1, checkTitle, type BusinessProfile } from './quality';
 import { matchRedirects, type DeadUrl } from './redirects';
 import { itemPriority, workItemId, type InternalChangeType, type WorkItem, type WorkItemStatus } from './work-items';
@@ -53,6 +54,8 @@ type Ctx = {
   notes: string[];
   /** Pages whose H1 words are checked against their keyword (after the count is fixed). */
   h1Text: { a: ActionItem | null; page: InventoryItem; after: string | null }[];
+  /** Plan tasks that ask for a site file: its change belongs to that task. */
+  fileTask: Partial<Record<'sitemap' | 'robots_txt' | 'llms_txt', ActionItem>>;
 };
 
 function push(c: Ctx, a: ActionItem | null, w: { type: WpChangeType | InternalChangeType | 'manual'; target: WpTarget | null; url: string | null; label: string; before: unknown; newValue: unknown; status: WorkItemStatus; reason?: string | null; priorityBoost?: number; week?: number }) {
@@ -87,7 +90,7 @@ function push(c: Ctx, a: ActionItem | null, w: { type: WpChangeType | InternalCh
 
 /** The pages a task covers, as inventory items (all indexable pages for a site-wide batch without a list). */
 function pagesOf(c: Ctx, a: ActionItem): InventoryItem[] {
-  const urls = [...(a.plan?.pages ?? []).map((p) => p.url), ...a.urls, ...(a.changes ?? []).map((x) => x.data?.url ?? '').filter(Boolean)];
+  const urls = a.exec?.targets?.length ? a.exec.targets : [...(a.plan?.pages ?? []).map((p) => p.url), ...a.urls, ...(a.changes ?? []).map((x) => x.data?.url ?? '').filter(Boolean)];
   const found = [...new Set(urls.map(pageKey))].map((k) => c.inv.get(k)).filter((x): x is InventoryItem => Boolean(x));
   if (found.length || !a.plan?.siteWideItem) return found;
   return c.input.inventory.items.filter((i) => i.url && !i.noindex && ['page', 'post', 'product'].includes(i.type));
@@ -95,26 +98,6 @@ function pagesOf(c: Ctx, a: ActionItem): InventoryItem[] {
 
 const nameOf = (i: InventoryItem) => (i.isFrontPage ? 'Homepage' : i.name);
 const target = (i: InventoryItem): WpTarget => (['category', 'product_cat'].includes(i.type) ? { term_id: i.id, taxonomy: i.type } : { post_id: i.id });
-
-/** What the task asks for. */
-type Kind = 'meta_title' | 'meta_description' | 'h1' | 'canonical' | 'alt_text' | 'schema' | 'open_graph' | 'weekly_check' | 'answer' | 'faq' | 'redirects' | 'sitemap_submit' | 'ai_check' | 'person';
-function kindOf(a: ActionItem): Kind {
-  const s = a.plan?.siteWideItem;
-  if (s && s !== 'none') return s === 'alt_text' ? 'alt_text' : (s as Kind);
-  const text = `${a.title} ${a.plan?.change ?? ''}`.toLowerCase();
-  if (/\bsitemap\b/.test(text) && /\bsubmit/.test(text)) return 'sitemap_submit';
-  if (/\b(ai[- ]visibility|ai search|chatgpt|perplexity)\b/.test(text) && /\b(baseline|check|retest|re-test|test)\b/.test(text)) return 'ai_check';
-  if (/\bdirect answer\b/.test(text)) return 'answer';
-  if (/\bfaq\b|frequently asked/.test(text)) return 'faq';
-  if (/\bredirect/.test(text)) return 'redirects';
-  if (/\btitle tags?\b|\bnew titles?\b|\bmeta titles?\b/.test(text)) return 'meta_title';
-  if (/\bmeta descriptions?\b/.test(text)) return 'meta_description';
-  if (/\b(main heading|h1)\b/.test(text)) return 'h1';
-  if (/\bcanonical/.test(text)) return 'canonical';
-  if (/\balt text\b/.test(text)) return 'alt_text';
-  if (/\bschema\b|structured data/.test(text)) return 'schema';
-  return 'person';
-}
 
 /** The plan's drafted value for a page (changes on the action, else the page rows), if any. */
 function plannedValue(a: ActionItem, field: 'title' | 'meta', i: InventoryItem): string | null {
@@ -445,9 +428,9 @@ function siteFileItems(c: Ctx) {
   const st = c.input.inventory.status;
   const ext = st as typeof st & { llms_served?: boolean; robots_managed?: boolean };
   const by = st.sitemap.by;
-  if (by === 'msscore') push(c, null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: { enabled: true }, newValue: null, status: 'keep', reason: 'MS SCORE’s sitemap is on and updates itself when pages change.' });
-  else if (st.seo_plugin !== 'none' && by !== 'none' && by !== 'wordpress') push(c, null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: by, newValue: null, status: 'keep', reason: `${by} already makes the sitemap.` });
-  else push(c, null, { type: 'sitemap', target: { site: true }, url: st.home_url.replace(/\/+$/, '') + '/sitemap.xml', label: by === 'wordpress' ? 'XML sitemap (replace WordPress’s basic one)' : 'Create the XML sitemap', before: { enabled: false, by, url: st.sitemap.url }, newValue: { enabled: true }, status: 'draft', reason: by === 'wordpress' ? 'WordPress’s own sitemap lists noindex pages and has no images or dates; MS SCORE’s leaves them out and updates itself.' : 'The site has no sitemap, so Google has no list of its pages.', priorityBoost: 20, week: 1 });
+  if (by === 'msscore') push(c, c.fileTask.sitemap ?? null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: { enabled: true }, newValue: null, status: 'keep', reason: 'MS SCORE’s sitemap is on and updates itself when pages change.' });
+  else if (st.seo_plugin !== 'none' && by !== 'none' && by !== 'wordpress') push(c, c.fileTask.sitemap ?? null, { type: 'sitemap', target: { site: true }, url: st.sitemap.url, label: 'XML sitemap', before: by, newValue: null, status: 'keep', reason: `${by} already makes the sitemap.` });
+  else push(c, c.fileTask.sitemap ?? null, { type: 'sitemap', target: { site: true }, url: st.home_url.replace(/\/+$/, '') + '/sitemap.xml', label: by === 'wordpress' ? 'XML sitemap (replace WordPress’s basic one)' : 'Create the XML sitemap', before: { enabled: false, by, url: st.sitemap.url }, newValue: { enabled: true }, status: 'draft', reason: by === 'wordpress' ? 'WordPress’s own sitemap lists noindex pages and has no images or dates; MS SCORE’s leaves them out and updates itself.' : 'The site has no sitemap, so Google has no list of its pages.', priorityBoost: 20, week: 1 });
 
   // Resubmitted every month (and after the sitemap changes), even when no task asks for it.
   const sm = sitemapUrl(c.input.inventory);
@@ -467,16 +450,16 @@ function siteFileItems(c: Ctx) {
   })();
   const label = lines.length ? 'robots.txt: point to the new sitemap' : 'robots.txt: name the sitemap';
   const why = lines.length ? `robots.txt names ${lines.join(', ')}, not the sitemap search engines should read (${want}).` : 'robots.txt does not tell search engines where the sitemap is.';
-  if (ext.robots_managed) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: true, newValue: null, status: 'keep', reason: 'MS SCORE already manages robots.txt.' });
+  if (ext.robots_managed) push(c, c.fileTask.robots_txt ?? null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: true, newValue: null, status: 'keep', reason: 'MS SCORE already manages robots.txt.' });
   else if (robots === undefined || named) {
-    if (robots !== undefined) push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: robots, newValue: null, status: 'keep', reason: 'robots.txt already names the sitemap.' });
+    if (robots !== undefined) push(c, c.fileTask.robots_txt ?? null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label: 'robots.txt', before: robots, newValue: null, status: 'keep', reason: 'robots.txt already names the sitemap.' });
   } else if (inFolder && want) {
     const root = new URL(st.home_url).origin;
-    push(c, null, { type: 'robots_txt', target: { site: true }, url: `${root}/robots.txt`, label, before: robots, newValue: { line: `Sitemap: ${want}` }, status: 'needs_human', reason: `${why} WordPress runs in a folder and search engines only read ${root}/robots.txt, so change it where that file is kept (the file on the server or the website at the domain root): ${lines.length ? `replace the Sitemap line with` : 'add the line'} “Sitemap: ${want}”.`, week: 1 });
-  } else push(c, null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label, before: robots, newValue: { enabled: true }, status: 'draft', reason: why, week: 1 });
+    push(c, c.fileTask.robots_txt ?? null, { type: 'robots_txt', target: { site: true }, url: `${root}/robots.txt`, label, before: robots, newValue: { line: `Sitemap: ${want}` }, status: 'needs_human', reason: `${why} WordPress runs in a folder and search engines only read ${root}/robots.txt, so change it where that file is kept (the file on the server or the website at the domain root): ${lines.length ? `replace the Sitemap line with` : 'add the line'} “Sitemap: ${want}”.`, week: 1 });
+  } else push(c, c.fileTask.robots_txt ?? null, { type: 'robots_txt', target: { site: true }, url: st.home_url, label, before: robots, newValue: { enabled: true }, status: 'draft', reason: why, week: 1 });
 
-  if (st.llms_file) push(c, null, { type: 'llms_txt', target: { site: true }, url: null, label: 'llms.txt for AI assistants', before: 'file', newValue: null, status: 'keep', reason: 'The site has its own llms.txt file.' });
-  else push(c, null, { type: 'llms_txt', target: { site: true }, url: st.home_url, label: ext.llms_served ? 'llms.txt for AI assistants (monthly refresh)' : 'llms.txt for AI assistants', before: null, newValue: { content: llmsText(c.input.profile, c.input.inventory, c.input.now) }, status: 'draft', week: 2 });
+  if (st.llms_file) push(c, c.fileTask.llms_txt ?? null, { type: 'llms_txt', target: { site: true }, url: null, label: 'llms.txt for AI assistants', before: 'file', newValue: null, status: 'keep', reason: 'The site has its own llms.txt file.' });
+  else push(c, c.fileTask.llms_txt ?? null, { type: 'llms_txt', target: { site: true }, url: st.home_url, label: ext.llms_served ? 'llms.txt for AI assistants (monthly refresh)' : 'llms.txt for AI assistants', before: null, newValue: { content: llmsText(c.input.profile, c.input.inventory, c.input.now) }, status: 'draft', week: 2 });
 }
 
 export async function generateWorkItems(input: GenerateInput): Promise<GenerateResult> {
@@ -489,34 +472,77 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
     tokens: 0,
     notes: [],
     h1Text: [],
+    fileTask: {},
   };
   const meta: { a: ActionItem; field: 'title' | 'description'; page: InventoryItem }[] = [];
   let redirectsDone = false;
   for (const a of input.actions.filter((x) => x.status !== 'dismissed' && x.status !== 'done' && x.status !== 'verified')) {
     const doer = a.plan?.doer;
-    const kind = kindOf(a);
+    // The task's action type (plan executor); older tasks are mapped here when they have none yet.
+    const exec = a.exec ?? { ...taskExec(a), targets: [] };
     const pages = pagesOf(c, a);
-    if (kind === 'sitemap_submit') push(c, a, { type: 'gsc_sitemap_submit', target: null, url: sitemapUrl(input.inventory), label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: sitemapUrl(input.inventory), month: c.now.slice(0, 7) }, status: 'draft', week: 1 });
-    else if (kind === 'ai_check') push(c, a, { type: 'ai_visibility_check', target: null, url: null, label: a.title, before: null, newValue: null, status: 'draft' });
-    else if (kind === 'weekly_check') push(c, a, { type: 'weekly_page_check', target: null, url: null, label: 'Check new and changed pages every week', before: null, newValue: null, status: 'draft' });
-    else if (kind === 'meta_title' || kind === 'meta_description') for (const p of pages) meta.push({ a, field: kind === 'meta_title' ? 'title' : 'description', page: p });
-    else if (kind === 'h1') for (const p of pages) h1Item(c, a, p);
-    else if (kind === 'canonical') for (const p of pages) canonicalItem(c, a, p);
-    else if (kind === 'schema') for (const p of pages) schemaItems(c, a, p);
-    else if (kind === 'alt_text') await altItems(c, a, pages);
-    else if (kind === 'answer' || kind === 'faq') await blockItems(c, a, kind, pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage));
-    else if (kind === 'redirects') {
-      redirectItems(c, a);
-      redirectsDone = true;
-    } else if (kind === 'open_graph') {
-      for (const p of pages) {
-        const live = p.url ? c.live.get(pageKey(p.url)) : undefined;
-        const ok = live?.openGraph?.title && live.openGraph.description;
-        push(c, a, { type: 'og_tags', target: target(p), url: p.url, label: `Social sharing tags · ${nameOf(p)}`, before: null, newValue: ok ? null : { title: decode(live?.title), description: decode(live?.description) }, status: ok ? 'keep' : 'draft', reason: ok ? 'Open Graph title and description are already there.' : null });
-      }
-    } else {
-      const status: WorkItemStatus = doer === 'client' ? 'client' : doer === 'developer' ? 'developer' : 'team';
-      push(c, a, { type: 'manual', target: null, url: pages[0]?.url ?? null, label: a.title, before: null, newValue: null, status, reason: 'Not a change the plugin makes.' });
+    const person = (reason: string, status?: WorkItemStatus) => push(c, a, { type: 'manual', target: null, url: pages[0]?.url ?? null, label: a.title, before: null, newValue: null, status: status ?? (exec.manualFor ?? (doer === 'client' ? 'client' : doer === 'developer' ? 'developer' : 'team')), reason });
+    const needsTargets = (what: string) => push(c, a, { type: 'manual', target: null, url: null, label: a.title, before: null, newValue: null, status: 'needs_human', reason: `The task does not say which pages; choose the pages for “${what}” (or re-write the plan).` });
+    switch (exec.actionType) {
+      case 'tool':
+        if (exec.tool === 'sitemap_submit') push(c, a, { type: 'gsc_sitemap_submit', target: null, url: sitemapUrl(input.inventory), label: 'Submit the sitemap to Search Console', before: null, newValue: { sitemap: sitemapUrl(input.inventory), month: c.now.slice(0, 7) }, status: 'draft', week: 1 });
+        else if (exec.tool === 'ai_check') push(c, a, { type: 'ai_visibility_check', target: null, url: null, label: a.title, before: null, newValue: null, status: 'draft' });
+        else push(c, a, { type: 'weekly_page_check', target: null, url: null, label: 'Check new and changed pages every week', before: null, newValue: null, status: 'draft' });
+        break;
+      case 'meta_title':
+      case 'meta_description':
+        if (!pages.length) needsTargets(exec.actionType === 'meta_title' ? 'new titles' : 'new descriptions');
+        for (const p of pages) meta.push({ a, field: exec.actionType === 'meta_title' ? 'title' : 'description', page: p });
+        break;
+      case 'heading_fix':
+        for (const p of pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage)) h1Item(c, a, p);
+        break;
+      case 'canonical':
+        if (!pages.length) needsTargets('canonical tags');
+        for (const p of pages) canonicalItem(c, a, p);
+        break;
+      case 'schema':
+        for (const p of pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage)) schemaItems(c, a, p);
+        break;
+      case 'image_alt':
+        await altItems(c, a, pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage));
+        break;
+      case 'content_block':
+        if (exec.block === 'direct_answer' || exec.block === 'faq') await blockItems(c, a, exec.block === 'faq' ? 'faq' : 'answer', pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage));
+        else person(`A ${exec.block === 'comparison_table' ? 'comparison table' : 'new section'} is written by a person for now: ${a.plan?.change || a.title}`, 'needs_human');
+        break;
+      case 'redirect_301':
+        redirectItems(c, a);
+        redirectsDone = true;
+        break;
+      case 'sitemap':
+      case 'robots_txt':
+      case 'llms_txt':
+        c.fileTask[exec.actionType] = a;
+        break;
+      case 'robots_noindex':
+        if (!pages.length) needsTargets('pages to hide from Google');
+        for (const p of pages) {
+          const live = p.url ? c.live.get(pageKey(p.url)) : undefined;
+          if (p.isFrontPage) push(c, a, { type: 'robots_noindex', target: target(p), url: p.url, label: `Hide from Google · ${nameOf(p)}`, before: null, newValue: null, status: 'needs_human', reason: 'The homepage is never hidden from Google automatically.' });
+          else push(c, a, { type: 'robots_noindex', target: target(p), url: p.url, label: `Hide from Google · ${nameOf(p)}`, before: p.noindex ? 'noindex' : 'index', newValue: p.noindex ? null : 'noindex', status: p.noindex ? 'keep' : 'draft', reason: p.noindex ? 'Already hidden from Google.' : live ? null : 'The live page could not be read.' });
+        }
+        break;
+      case 'og_tags':
+        for (const p of pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage)) {
+          const live = p.url ? c.live.get(pageKey(p.url)) : undefined;
+          const ok = live?.openGraph?.title && live.openGraph.description;
+          push(c, a, { type: 'og_tags', target: target(p), url: p.url, label: `Social sharing tags · ${nameOf(p)}`, before: null, newValue: ok ? null : { title: decode(live?.title), description: decode(live?.description) }, status: ok ? 'keep' : 'draft', reason: ok ? 'Open Graph title and description are already there.' : null });
+        }
+        break;
+      case 'internal_link':
+        person(`Internal links need the words to link and the page to link to; a person adds them for now: ${a.plan?.change || a.title}`, 'needs_human');
+        break;
+      case 'product_copy':
+        person(`Product descriptions are written by a person: ${a.plan?.change || a.title}`, 'needs_human');
+        break;
+      default:
+        person('Not a change the plugin makes.');
     }
   }
   await metaItems(c, meta);

@@ -31,7 +31,7 @@ export default async function CustomerContentPage({ searchParams }: Props) {
     <SiteFrame s={s} tab="content">
       {preparing && <Preparing what="your content check and alt-text drafts" />}
       {plan.ws.actions.length > 0 && (
-        <ImplementPlan domain={s.domain} state={auto} blocker={blocker} running={autopilotRunning(s.domain)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} audience="customer" />
+        <ImplementPlan domain={s.domain} state={auto} blocker={blocker} running={autopilotRunning(s.domain)} connectHref={`/my/connections?site=${encodeURIComponent(s.domain)}`} audience="customer" actions={plan.ws.actions} month={currentPlanMonth(plan.ws)} />
       )}
       {plan.ws.actions.length > 0 && (() => {
         const counts = taskCounts(plan.ws);

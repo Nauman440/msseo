@@ -30,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version === '1.3.2' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
+  ok(status.version === '1.3.3' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -104,7 +104,12 @@ async function main() {
   ok((await wp.rollback(rt.change_id)).status === 'rolled_back' && !(await raw('/robots.txt')).body.includes('Disallow: /?s='), 'robots_txt: rolled back');
 
   // Pause from WordPress: no new changes while paused; the change log carries the label.
-  const wpOption = (php: string) => execSync(`php -r ${JSON.stringify(`define('WP_USE_THEMES', false); require '${D}/core/wp-load.php'; ${php}`)}`, { encoding: 'utf8' });
+  // PHP run inside WordPress, through a file (so the shell never touches the $ signs).
+  const wpOption = (php: string) => {
+    const f = `${D}/e2e-snippet.php`;
+    writeFileSync(f, `<?php define('WP_USE_THEMES', false); require '${D}/core/wp-load.php'; ${php}`);
+    return execSync(`php ${f}`, { encoding: 'utf8' });
+  };
   wpOption("update_option('msscore_autopilot_paused', true);");
   const paused = await wp.apply({ change_id: cid('paused'), type: 'meta_title', target: { post_id: ids.gut }, new_value: 'Paused title', label: 'Title tag · Test' });
   ok(paused.status === 'skipped' && /paused/i.test(paused.reason ?? '') && (await wp.status()).paused === true, 'pause: no change while paused', paused.reason ?? '');
@@ -119,6 +124,18 @@ async function main() {
   ok(after2?.status === 'rolled_back' && /Undone: by Admin/.test(after2.note ?? ''), 'admin undo: logged and visible to MS SCORE', JSON.stringify(after2));
   const admin = wpOption("require_once ABSPATH . 'wp-admin/includes/template.php'; wp_set_current_user(1); ob_start(); msscore_admin_page(); echo ob_get_clean();");
   ok(admin.includes('MS SCORE Autopilot') && admin.includes('Pause the autopilot') && admin.includes('Changes made'), 'admin page renders', admin.slice(0, 200));
+
+  // Bricks: the stored list is not the page order. The subtitle (text-basic, H1) is stored first, but the
+  // main heading comes first on the page: the main heading stays H1, the subtitle becomes H2, and the H1 text change edits the main heading.
+  const bricksId = Number(wpOption(`$id = wp_insert_post(array('post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Bricks test')); update_post_meta($id, '_bricks_editor_mode', 'bricks'); update_post_meta($id, '_bricks_page_content_2', array(array('id' => 'sub', 'name' => 'text-basic', 'parent' => 'sec', 'children' => array(), 'settings' => array('tag' => 'h1', 'text' => 'Subtitle')), array('id' => 'sec', 'name' => 'section', 'parent' => 0, 'children' => array('main', 'sub'), 'settings' => array()), array('id' => 'main', 'name' => 'heading', 'parent' => 'sec', 'children' => array(), 'settings' => array('tag' => 'h1', 'text' => 'Main heading')))); echo $id;`).trim());
+  const tags = () => JSON.parse(wpOption(`$e = get_post_meta(${bricksId}, '_bricks_page_content_2', true); $o = array(); foreach ($e as $x) { if (isset($x['settings']['tag'])) $o[$x['id']] = array($x['settings']['tag'], $x['settings']['text']); } echo wp_json_encode($o);`)) as Record<string, [string, string]>;
+  const dem = await wp.apply({ change_id: cid('bricks-h1'), type: 'heading_fix', target: { post_id: bricksId }, new_value: { action: 'demote_extra_h1', keep: 1 } } as WpChange);
+  ok(dem.status === 'applied' && tags().main?.[0] === 'h1' && tags().sub?.[0] === 'h2', 'bricks: the main heading (first on the page) stays H1, the subtitle becomes H2', JSON.stringify(tags()));
+  const words = await wp.apply({ change_id: cid('bricks-words'), type: 'heading_fix', target: { post_id: bricksId }, new_value: { action: 'set_h1_text', text: 'Maritime Risk Management in Dubai' } } as WpChange);
+  ok(words.status === 'applied' && tags().main?.[1] === 'Maritime Risk Management in Dubai' && tags().sub?.[1] === 'Subtitle', 'bricks: the H1 words change on the main heading only', JSON.stringify(tags()));
+  await wp.rollback(words.change_id!);
+  await wp.rollback(dem.change_id!);
+  ok(tags().main?.[0] === 'h1' && tags().sub?.[0] === 'h1' && tags().main?.[1] === 'Main heading', 'bricks: undo puts both back', JSON.stringify(tags()));
 
   // Unsupported / validation.
   ok((await wp.apply({ change_id: cid('x'), type: 'meta_title' as const, target: { post_id: 999999 }, new_value: 'x' })).status === 'failed', 'unknown post refused');

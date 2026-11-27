@@ -3,12 +3,12 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  applyHoldList, createOpenAiClient, pluginId, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
+  applyHoldList, createOpenAiClient, executionPlan, mapPlanTasks, orderTasks, pluginId, reverifyApplied, taskFinished, taskProgress, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
   planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
   type ActionWorkspace, type AutopilotSettings, type SiteConnection, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
 import { wordpressSession } from '@seo/core/server';
-import { currentPlanMonth, monthOf, planStart } from '@/components/actions/PlanMonths';
+import { currentPlanMonth, planStart } from '@/components/actions/PlanMonths';
 import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { getActions, saveActions } from './actions';
 import { getAltText } from './alt-text';
@@ -135,18 +135,24 @@ async function fetchPage(url: string): Promise<{ status: number; html: string; l
   return { status: r.status, html: r.status === 200 ? await r.text() : '', location: r.headers.get('location') };
 }
 
-/** Marks plan tasks done when every website change they need is made (or already right). */
+/**
+ * A task is done only when every change it needs is verified on the live page (or already right);
+ * a task with a change made but not yet verified, or waiting for a person, is "in progress".
+ */
 function settleActions(ws: ActionWorkspace, items: WorkItem[]): ActionWorkspace {
   let next = ws;
   for (const a of ws.actions) {
-    const mine = items.filter((i) => i.actionId === a.id && PLUGIN_TYPES.includes(i.type as WpChangeType));
-    if (!mine.length || a.status === 'done' || a.status === 'verified' || a.status === 'dismissed') continue;
-    const finished = mine.every((i) => ['applied', 'verified', 'keep', 'skipped'].includes(i.status));
-    const started = mine.some((i) => ['applied', 'verified'].includes(i.status));
-    if (finished) next = updateAction(next, a.id, { status: 'done' });
-    else if (started && a.status === 'todo') next = updateAction(next, a.id, { status: 'in_progress' });
+    if (a.status === 'done' || a.status === 'verified' || a.status === 'dismissed') continue;
+    if (taskFinished(a, items)) next = updateAction(next, a.id, { status: 'done' });
+    else if (a.status === 'todo' && items.some((i) => i.actionId === a.id && ['applied', 'verified'].includes(i.status))) next = updateAction(next, a.id, { status: 'in_progress' });
   }
   return next;
+}
+
+/** Pause or resume the site's autopilot (no changes go out while paused; the button and the schedule both wait). */
+export async function setAutopilotPaused(rawDomain: string, paused: boolean, by: string): Promise<void> {
+  const s = await getAutopilot(rawDomain);
+  await saveAutopilot(paused ? { ...s, status: 'paused', pausedReason: `Paused by ${by}.` } : { ...s, status: s.status === 'paused' ? 'idle' : s.status, pausedReason: null });
 }
 
 async function robotsOf(home: string): Promise<string | null | undefined> {
@@ -217,7 +223,7 @@ async function internalItems(domain: string, items: WorkItem[], customer: boolea
   return out;
 }
 
-async function job(domain: string, by: string, opts: { scheduled?: boolean } = {}): Promise<void> {
+async function job(domain: string, by: string, opts: { scheduled?: boolean; onlyNext?: boolean } = {}): Promise<void> {
   let s = await getAutopilot(domain);
   const step = async (text: string) => {
     s = { ...s, status: 'running', step: text, error: null };
@@ -233,11 +239,17 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     inventory = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 ? inventory : (await refreshInventory(domain)).inventory;
 
     await step('Preparing this month’s changes');
-    const [actions, kw, mapping, audits, rivals, alt, accounts] = await Promise.all([
+    const [actions0, kw, mapping, audits, rivals, alt, accounts] = await Promise.all([
       getActions(domain), getKeywordWorkspace(domain), getMapping(domain), customerAudits(`https://${domain}/`), researchCompetitors(domain), getAltText(domain), listAccounts(),
     ]);
+    // Every task gets its action type and target pages (backfills plans written before the executor).
+    const indexable = inventory.items.filter((i) => i.url && !i.noindex && ['page', 'post', 'product'].includes(i.type)).map((i) => i.url!);
+    const mapped = mapPlanTasks(actions0, indexable);
+    if (mapped.changed) await saveActions(mapped.ws);
+    const actions = mapped.ws;
     const month = currentPlanMonth(actions);
-    const monthActions = actions.actions.filter((a) => monthOf(a) === month);
+    // This plan month's tasks and any earlier ones still open, in plan order.
+    const monthActions = orderTasks(actions.actions, month);
     const account = accounts.find((a) => accountSites(a).some((w) => domainOf(w) === domain));
     const site = siteProfile(account, domain);
     const profile: BusinessProfile = {
@@ -271,12 +283,17 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     if (gen.tokens + altTokens) await logUsage('openai', gen.tokens + altTokens);
     // Changes already made keep their record; everything else is replaced by the fresh drafts.
     // Approvals carry over to the same exact change (same id).
-    const kept = new Map(s.items.filter((i) => ['applied', 'verified', 'rolled_back'].includes(i.status) || (i.status === 'needs_human' && i.type === 'gsc_sitemap_submit')).map((i) => [i.id, i]));
+    // A change that failed twice stays failed (it is not sent again this month); see executor rules.
+    const kept = new Map(s.items.filter((i) => ['applied', 'verified', 'rolled_back'].includes(i.status) || (i.status === 'needs_human' && i.type === 'gsc_sitemap_submit') || (i.status === 'failed' && i.reason?.startsWith('Failed twice'))).map((i) => [i.id, i]));
     const approved = new Map(s.items.filter((i) => i.approvedAt).map((i) => [i.id, i]));
     const fresh = gen.items.map((i) => kept.get(i.id) ?? (approved.has(i.id) ? { ...i, approvedAt: approved.get(i.id)!.approvedAt, approvedBy: approved.get(i.id)!.approvedBy } : i));
     let items = applyHoldList([...fresh, ...[...kept.values()].filter((i) => !gen.items.some((g) => g.id === i.id))], s.settings.holdList);
     s = { ...s, month, items, notes: gen.notes };
     await saveAutopilot(s);
+
+    // Changes made on an earlier run but not yet seen (a cache held the old page) are looked at again.
+    const again = await reverifyApplied(items, { fetchPage });
+    items = again.items;
 
     await step('Making the changes on your website');
     const home = inventory.items.find((i) => i.isFrontPage)?.url ?? inventory.status.home_url;
@@ -288,8 +305,16 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
     const start = planStart(actions);
     const monthEnd = start ? planMonthWindow(start, month).end : new Date(Date.now() + 20 * 86_400_000);
     const cap = opts.scheduled ? todaysShare(readyCount, new Date(), monthEnd, s.settings.timezone, s.settings.dailyCap) : s.settings.dailyCap;
-    const r = await runWorkItems(items, { wp, fetchPage }, { keyPages, firstRun, cap, requireApproval });
+    // Task by task, in plan order: the site's own changes, then each open task's changes; manual and waiting tasks are passed over.
+    const queue = executionPlan(actions.actions, items, { month, onlyNext: opts.onlyNext, requireApproval });
+    const r = await runWorkItems(items, { wp, fetchPage }, { keyPages, firstRun, cap, requireApproval, order: queue.order });
     items = r.items;
+    r.run.tasks = queue.tasks.map((t) => {
+      const mine = items.filter((i) => i.actionId === t.id && i.appliedAt && i.appliedAt >= r.run.startedAt);
+      const a = actions.actions.find((x) => x.id === t.id)!;
+      return { id: t.id, title: t.title, step: t.step, applied: mine.length, verified: mine.filter((i) => i.status === 'verified').length, failed: items.filter((i) => i.actionId === t.id && i.status === 'failed').length, state: taskProgress(a, items).label };
+    });
+    r.run.reverified = again.verified;
     if (!r.run.paused) {
       await step('Submitting the sitemap and setting up checks');
       items = await internalItems(domain, items, Boolean(account));
@@ -304,12 +329,13 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean } = {
 }
 
 /** Starts a run in the background. False when one is already running. */
-export async function startImplementing(rawDomain: string, by: string, opts: { scheduled?: boolean } = {}): Promise<{ started: boolean; problem?: string }> {
+export async function startImplementing(rawDomain: string, by: string, opts: { scheduled?: boolean; onlyNext?: boolean } = {}): Promise<{ started: boolean; problem?: string }> {
   const domain = normDomain(rawDomain);
   const blocker = await autopilotBlocker(domain);
   if (blocker) return { started: false, problem: blocker };
   if (autopilotRunning(domain)) return { started: false, problem: 'Already running. This page updates by itself.' };
   const s = await getAutopilot(domain);
+  if (s.status === 'paused' && s.pausedReason?.startsWith('Paused by')) return { started: false, problem: 'The autopilot is paused. Press Resume first.' };
   await saveAutopilot({ ...s, status: 'running', step: 'Starting', error: null, pausedReason: s.status === 'paused' ? null : s.pausedReason });
   // No cooldown: autopilotRunning() above already stops a second run at the same time.
   if (!prepare(runKey(domain), () => job(domain, by, opts), 0)) {

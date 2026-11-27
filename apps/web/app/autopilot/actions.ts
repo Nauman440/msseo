@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { normDomain } from '@seo/core';
 import { competitorAccess } from '@/lib/competitors';
-import { approveWorkItems, resetAutopilot, saveAutopilotSettings, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
+import { approveWorkItems, resetAutopilot, saveAutopilotSettings, setAutopilotPaused, startImplementing, undoWorkItem } from '@/lib/autopilot-wp';
 
 /** "Start implementing plan" and per-change undo, for the team and the site's customer. */
 export type AutopilotActionState = { ok?: string; error?: string };
@@ -61,4 +61,19 @@ export async function resetAutopilotAction(rawDomain: string, _prev: AutopilotAc
   const r = await resetAutopilot(domain);
   paths(domain);
   return r;
+}
+
+/** Plan executor: only the next open task in plan order. */
+export async function runNextTaskAction(rawDomain: string): Promise<AutopilotActionState> {
+  const { domain, by } = await guard(rawDomain);
+  const r = await startImplementing(domain, by, { onlyNext: true });
+  paths(domain);
+  return r.started ? { ok: 'Started the next task. This page updates by itself.' } : { error: r.problem ?? 'Could not start.' };
+}
+
+export async function pauseAutopilotAction(rawDomain: string, paused: boolean): Promise<AutopilotActionState> {
+  const { domain, by } = await guard(rawDomain);
+  await setAutopilotPaused(domain, paused, by === 'Client' ? 'you' : 'our team');
+  paths(domain);
+  return { ok: paused ? 'Paused. No changes go out until you resume.' : 'Resumed.' };
 }

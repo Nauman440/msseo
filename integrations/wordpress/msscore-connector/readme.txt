@@ -3,7 +3,7 @@ Contributors: morosoft
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: GPLv2 or later
 
 Lets MS SCORE apply SEO changes you have approved.
@@ -26,6 +26,9 @@ Only editors and administrators can use it, through an Application Password you 
 2. In MS SCORE, open Connections and press "Connect WordPress".
 
 == Changelog ==
+
+= 1.3.3 =
+* Bricks: headings are read and fixed in the order they appear on the page (the stored list is in another order), so the page's main H1 is the one kept and rewritten.
 
 = 1.3.2 =
 * New heading change: rewrite the words of the page's main H1 (Bricks, Elementor, blocks and classic content), with undo.

@@ -218,7 +218,9 @@ function msscore_content_h1s( $post ) {
 			$walk( $tree );
 		}
 	}
-	foreach ( msscore_bricks_elements( $post->ID ) as $el ) {
+	$bricks = msscore_bricks_elements( $post->ID );
+	foreach ( function_exists( 'msscore_bricks_page_order' ) ? msscore_bricks_page_order( $bricks ) : array_keys( $bricks ) as $bi ) {
+		$el  = $bricks[ $bi ];
 		$set = isset( $el['settings'] ) && is_array( $el['settings'] ) ? $el['settings'] : array();
 		$tag = isset( $set['tag'] ) ? strtolower( (string) $set['tag'] ) : ( isset( $el['name'] ) && 'heading' === $el['name'] ? 'h3' : '' );
 		if ( 'h1' === $tag && isset( $set['text'] ) ) {

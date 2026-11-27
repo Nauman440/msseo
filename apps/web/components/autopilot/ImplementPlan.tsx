@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import type { WorkItem } from '@seo/core';
+import type { ActionItem, WorkItem } from '@seo/core';
 import { Preparing } from '@/components/customer/Preparing';
 import type { AutopilotState } from '@/lib/autopilot-wp';
 import { AutopilotSchedule, resultText } from './AutopilotSchedule';
-import { ApproveButton, StartImplementingButton, UndoItemButton } from './forms';
+import { ApproveButton, PauseButton, RunNextTaskButton, StartImplementingButton, UndoItemButton } from './forms';
+import { ExecutionLog, TaskQueue } from './TaskQueue';
 
 /**
  * "Start implementing plan": makes this month's website changes through the WordPress plugin and
@@ -60,9 +61,12 @@ function Group({ title, list, domain, undo, open, approve }: { title: string; li
   );
 }
 
-export function ImplementPlan({ domain, state: s, blocker, running, connectHref, audience }: {
+export function ImplementPlan({ domain, state: s, blocker, running, connectHref, audience, actions = [], month = 1 }: {
   domain: string;
   state: AutopilotState;
+  /** The plan's tasks and this plan month, for the task queue. */
+  actions?: ActionItem[];
+  month?: number;
   blocker: string | null;
   running: boolean;
   connectHref: string;
@@ -78,10 +82,16 @@ export function ImplementPlan({ domain, state: s, blocker, running, connectHref,
         <div className="flex max-w-[640px] flex-col gap-1">
           <h2 id="implement-plan" className="font-display text-xl font-bold">Make this month’s changes on {audience === 'customer' ? 'your' : 'the'} website</h2>
           <p className="text-[14px] text-ink-2">
-            We prepare the exact changes from the plan, make them on the website one at a time, check each one on the live page, and undo the whole run if a page breaks. Text that is already right is left alone. Every change can be undone.
+            We take the plan’s tasks one by one in order, prepare each task’s exact changes, make them on the website one at a time, check each one on the live page, and undo the whole run if a page breaks. Text that is already right is left alone. Every change can be undone.
           </p>
         </div>
-        {!blocker && !busy && <StartImplementingButton domain={domain} label={s.items.length ? 'Run again' : 'Start implementing plan'} />}
+        {!blocker && !busy && (
+          <div className="flex flex-wrap items-start gap-2">
+            {s.status !== 'paused' || !s.pausedReason?.startsWith('Paused by') ? <StartImplementingButton domain={domain} label={s.items.length ? 'Run again' : 'Start implementing plan'} /> : null}
+            {s.status !== 'paused' || !s.pausedReason?.startsWith('Paused by') ? <RunNextTaskButton domain={domain} /> : null}
+            <PauseButton domain={domain} paused={s.status === 'paused'} />
+          </div>
+        )}
       </div>
       {blocker && (
         <p className="rounded-[12px] bg-sunken px-4 py-3 text-sm">
@@ -89,7 +99,9 @@ export function ImplementPlan({ domain, state: s, blocker, running, connectHref,
         </p>
       )}
       {busy && <Preparing what={`this month’s changes${s.step ? ` (${s.step.toLowerCase()})` : ''}`} />}
-      {s.status === 'paused' && s.pausedReason && <p role="alert" className="rounded-[12px] bg-fail-bg px-4 py-3 text-sm font-semibold text-fail-text">Stopped to keep your site safe: {s.pausedReason}</p>}
+      {s.status === 'paused' && s.pausedReason && (s.pausedReason.startsWith('Paused by')
+        ? <p role="status" className="rounded-[12px] bg-sunken px-4 py-3 text-sm font-semibold">{s.pausedReason} No changes go out until someone presses Resume.</p>
+        : <p role="alert" className="rounded-[12px] bg-fail-bg px-4 py-3 text-sm font-semibold text-fail-text">Stopped to keep your site safe: {s.pausedReason}</p>)}
       {s.error && <p role="alert" className="rounded-[12px] bg-fail-bg px-4 py-3 text-sm font-semibold text-fail-text">The last run did not finish: {s.error}</p>}
       {last && (
         <p className="text-[13px] text-ink-2">
@@ -97,6 +109,8 @@ export function ImplementPlan({ domain, state: s, blocker, running, connectHref,
         </p>
       )}
       {!blocker && <AutopilotSchedule domain={domain} state={s} audience={audience} />}
+      {actions.length > 0 && <TaskQueue actions={actions} month={month} state={s} busyStep={busy ? s.step : null} />}
+      <ExecutionLog state={s} />
       <div className="flex flex-col gap-3">
         <Group title="Changed on the website" list={made.filter((i) => i.status !== 'rolled_back')} domain={domain} undo open />
         <Group title="Needs a person" list={is('needs_human', 'failed')} domain={domain} open />
