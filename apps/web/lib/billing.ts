@@ -12,11 +12,20 @@ import { getAccountBySubscription, getAccountByUserId, PLANS, updateAccount, typ
  * checks the session and finishes onboarding. /api/stripe/webhook keeps status, plan and trial
  * end in step with Stripe afterwards (card failures, cancellations in the portal, trial ends).
  */
-export const stripeEnabled = () => Boolean(process.env.STRIPE_SECRET_KEY?.trim());
-export const stripeTestMode = () => /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY?.trim() ?? '');
+/** An env value without stray spaces or quotes (Coolify keeps quotes typed around a value). */
+const envKey = (...names: string[]) => {
+  for (const n of names) {
+    const v = process.env[n]?.trim().replace(/^['"]|['"]$/g, '').trim();
+    if (v) return v;
+  }
+  return '';
+};
+const secretKey = () => envKey('STRIPE_SECRET_KEY');
+export const stripeEnabled = () => Boolean(secretKey());
+export const stripeTestMode = () => /^(sk|rk)_test_/.test(secretKey());
 
 const client = () => {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const key = secretKey();
   if (!key) throw new Error('Stripe is not set up on this server.');
   return createStripeClient(key);
 };
@@ -99,7 +108,23 @@ export async function syncSubscription(subscriptionId: string): Promise<boolean>
 }
 
 /** The publishable key for the card field (pk_test_… / pk_live_…), or null. */
-export const stripePublishableKey = () => (stripeEnabled() && /^pk_(test|live)_/.test(process.env.STRIPE_PUBLISHABLE_KEY?.trim() ?? '') ? process.env.STRIPE_PUBLISHABLE_KEY!.trim() : null);
+export const stripePublishableKey = () => {
+  const pk = envKey('STRIPE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+  return stripeEnabled() && /^pk_(test|live)_/.test(pk) ? pk : null;
+};
+
+/** What the server sees, for /api/health (never the values): why the card field shows or not. */
+export function billingSetup(): { billing: string; mode?: 'test' | 'live' } {
+  const sk = secretKey();
+  const pk = envKey('STRIPE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+  if (!sk) return { billing: pk ? 'not configured: STRIPE_SECRET_KEY is missing' : 'not configured' };
+  const mode = /^(sk|rk)_live_/.test(sk) ? 'live' : 'test';
+  if (!/^(sk|rk)_(test|live)_/.test(sk)) return { billing: 'STRIPE_SECRET_KEY does not start with sk_test_ or sk_live_', mode };
+  if (!pk) return { billing: 'checkout only: STRIPE_PUBLISHABLE_KEY is missing, so no card field', mode };
+  if (!/^pk_(test|live)_/.test(pk)) return { billing: 'checkout only: STRIPE_PUBLISHABLE_KEY does not start with pk_test_ or pk_live_', mode };
+  if (pk.startsWith('pk_live_') !== (mode === 'live')) return { billing: 'card field on, but the two keys are from different modes (test and live)', mode };
+  return { billing: 'card field on', mode };
+}
 
 /** The card is saved with Stripe (trial, active or past due with a card on file). */
 export const cardOnFile = (a: Pick<Account, 'billingStatus'>) => liveSubscription(a);
