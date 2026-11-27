@@ -21,6 +21,10 @@ export type StripeSubscription = {
   cancel_at_period_end: boolean;
   trial_end: number | null;
   metadata: Record<string, string>;
+  /** Set once a card is saved (Payment Element setup, or Checkout). */
+  default_payment_method: string | null;
+  /** The card setup still to confirm for a trial without a card; expanded when asked for. */
+  pending_setup_intent: string | { id: string; client_secret: string; status: string } | null;
   items: { data: { id: string; price: { id: string; lookup_key: string | null }; current_period_end?: number }[] };
 };
 
@@ -117,6 +121,28 @@ export function createStripeClient(secretKey: string, log?: HttpLog) {
         cancel_url: p.cancelUrl,
       });
     },
+    createCustomer: (p: { email?: string | null; name?: string | null; userId: string }) =>
+      call<{ id: string }>('POST', '/v1/customers', { ...(p.email ? { email: p.email } : {}), ...(p.name ? { name: p.name } : {}), metadata: { userId: p.userId } }),
+    /**
+     * A trial subscription that still needs a card (Payment Element, deferred intent): the card is
+     * confirmed in the browser with the returned `pending_setup_intent.client_secret`, then saved
+     * as the subscription's default, so Stripe charges it when the trial ends.
+     */
+    createTrialSubscription: (p: { customer: string; price: string; trialDays: number; userId: string; metadata?: Record<string, string> }) =>
+      call<StripeSubscription>('POST', '/v1/subscriptions', {
+        customer: p.customer,
+        items: [{ price: p.price }],
+        trial_period_days: p.trialDays,
+        trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
+        payment_behavior: 'default_incomplete',
+        payment_settings: { save_default_payment_method: 'on_subscription', payment_method_types: ['card'] },
+        metadata: { userId: p.userId, ...p.metadata },
+        expand: ['pending_setup_intent'],
+      }),
+    getSubscriptionWithSetup: (id: string) => call<StripeSubscription>('GET', `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ['pending_setup_intent'] }),
+    getSetupIntent: (id: string) => call<{ id: string; status: string; payment_method: string | null; customer: string | null }>('GET', `/v1/setup_intents/${encodeURIComponent(id)}`),
+    setDefaultCard: (subscriptionId: string, paymentMethod: string) =>
+      call<StripeSubscription>('POST', `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, { default_payment_method: paymentMethod }),
     getCheckout: (id: string) => call<StripeCheckoutSession>('GET', `/v1/checkout/sessions/${encodeURIComponent(id)}`),
     getSubscription: (id: string) => call<StripeSubscription>('GET', `/v1/subscriptions/${encodeURIComponent(id)}`),
     /** Moves the subscription's single item to another price (no proration during a trial). */

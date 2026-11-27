@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Icon } from '@/components/landing/icons';
 import { SignupShell, StepHeading } from '@/components/signup/SignupShell';
 import { StepForm } from '@/components/signup/StepForm';
-import { TRIAL_DAYS } from '@/lib/accounts';
-import { stripeEnabled, stripeTestMode } from '@/lib/billing';
+import { PLANS, TRIAL_DAYS } from '@/lib/accounts';
+import { cardOnFile, stripeEnabled, stripePublishableKey, stripeTestMode } from '@/lib/billing';
+import { SaveCardForm } from '@/components/signup/CardForms';
 import { freeAuditSummary, requireOnboardingStep, stepPath } from '@/lib/signup';
 import { finishSignupAction } from '../actions';
 
@@ -24,12 +25,16 @@ export default async function ConnectPage({ searchParams }: Props) {
   const { payment } = await searchParams;
   const { account } = await requireOnboardingStep(5);
   const audit = await freeAuditSummary(account.sourceAuditId);
-  const billing = stripeEnabled();
+  const cardField = stripePublishableKey();
+  const needsCard = Boolean(cardField) && !cardOnFile(account);
+  // Without the card field (no publishable key), Stripe Checkout takes the card after this step.
+  const billing = stripeEnabled() && !cardField && !cardOnFile(account);
   return (
     <SignupShell step={5} plan={account.plan} audit={audit} signedIn>
       <StepHeading step={5} title="Last step: connect and approve" intro="Tick what you can give us access to. Nothing is connected today. We will set it up with you." />
       {payment === 'cancelled' && <p role="status" className="mb-4 rounded-tile bg-sunken px-4 py-3 text-sm">No card was added, so your trial has not started yet. Your answers are saved: press the button again when you are ready.</p>}
       {payment === 'failed' && <p role="alert" className="mb-4 rounded-tile bg-fail-bg px-4 py-3 text-sm font-semibold text-fail-text">We could not confirm your payment details. Please try again, or contact us if it keeps happening.</p>}
+      {needsCard && cardField && <div className="mb-6"><SaveCardForm publishableKey={cardField} trialDays={TRIAL_DAYS} price={`${PLANS[account.plan].price}${PLANS[account.plan].unit}`} testMode={stripeTestMode()} /></div>}
       <StepForm action={finishSignupAction} submit={billing ? 'Continue to secure payment' : 'Finish setup'} backHref={stepPath(4)}>
         <fieldset>
           <legend className="sr-only">What you can give us access to</legend>
