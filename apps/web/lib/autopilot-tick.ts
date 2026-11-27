@@ -51,7 +51,10 @@ async function laterCheck(s: AutopilotState): Promise<AutopilotState> {
   if (!run || run.laterCheck || !run.applied || run.rolledBack || Date.now() - Date.parse(run.finishedAt) < HOUR) return s;
   const home = Object.keys(run.baselineWords ?? {})[0];
   const urls = [...new Set([home, ...(run.changedPages ?? [])].filter((u): u is string => Boolean(u)))];
-  const problems = await laterHealthCheck(urls, new Map(Object.entries(run.baselineWords ?? {})), { fetchPage }).catch(() => [] as string[]);
+  const found = await laterHealthCheck(urls, new Map(Object.entries(run.baselineWords ?? {})), { fetchPage }).catch(() => null);
+  // The site did not answer at all: not our change; check again on a later tick (up to a day after the run).
+  if (found === null) return Date.now() - Date.parse(run.finishedAt) < 24 * HOUR ? s : { ...s, runs: [{ ...run, laterCheck: { at: new Date().toISOString(), ok: true, problems: ['The website did not answer the later check.'] } }, ...s.runs.slice(1)] };
+  const problems = found;
   let items = s.items;
   if (problems.length) {
     const inRun = items.filter((i) => i.appliedAt && i.appliedAt >= run.startedAt && i.appliedAt <= run.finishedAt && ['applied', 'verified'].includes(i.status));

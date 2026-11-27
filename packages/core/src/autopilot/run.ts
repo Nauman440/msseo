@@ -50,9 +50,13 @@ export type RunSummary = {
   laterCheck?: { at: string; ok: boolean; problems: string[] } | null;
 };
 
-/** The post-run check: the homepage and the changed pages, an hour or more after the run. */
-export async function laterHealthCheck(urls: string[], baselineWords: Map<string, number>, deps: Pick<RunDeps, 'fetchPage'>): Promise<string[]> {
+/**
+ * The post-run check: the homepage and the changed pages, an hour or more after the run.
+ * null = no page could be seen (no answer, blocked, rate-limited or in maintenance): not our change, check again later.
+ */
+export async function laterHealthCheck(urls: string[], baselineWords: Map<string, number>, deps: Pick<RunDeps, 'fetchPage' | 'wait'>): Promise<string[] | null> {
   const now = await health(urls, deps);
+  if (now.length && now.every(unseen)) return null;
   return now.flatMap((h) => {
     if (!h.ok) return [`${h.url} stopped answering`];
     if (!h.title) return [`${h.url} has no title`];
@@ -95,6 +99,10 @@ export function visibleIn(item: WorkItem, html: string): boolean | null {
       return v && typeof v === 'object' ? h.includes(`data-msscore-link="${String(v.link_id)}"`) : null;
     case 'heading_fix':
       if (v && typeof v === 'object' && v.action === 'demote_extra_h1') return (h.match(/<h1\b/gi) ?? []).length <= 1;
+      if (v && typeof v === 'object' && v.action === 'swap_h1') {
+        const h1s = [...h.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)].map((m) => plain(m[1]!.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim().toLowerCase());
+        return h1s.length === 1 && h1s[0] === String(v.title).replace(/\s+/g, ' ').trim().toLowerCase();
+      }
       if (v && typeof v === 'object' && v.action === 'set_h1_text') return (h.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '').replace(/<[^>]+>/g, '').trim() === plain(esc(String(v.text))).replace(/&amp;/g, '&');
       return null;
     case 'sitemap':
@@ -130,17 +138,29 @@ export function applyOrder(items: WorkItem[], requireApproval = false, order?: s
 
 const change = (i: WorkItem, id = pluginId(i)): WpChange => ({ change_id: id, type: i.type as WpChangeType, target: i.target ?? { site: true }, new_value: i.newValue, label: i.label.slice(0, 160) });
 
-type Health = { url: string; ok: boolean; title: boolean; words: number };
-async function health(urls: string[], deps: Pick<RunDeps, 'fetchPage'>): Promise<Health[]> {
+type Health = { url: string; ok: boolean; title: boolean; words: number; status: number };
+/** No answer, or an answer that means blocked, rate-limited or in maintenance: the check could not see the page. */
+const unseen = (h: Health) => !h.ok && (h.status === 0 || h.status === 403 || h.status === 429 || h.status === 503);
+async function healthOnce(url: string, deps: Pick<RunDeps, 'fetchPage'>): Promise<Health> {
+  try {
+    const r = await deps.fetchPage(url);
+    const body = r.html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ');
+    return { url, ok: r.status === 200, title: /<title[^>]*>[^<]+<\/title>/i.test(r.html), words: body.split(/\s+/).filter(Boolean).length, status: r.status };
+  } catch {
+    return { url, ok: false, title: false, words: 0, status: 0 };
+  }
+}
+/** Each page, fetched again up to twice when it does not answer or has no title (a firewall or a slow server is not a broken page). */
+async function health(urls: string[], deps: Pick<RunDeps, 'fetchPage' | 'wait'>): Promise<Health[]> {
+  const wait = deps.wait ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const out: Health[] = [];
   for (const url of urls) {
-    try {
-      const r = await deps.fetchPage(url);
-      const body = r.html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ');
-      out.push({ url, ok: r.status === 200, title: /<title[^>]*>[^<]+<\/title>/i.test(r.html), words: body.split(/\s+/).filter(Boolean).length });
-    } catch {
-      out.push({ url, ok: false, title: false, words: 0 });
+    let h = await healthOnce(url, deps);
+    for (let i = 0; i < 2 && (!h.ok || !h.title); i++) {
+      await wait(5000 * (i + 1));
+      h = await healthOnce(url, deps);
     }
+    out.push(h);
   }
   return out;
 }
@@ -267,7 +287,11 @@ export async function runWorkItems(items: WorkItem[], deps: RunDeps, opts: { key
     }
   }
 
-  const bad = appliedNow.length ? broken(baseline, await health(keyPages, deps)) : [];
+  const after = appliedNow.length ? await health(keyPages, deps) : [];
+  // No page answers at all: the site or the network is down, not a page our change broke.
+  const unreachable = after.length > 0 && after.every(unseen) && baseline.some((h) => h.ok);
+  const bad = appliedNow.length && !unreachable ? broken(baseline, after) : [];
+  if (unreachable) run.problems.push('The website did not answer the check after the run; it is checked again an hour later.');
   run.changedPages = [...new Set(appliedNow.map((i) => i.url).filter((u): u is string => Boolean(u)))].slice(0, 5);
   if (bad.length) {
     run.problems.push(...bad);

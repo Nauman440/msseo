@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOrder, runWorkItems, visibleIn, type WorkItem, type WpApplyResult, type WpChange, type WpRollbackResult } from '../src';
+import { applyOrder, laterHealthCheck, runWorkItems, visibleIn, type WorkItem, type WpApplyResult, type WpChange, type WpRollbackResult } from '../src';
 
 const site = 'https://shop.test';
 const item = (id: string, o: Partial<WorkItem> = {}): WorkItem => ({
@@ -68,6 +68,17 @@ describe('runWorkItems', () => {
     const r = await runWorkItems(['a', 'b', 'c', 'd'].map((x) => item(x)), { ...s, wait: async () => undefined }, { keyPages: [], firstRun: false });
     expect(r.run).toMatchObject({ failed: 3, paused: true });
     expect(s.log).not.toContain('apply d');
+  });
+
+  it('does not undo a run when the website cannot be seen after it (firewall, timeout)', async () => {
+    const s = fakeSite();
+    let calls = 0;
+    const blocked = { ...s, fetchPage: async () => (++calls > 1 ? { status: 403, html: '', location: null } : s.fetchPage()), wait: async () => undefined };
+    const r = await runWorkItems([item('x')], blocked, { keyPages: [`${site}/`], firstRun: false });
+    expect(r.run).toMatchObject({ rolledBack: false, paused: false });
+    expect(r.run.problems.join(' ')).toMatch(/did not answer the check/);
+    expect(await laterHealthCheck([`${site}/`], new Map(), { fetchPage: async () => ({ status: 403, html: '', location: null }), wait: async () => undefined })).toBeNull();
+    expect(await laterHealthCheck([`${site}/`], new Map(), { fetchPage: async () => ({ status: 500, html: '', location: null }), wait: async () => undefined })).toEqual([`${site}/ stopped answering`]);
   });
 
   it('undoes the whole run when a key page breaks', async () => {

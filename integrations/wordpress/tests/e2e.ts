@@ -30,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version === '1.4.0' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
+  ok(status.version === '1.4.1' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -137,6 +137,21 @@ async function main() {
   await wp.rollback(dem.change_id!);
   ok(tags().main?.[0] === 'h1' && tags().sub?.[0] === 'h1' && tags().main?.[1] === 'Main heading', 'bricks: undo puts both back', JSON.stringify(tags()));
 
+  // The live site's case: the hero title is an H2 heading and the line under it a Basic Text set to H1.
+  const heroId = Number(wpOption(`$id = wp_insert_post(array('post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Hero swap')); update_post_meta($id, '_bricks_editor_mode', 'bricks'); update_post_meta($id, '_bricks_page_content_2', array(array('id' => 'sub', 'name' => 'text-basic', 'parent' => 'hero', 'children' => array(), 'settings' => array('tag' => 'h1', 'text' => 'Intelligence-Led Maritime Risk Management &amp; Shipping Operations', '_cssClasses' => 'home-hero__sub')), array('id' => 'hero', 'name' => 'section', 'parent' => 0, 'children' => array('ttl', 'sub'), 'settings' => array()), array('id' => 'ttl', 'name' => 'heading', 'parent' => 'hero', 'children' => array(), 'settings' => array('tag' => 'h2', 'text' => 'SRM Risk Management FZCO Awais')))); echo $id;`).trim());
+  const heroTags = () => JSON.parse(wpOption(`$e = get_post_meta(${heroId}, '_bricks_page_content_2', true); $o = array(); foreach ($e as $x) { if (isset($x['settings']['tag'])) $o[$x['id']] = $x['settings']['tag']; } echo wp_json_encode($o);`)) as Record<string, string>;
+  const swap = await wp.apply({ change_id: cid('bricks-swap'), type: 'heading_fix', target: { post_id: heroId }, new_value: { action: 'swap_h1', title: 'SRM Risk Management FZCO Awais' } } as WpChange);
+  ok(swap.status === 'applied' && heroTags().ttl === 'h1' && heroTags().sub === 'h2', 'bricks swap: the H2 title becomes the H1, the Basic Text H1 under it an H2', JSON.stringify(heroTags()));
+  ok((await wp.rollback(swap.change_id!)).status === 'rolled_back' && heroTags().ttl === 'h2' && heroTags().sub === 'h1', 'bricks swap: undo puts both back', JSON.stringify(heroTags()));
+  const swapMiss = await wp.apply({ change_id: cid('bricks-swap-miss'), type: 'heading_fix', target: { post_id: heroId }, new_value: { action: 'swap_h1', title: 'Not on the page' } } as WpChange);
+  ok(swapMiss.status === 'needs_human' && heroTags().sub === 'h1', 'bricks swap: a title that is not in the content goes to a person', swapMiss.status);
+  const gbId = Number(wpOption(`echo wp_insert_post(array('post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Swap blocks', 'post_content' => "<!-- wp:heading -->\\n<h2 class=\\"wp-block-heading\\">Dog beds made in Leeds</h2>\\n<!-- /wp:heading -->\\n\\n<!-- wp:heading {\\"level\\":1} -->\\n<h1 class=\\"wp-block-heading\\">Handmade for older dogs</h1>\\n<!-- /wp:heading -->"));`).trim());
+  const gbSwap = await wp.apply({ change_id: cid('gb-swap'), type: 'heading_fix', target: { post_id: gbId }, new_value: { action: 'swap_h1', title: 'Dog beds made in Leeds' } } as WpChange);
+  const gbHtml = await (await fetch(`${site}/?page_id=${gbId}&c=${Date.now()}`)).text();
+  const gbRaw = wpOption(`echo get_post_field('post_content', ${gbId});`);
+  ok(gbSwap.status === 'applied' && /<h1[^>]*>Dog beds made in Leeds<\/h1>/.test(gbHtml) && /<h2[^>]*>Handmade for older dogs<\/h2>/.test(gbHtml) && gbRaw.includes('wp:heading {"level":1}') && !/wp:heading \{"level":1\} -->\s*<h2/.test(gbRaw), 'gutenberg swap: tags and block levels follow', gbRaw.slice(0, 300));
+  ok((await wp.rollback(gbSwap.change_id!)).status === 'rolled_back' && /<h1[^>]*>Handmade for older dogs<\/h1>/.test(await (await fetch(`${site}/?page_id=${gbId}&c=${Date.now()}`)).text()), 'gutenberg swap: undo puts both back');
+
   // Sections on builder pages: Bricks gets section > container > text bAfter the H1's section, styled like its neighbour.
   wpOption(`$e = get_post_meta(${bricksId}, '_bricks_page_content_2', true); $e[] = array('id' => 'sec2', 'name' => 'section', 'parent' => 0, 'children' => array('box2'), 'settings' => array('_cssGlobalClasses' => array('g-section'))); $e[] = array('id' => 'box2', 'name' => 'container', 'parent' => 'sec2', 'children' => array(), 'settings' => array('_cssGlobalClasses' => array('g-box'))); update_post_meta(${bricksId}, '_bricks_page_content_2', $e);`);
   const bricks = () => JSON.parse(wpOption(`echo wp_json_encode(array_values(get_post_meta(${bricksId}, '_bricks_page_content_2', true)));`)) as { id: string; name: string; parent: string | number; label?: string; settings: Record<string, unknown> }[];
@@ -166,6 +181,11 @@ async function main() {
   const t2 = tree();
   ok(el.status === 'applied' && t2.length === 3 && String(t2[1]?.settings._css_classes).includes('msscore-block-answer-1') && t2[1]?.elements[0]?.widgetType === 'text-editor' && String(t2[1]?.elements[0]?.settings.editor).includes('We plan safe voyages'), 'elementor section: container + text editor after the H1 container', JSON.stringify(t2.map((n) => n.id)));
   ok((await wp.rollback(el.change_id!)).status === 'rolled_back' && JSON.stringify(tree()) === elBefore, 'elementor section: undo leaves the page exactly as before');
+  const elTwo = Number(wpOption(`$id = wp_insert_post(array('post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Elementor swap')); update_post_meta($id, '_elementor_edit_mode', 'builder'); update_post_meta($id, '_elementor_data', wp_slash(wp_json_encode(array(array('id' => 'c1', 'elType' => 'container', 'settings' => array(), 'elements' => array(array('id' => 't2', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => array('title' => 'Hero title', 'header_size' => 'h2'), 'elements' => array()), array('id' => 's1', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => array('title' => 'Hero subtitle', 'header_size' => 'h1'), 'elements' => array())), 'isInner' => false))))); echo $id;`).trim());
+  const sizes = () => Object.fromEntries((JSON.parse(wpOption(`echo get_post_meta(${elTwo}, '_elementor_data', true);`))[0].elements as { id: string; settings: { header_size: string } }[]).map((w) => [w.id, w.settings.header_size]));
+  const elSwap = await wp.apply({ change_id: cid('el-swap'), type: 'heading_fix', target: { post_id: elTwo }, new_value: { action: 'swap_h1', title: 'Hero title' } } as WpChange);
+  ok(elSwap.status === 'applied' && sizes().t2 === 'h1' && sizes().s1 === 'h2' && !wpOption(`echo get_post_meta(${elTwo}, '_elementor_data', true);`).includes('msscore_keep'), 'elementor swap: title widget H1, subtitle H2', JSON.stringify(sizes()));
+  ok((await wp.rollback(elSwap.change_id!)).status === 'rolled_back' && sizes().t2 === 'h2' && sizes().s1 === 'h1', 'elementor swap: undo puts both back', JSON.stringify(sizes()));
 
   // New page: a draft made of real blocks, refused when the address exists, binned on undo.
   const np = await wp.apply({ change_id: cid('page'), type: 'create_page' as WpChange['type'], target: { site: true }, new_value: { title: 'Voyage Risk Assessment', slug: 'voyage-risk-assessment', html: '<h2>What we check</h2><p>Routes, ports and cargo.</p><ul><li>Routes</li><li>Ports</li></ul>', meta_title: 'Voyage Risk Assessment for Shipping Companies | Test Shop', meta_description: 'Voyage risk assessment for shipping companies: routes, ports and cargo checked before you sail. Ask us for an assessment today.' } } as WpChange);
