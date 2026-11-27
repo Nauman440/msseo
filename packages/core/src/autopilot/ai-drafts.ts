@@ -79,7 +79,7 @@ export async function draftBlock(ai: OpenAiClient, p: { kind: 'answer' | 'faq'; 
       `You write short, factual page blocks for ${profile.name}. Use ONLY facts in the page text or the profile; never invent numbers, prices, years, certifications or results. ` +
       'No guarantees, medical or legal claims, no competitor names, plain English. ' +
       (p.kind === 'answer'
-        ? 'Write "answer": a direct answer of 40–60 words to the question the page answers (what the business does here, for whom, where). Return faq as [].'
+        ? 'Write "answer": a direct answer of 40–80 words (about 50 is best) to the question the page answers (what the business does here, for whom, where). Return faq as [].'
         : 'Write "faq": 3–5 questions customers ask about this page\'s topic, each answered in 1–3 sentences from the page text. Return answer as "".') +
       (p.problems.length ? ` Fix these problems of your earlier draft: ${p.problems.join('; ')}.` : '') +
       (profile.bannedWords.length ? ` Never use: ${profile.bannedWords.join(', ')}.` : ''),
