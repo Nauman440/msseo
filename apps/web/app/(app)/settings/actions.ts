@@ -159,3 +159,23 @@ export async function updateCustomerAction(_prev: ActionState, form: FormData): 
   revalidatePath('/settings/customers');
   return { ok: 'Saved.' };
 }
+
+/**
+ * Admin: delete everything stored for one website (fresh start for testing), optionally undoing
+ * every change MS SCORE made on the website first. The domain must be typed twice.
+ */
+export async function deleteSiteDataAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const { normDomain } = await import('@seo/core');
+  const raw = String(form.get('domain') ?? '').trim();
+  const domain = normDomain(raw.replace(/^https?:\/\//i, '').split('/')[0] ?? '');
+  if (!domain || !domain.includes('.')) return { error: 'Enter the website address, for example example.com.' };
+  if (normDomain(String(form.get('confirm') ?? '').trim()) !== domain) return { error: `Type ${domain} again in the second box to confirm.` };
+  const { deleteSiteData } = await import('@/lib/site-reset');
+  const r = await deleteSiteData(domain, { undoWebsite: form.get('undo') === 'on' });
+  revalidatePath('/', 'layout');
+  const website = r.undone === null
+    ? r.undoProblem ? ` The website itself was not changed back: ${r.undoProblem}` : ''
+    : ` On the website, ${r.undone} change${r.undone === 1 ? ' was' : 's were'} undone${r.notUndone.length ? `; ${r.notUndone.length} could not be (the page was edited since), see MS SCORE Autopilot in WordPress` : ''}.`;
+  return { ok: r.deleted.length ? `Deleted everything stored for ${domain}: ${r.deleted.join(', ')}.${website}` : `Nothing was stored for ${domain}.${website}` };
+}

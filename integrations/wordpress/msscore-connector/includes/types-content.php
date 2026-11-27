@@ -573,7 +573,8 @@ function msscore_faq_html( $faq ) {
 /**
  * content_block: { block_id, kind: answer|faq|table|section, html?, faq?, position }.
  * Inserts the block at `position` (start, after_h1, after_first_paragraph, end) or replaces the
- * block with the same id. Only Gutenberg and Classic content; builder pages need a person.
+ * block with the same id. Gutenberg and Classic content get marked HTML; Bricks and Elementor pages
+ * get the builder's own elements (types-builder.php); other builders need a person.
  *
  * @param array $t   Target (post).
  * @param array $new Block.
@@ -589,7 +590,7 @@ function msscore_apply_content_block( $t, $new ) {
 	if ( '' === $block_id ) {
 		return new WP_Error( 'bad_request', 'content_block needs a block_id.', array( 'status' => 400 ) );
 	}
-	if ( ! in_array( $builder, array( 'gutenberg', 'classic' ), true ) ) {
+	if ( ! in_array( $builder, array( 'gutenberg', 'classic', 'bricks', 'elementor' ), true ) ) {
 		return new WP_Error( 'needs_human', 'This page is built with ' . $builder . '; add this section in the page builder.' );
 	}
 	$kind = isset( $new['kind'] ) ? sanitize_key( (string) $new['kind'] ) : 'section';
@@ -610,6 +611,26 @@ function msscore_apply_content_block( $t, $new ) {
 	$html = 'faq' === $kind && empty( $new['html'] ) ? msscore_faq_html( $faq ) : wp_kses_post( isset( $new['html'] ) ? (string) $new['html'] : '' );
 	if ( '' === trim( $html ) ) {
 		return new WP_Error( 'bad_request', 'The block is empty.', array( 'status' => 400 ) );
+	}
+	if ( 'bricks' === $builder || 'elementor' === $builder ) {
+		$pos = isset( $new['position'] ) ? (string) $new['position'] : 'end';
+		$rec = msscore_builder_apply_block( $id, $builder, $block_id, '<div class="msscore-block-body">' . $html . '</div>', $pos );
+		$all = get_post_meta( $id, '_msscore_faq', true );
+		$all = is_array( $all ) ? $all : array();
+		$rec['faq'] = isset( $all[ $block_id ] ) ? $all[ $block_id ] : null;
+		if ( $faq ) {
+			$all[ $block_id ] = $faq;
+			update_post_meta( $id, '_msscore_faq', $all );
+		}
+		return array(
+			'before' => $rec,
+			'after'  => array(
+				'block_id' => $block_id,
+				'kind'     => $kind,
+				'builder'  => $builder,
+				'hash'     => msscore_snapshot_hash( msscore_snapshot( $id ) ),
+			),
+		);
 	}
 	$inner   = '<!-- msscore:block id=' . $block_id . ' -->' . $html . '<!-- /msscore:block id=' . $block_id . ' -->';
 	$block   = ( 'gutenberg' === $builder ? "<!-- wp:html -->\n" . $inner . "\n<!-- /wp:html -->" : $inner ) . "\n\n";
@@ -668,6 +689,20 @@ function msscore_apply_content_block( $t, $new ) {
 function msscore_rollback_content_block( $t, $before, $after ) {
 	$id       = $t['id'];
 	$block_id = (string) $after['block_id'];
+	if ( isset( $after['builder'] ) && in_array( $after['builder'], array( 'bricks', 'elementor' ), true ) ) {
+		$r = msscore_builder_rollback_block( $id, $after['builder'], $block_id, $before, $after );
+		if ( true === $r ) {
+			$all = get_post_meta( $id, '_msscore_faq', true );
+			$all = is_array( $all ) ? $all : array();
+			if ( empty( $before['faq'] ) ) {
+				unset( $all[ $block_id ] );
+			} else {
+				$all[ $block_id ] = $before['faq'];
+			}
+			update_post_meta( $id, '_msscore_faq', $all );
+		}
+		return $r;
+	}
 	$pattern  = msscore_block_pattern( $block_id );
 	$content  = (string) get_post_field( 'post_content', $id, 'raw' );
 	$old      = preg_match( $pattern, (string) $before['snapshot']['post_content'], $m ) ? $m[0] : '';

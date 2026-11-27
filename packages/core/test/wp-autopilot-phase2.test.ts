@@ -52,7 +52,7 @@ describe('apply and rollback answers from plugin 1.2.0', () => {
   it('knows the 1.2.0 change types', () => {
     expect(pluginSupportsApply('1.1.0')).toBe(false);
     expect(pluginSupportsApply('1.2.0')).toBe(true);
-    expect(WP_CHANGE_TYPES).toHaveLength(14);
+    expect(WP_CHANGE_TYPES).toHaveLength(15); // 14 from 1.2.0 + create_page (1.4.0)
   });
 });
 

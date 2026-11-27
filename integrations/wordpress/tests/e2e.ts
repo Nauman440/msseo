@@ -30,7 +30,7 @@ async function main() {
   }
   const wp = createWordPressClient({ siteUrl: site, user: 'admin', password: pw, signingKey: key });
   const status = await wp.status();
-  ok(status.version === '1.3.3' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
+  ok(status.version === '1.4.0' && status.signed && status.paused === false, 'signed status 1.3.0', status.seo_backend as string);
 
   async function roundTrip(name: string, change: Omit<WpChange, 'change_id'>, path: string, seen: (h: string) => boolean, gone: (h: string) => boolean) {
     const c = { ...change, change_id: cid(change.type) } as WpChange;
@@ -136,6 +136,51 @@ async function main() {
   await wp.rollback(words.change_id!);
   await wp.rollback(dem.change_id!);
   ok(tags().main?.[0] === 'h1' && tags().sub?.[0] === 'h1' && tags().main?.[1] === 'Main heading', 'bricks: undo puts both back', JSON.stringify(tags()));
+
+  // Sections on builder pages: Bricks gets section > container > text bAfter the H1's section, styled like its neighbour.
+  wpOption(`$e = get_post_meta(${bricksId}, '_bricks_page_content_2', true); $e[] = array('id' => 'sec2', 'name' => 'section', 'parent' => 0, 'children' => array('box2'), 'settings' => array('_cssGlobalClasses' => array('g-section'))); $e[] = array('id' => 'box2', 'name' => 'container', 'parent' => 'sec2', 'children' => array(), 'settings' => array('_cssGlobalClasses' => array('g-box'))); update_post_meta(${bricksId}, '_bricks_page_content_2', $e);`);
+  const bricks = () => JSON.parse(wpOption(`echo wp_json_encode(array_values(get_post_meta(${bricksId}, '_bricks_page_content_2', true)));`)) as { id: string; name: string; parent: string | number; label?: string; settings: Record<string, unknown> }[];
+  const bBefore = bricks();
+  const sec = await wp.apply({ change_id: cid('bricks-block'), type: 'content_block', target: { post_id: bricksId }, new_value: { block_id: 'testimonials', kind: 'section', position: 'after_h1', html: '<h2>What clients say</h2><p>Real words from a real client.</p>' } } as WpChange);
+  const bAfter = bricks();
+  const tops = bAfter.filter((e) => !e.parent || e.parent === 0 || e.parent === '0').map((e) => e.label ?? e.id);
+  const text = bAfter.find((e) => e.name === 'text' && e.label === 'msscore-block-testimonials');
+  const mine = bAfter.find((e) => e.name === 'section' && e.label === 'msscore-block-testimonials');
+  ok(sec.status === 'applied' && JSON.stringify(tops) === JSON.stringify(['sec', 'msscore-block-testimonials', 'sec2']) && String(text?.settings.text).includes('What clients say'), 'bricks section: inserted after the H1 section as Bricks elements', JSON.stringify(tops));
+  ok(JSON.stringify(mine?.settings._cssGlobalClasses) === JSON.stringify(['g-section']), 'bricks section: copies the design classes of the next section', JSON.stringify(mine?.settings));
+  const again = await wp.apply({ change_id: cid('bricks-block2'), type: 'content_block', target: { post_id: bricksId }, new_value: { block_id: 'testimonials', kind: 'section', position: 'after_h1', html: '<p>Replaced text.</p>' } } as WpChange);
+  ok(again.status === 'applied' && bricks().filter((e) => e.label === 'msscore-block-testimonials').length === 3 && JSON.stringify(bricks()).includes('Replaced text'), 'bricks section: the same block id replaces, never doubles');
+  await wp.rollback(again.change_id!);
+  await wp.rollback(sec.change_id!);
+  ok(JSON.stringify(bricks()) === JSON.stringify(bBefore), 'bricks section: undo leaves the page exactly as before');
+  // Someone edits the page bAfter our section: undo still removes only our elements.
+  const sec3 = await wp.apply({ change_id: cid('bricks-block3'), type: 'content_block', target: { post_id: bricksId }, new_value: { block_id: 'faq', kind: 'faq', position: 'end', faq: [{ q: 'Do you cover the Red Sea?', a: 'Yes, voyage risk support covers the Red Sea.' }] } } as WpChange);
+  wpOption(`$e = get_post_meta(${bricksId}, '_bricks_page_content_2', true); $e[] = array('id' => 'late', 'name' => 'section', 'parent' => 0, 'children' => array(), 'settings' => array()); update_post_meta(${bricksId}, '_bricks_page_content_2', $e);`);
+  ok(sec3.status === 'applied' && (await wp.rollback(sec3.change_id!)).status === 'rolled_back' && !JSON.stringify(bricks()).includes('msscore-block') && bricks().some((e) => e.id === 'late'), 'bricks section: undo after a later edit removes only our elements');
+
+  // Elementor: a container with a Text Editor widget after the H1's container.
+  const elId = Number(wpOption(`$id = wp_insert_post(array('post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Elementor test')); update_post_meta($id, '_elementor_edit_mode', 'builder'); update_post_meta($id, '_elementor_data', wp_slash(wp_json_encode(array(array('id' => 'a1', 'elType' => 'container', 'settings' => array(), 'elements' => array(array('id' => 'h1w', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => array('title' => 'Hero', 'header_size' => 'h1'), 'elements' => array())), 'isInner' => false), array('id' => 'b1', 'elType' => 'container', 'settings' => array(), 'elements' => array(), 'isInner' => false))))); echo $id;`).trim());
+  const tree = () => JSON.parse(wpOption(`echo get_post_meta(${elId}, '_elementor_data', true);`)) as { id: string; elType: string; settings: Record<string, unknown>; elements: { widgetType?: string; settings: Record<string, unknown> }[] }[];
+  const elBefore = JSON.stringify(tree());
+  const el = await wp.apply({ change_id: cid('el-block'), type: 'content_block', target: { post_id: elId }, new_value: { block_id: 'answer-1', kind: 'answer', position: 'after_h1', html: '<p>We plan safe voyages.</p>' } } as WpChange);
+  const t2 = tree();
+  ok(el.status === 'applied' && t2.length === 3 && String(t2[1]?.settings._css_classes).includes('msscore-block-answer-1') && t2[1]?.elements[0]?.widgetType === 'text-editor' && String(t2[1]?.elements[0]?.settings.editor).includes('We plan safe voyages'), 'elementor section: container + text editor after the H1 container', JSON.stringify(t2.map((n) => n.id)));
+  ok((await wp.rollback(el.change_id!)).status === 'rolled_back' && JSON.stringify(tree()) === elBefore, 'elementor section: undo leaves the page exactly as before');
+
+  // New page: a draft made of real blocks, refused when the address exists, binned on undo.
+  const np = await wp.apply({ change_id: cid('page'), type: 'create_page' as WpChange['type'], target: { site: true }, new_value: { title: 'Voyage Risk Assessment', slug: 'voyage-risk-assessment', html: '<h2>What we check</h2><p>Routes, ports and cargo.</p><ul><li>Routes</li><li>Ports</li></ul>', meta_title: 'Voyage Risk Assessment for Shipping Companies | Test Shop', meta_description: 'Voyage risk assessment for shipping companies: routes, ports and cargo checked before you sail. Ask us for an assessment today.' } } as WpChange);
+  const pid = Number((np.after as { post_id?: number } | undefined)?.post_id);
+  const page = JSON.parse(wpOption(`$p = get_post(${pid}); echo wp_json_encode(array('status' => $p->post_status, 'name' => $p->post_name, 'content' => $p->post_content));`)) as { status: string; name: string; content: string };
+  ok(np.status === 'applied' && page.status === 'draft' && page.name === 'voyage-risk-assessment' && page.content.includes('<!-- wp:heading -->') && page.content.includes('<!-- wp:list -->'), 'create_page: a draft page made of real blocks', JSON.stringify(page).slice(0, 160));
+  const dup = await wp.apply({ change_id: cid('page2'), type: 'create_page' as WpChange['type'], target: { site: true }, new_value: { title: 'Voyage Risk Assessment', slug: 'voyage-risk-assessment', html: '<p>x</p>' } } as WpChange);
+  ok(dup.status === 'skipped', 'create_page: an address that exists is not made twice', dup.reason ?? '');
+  ok((await wp.rollback(np.change_id!)).status === 'rolled_back' && wpOption(`echo get_post_status(${pid});`).trim() === 'trash', 'create_page: undo moves the page to the bin');
+
+  // Undo everything: every live change goes back, newest first.
+  const x1 = await wp.apply({ change_id: cid('all1'), type: 'meta_title', target: { post_id: ids.gut }, new_value: 'Undo-all test title one' } as WpChange);
+  const x2 = await wp.apply({ change_id: cid('all2'), type: 'content_block', target: { post_id: bricksId }, new_value: { block_id: 'all', kind: 'section', position: 'end', html: '<p>Undo all.</p>' } } as WpChange);
+  const all = await wp.rollbackAll('e2e');
+  ok(x1.status === 'applied' && x2.status === 'applied' && all.left.length === 0 && all.undone >= 2 && !(await html('/')).includes('Undo-all test title one') && !JSON.stringify(bricks()).includes('msscore-block'), 'rollback-all: every live change undone', JSON.stringify(all));
 
   // Unsupported / validation.
   ok((await wp.apply({ change_id: cid('x'), type: 'meta_title' as const, target: { post_id: 999999 }, new_value: 'x' })).status === 'failed', 'unknown post refused');

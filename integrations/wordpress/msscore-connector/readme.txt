@@ -3,7 +3,7 @@ Contributors: morosoft
 Requires at least: 5.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.4.0
 License: GPLv2 or later
 
 Lets MS SCORE apply SEO changes you have approved.
@@ -26,6 +26,11 @@ Only editors and administrators can use it, through an Application Password you 
 2. In MS SCORE, open Connections and press "Connect WordPress".
 
 == Changelog ==
+
+= 1.4.0 =
+* Sections on Bricks and Elementor pages: added as the builder's own elements, styled like the section next to them, and removed cleanly on undo.
+* New pages: MS SCORE can create a page the plan asks for, saved as a draft for you to read and publish.
+* "Undo every MS SCORE change" on the MS SCORE Autopilot page puts the whole site back as it was.
 
 = 1.3.3 =
 * Bricks: headings are read and fixed in the order they appear on the page (the stored list is in another order), so the page's main H1 is the one kept and rewritten.

@@ -124,18 +124,18 @@ describe('generateWorkItems', () => {
     expect(v('/themeonly/')).toMatchObject({ status: 'needs_human' });
   });
 
-  it('drafts a direct answer, but leaves it to a person on a Bricks page', async () => {
+  it('drafts a direct answer for Gutenberg and Bricks pages, but leaves Divi to a person', async () => {
     const answer = 'Paws Beds makes orthopaedic dog beds by hand in Leeds, with memory foam and washable covers for older dogs and dogs with sore joints. Every bed is cut to size for your dog, and you can order online for delivery across the UK.';
     const ai = fakeAi({ content_block: [{ answer, faq: [] }, { answer, faq: [] }] });
     const live = [page('/', '', `<h1>Paws Beds</h1><p>${answer}</p>`), page('/b/', '', `<h1>B</h1><p>${answer}</p>`)];
     const r = await generateWorkItems({
       accountId: 'acc', domain: 'shop.test',
       actions: [action('Direct answer at the top of Homepage', {}, { urls: [`${site}/`, `${site}/b/`] })],
-      inventory: inventory([item(1, '/'), item(2, '/b/', { builder: 'bricks' })]), live, profile, keywords: new Map(), deadUrls: [], ai,
+      inventory: inventory([item(1, '/'), item(2, '/b/', { builder: 'divi' })]), live, profile, keywords: new Map(), deadUrls: [], ai,
     });
     expect(r.items[0]).toMatchObject({ type: 'content_block', status: 'draft', newValue: { kind: 'answer', position: 'after_h1' } });
     expect(r.items[1]).toMatchObject({ status: 'needs_human' });
-    expect(r.items[1]!.reason).toMatch(/bricks/);
+    expect(r.items[1]!.reason).toMatch(/divi/);
   });
 
   it('maps dead addresses to the closest live page, or asks a person', () => {
@@ -172,5 +172,41 @@ describe('generateWorkItems', () => {
       inventory: inventory([item(1, '/')]), live: [], profile, keywords: new Map(), deadUrls: [],
     });
     expect(r.items.map((i) => [i.type, i.status])).toEqual(expect.arrayContaining([['manual', 'developer'], ['manual', 'client'], ['gsc_sitemap_submit', 'draft']]));
+  });
+});
+
+describe('sections and new pages (plugin 1.4.0)', () => {
+  const words = (n: number) => Array.from({ length: n }, (_, i) => ['memory', 'foam', 'beds', 'support', 'older', 'dogs', 'joints', 'washable'][i % 8]).join(' ');
+  const body = '<h1>Orthopaedic dog beds</h1><p>Handmade in Leeds with memory foam and washable covers for older dogs.</p>';
+  it('drafts a section for a Bricks or Elementor page and sends it (no longer "needs a person")', async () => {
+    const home = item(1, '/', { builder: 'bricks' });
+    const a = action('Add a why choose us section to the homepage', {}, { urls: [`${site}/`] });
+    const ai = fakeAi({ page_section: [{ heading: 'Why dog owners choose us', paragraphs: [words(80)], bullets: ['Memory foam', 'Washable covers'], table: { headers: [], rows: [] } }] });
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([home]), live: [page('/', '<title>x</title>', body)], profile, keywords: new Map(), deadUrls: [], ai });
+    const s = r.items.find((i) => i.type === 'content_block')!;
+    expect(s).toMatchObject({ status: 'draft', target: { post_id: 1 } });
+    expect(String((s.newValue as { html: string }).html)).toContain('<h2>Why dog owners choose us</h2>');
+  });
+  it('never writes testimonials: a person sends real ones', async () => {
+    const a = action('Add a testimonials section to the homepage', {}, { urls: [`${site}/`] });
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([item(1, '/', { builder: 'elementor' })]), live: [page('/', '<title>x</title>', body)], profile, keywords: new Map(), deadUrls: [], ai: fakeAi({}) });
+    const t = r.items.find((i) => i.type === 'content_block');
+    expect(t).toMatchObject({ status: 'needs_human', reason: expect.stringMatching(/must be real/) });
+  });
+  it('drafts a new page from the page plan and saves it as a WordPress draft', async () => {
+    const a = action('Create a new page for orthopaedic dog beds for older dogs');
+    const ai = fakeAi({ new_page: [{
+      h1: 'Orthopaedic Dog Beds for Older Dogs', metaTitle: 'Orthopaedic Dog Beds for Older Dogs Made in Leeds | Paws', metaDescription: 'Orthopaedic dog beds for older dogs, handmade in Leeds with memory foam and washable covers. Ease stiff joints and order your dog a better bed today.',
+      intro: words(50), sections: [{ heading: 'Memory foam support', paragraphs: [words(90)], bullets: [] }, { heading: 'Washable covers', paragraphs: [words(90)], bullets: [] }, { heading: 'Made in Leeds', paragraphs: [words(90)], bullets: ['Handmade'] }],
+      faq: [{ q: 'Are the covers washable?', a: 'Yes, every cover is washable.' }],
+    }] });
+    const newPages = [{ path: '/orthopaedic-dog-beds/', mainKeyword: 'orthopaedic dog beds', secondary: ['beds for older dogs'], questions: [], pageType: 'category' }];
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([item(1, '/')]), live: [page('/', '<title>x</title>', body)], profile, keywords: new Map(), deadUrls: [], ai, newPages });
+    const p = r.items.find((i) => i.type === 'create_page')!;
+    expect(p).toMatchObject({ status: 'draft', target: { site: true } });
+    expect(p.newValue).toMatchObject({ slug: 'orthopaedic-dog-beds', title: 'Orthopaedic Dog Beds for Older Dogs' });
+    // The same page already on the site: nothing to make.
+    const again = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([item(1, '/'), item(2, '/orthopaedic-dog-beds/')]), live: [], profile, keywords: new Map(), deadUrls: [], ai: fakeAi({}), newPages });
+    expect(again.items.find((i) => i.type === 'create_page')).toMatchObject({ status: 'keep' });
   });
 });

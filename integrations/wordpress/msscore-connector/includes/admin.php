@@ -31,6 +31,7 @@ function msscore_admin_menu() {
 
 add_action( 'admin_post_msscore_pause', 'msscore_admin_pause' );
 add_action( 'admin_post_msscore_undo', 'msscore_admin_undo' );
+add_action( 'admin_post_msscore_undo_all', 'msscore_admin_undo_all' );
 
 /**
  * Pause or resume.
@@ -63,6 +64,30 @@ function msscore_admin_undo() {
 }
 
 /**
+ * Undo every change still live.
+ */
+function msscore_admin_undo_all() {
+	if ( ! current_user_can( 'edit_pages' ) ) {
+		wp_die( esc_html__( 'You cannot change this.', 'msscore-connector' ) );
+	}
+	check_admin_referer( 'msscore_undo_all' );
+	$user = wp_get_current_user();
+	$o    = msscore_undo_all( 'everything undone by ' . $user->display_name . ' in WordPress' );
+	wp_safe_redirect(
+		add_query_arg(
+			array(
+				'page'        => 'msscore-autopilot',
+				'msscore_msg' => $o['left'] ? 'undo_all_partly' : 'undo_all',
+				'n'           => $o['undone'],
+				'left'        => count( $o['left'] ),
+			),
+			admin_url( 'admin.php' )
+		)
+	);
+	exit;
+}
+
+/**
  * Plain words for a change type.
  *
  * @param string $type Type.
@@ -84,6 +109,7 @@ function msscore_type_label( $type ) {
 		'sitemap'          => 'XML sitemap',
 		'robots_txt'       => 'robots.txt',
 		'llms_txt'         => 'llms.txt',
+		'create_page'      => 'New page (draft)',
 	);
 	return isset( $labels[ $type ] ) ? $labels[ $type ] : $type;
 }
@@ -144,6 +170,8 @@ function msscore_admin_page() {
 		'resumed'     => 'The autopilot is running again.',
 		'undone'      => 'The change was undone.',
 		'undo_failed' => 'That change could not be undone automatically (the page may have been edited since).',
+		'undo_all'        => 'Every MS SCORE change was undone (' . ( isset( $_GET['n'] ) ? absint( $_GET['n'] ) : 0 ) . ').', // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- message only.
+		'undo_all_partly' => 'MS SCORE changes were undone (' . ( isset( $_GET['n'] ) ? absint( $_GET['n'] ) : 0 ) . '), but ' . ( isset( $_GET['left'] ) ? absint( $_GET['left'] ) : 0 ) . ' could not be (the page was edited since). They are still listed below.', // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- message only.
 	);
 	?>
 	<div class="wrap">
@@ -167,6 +195,14 @@ function msscore_admin_page() {
 			<?php submit_button( $paused ? 'Resume the autopilot' : 'Pause the autopilot', $paused ? 'primary' : 'secondary', 'submit', false ); ?>
 			<p class="description">Pausing stops new changes at once. Changes already made stay until you undo them.</p>
 		</form>
+
+		<?php if ( $applied ) : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px" onsubmit="return confirm('Undo every change MS SCORE made on this website? Pages go back to how they were before.');">
+				<input type="hidden" name="action" value="msscore_undo_all">
+				<?php wp_nonce_field( 'msscore_undo_all' ); ?>
+				<?php submit_button( 'Undo every MS SCORE change', 'delete', 'submit', false ); ?>
+			</form>
+		<?php endif; ?>
 
 		<h2 style="margin-top:28px">Changes made</h2>
 		<?php if ( ! $rows ) : ?>

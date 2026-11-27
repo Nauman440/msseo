@@ -5,7 +5,7 @@ import { Container, SectionHeader } from '@/components/landing/primitives';
 import { requireAdmin } from '@/lib/session';
 import { appSettings } from '@/lib/settings';
 import { UsageTable, type UsageMonth } from '@/components/settings/UsageTable';
-import { saveSettingsAction } from '../actions';
+import { deleteSiteDataAction, saveSettingsAction } from '../actions';
 
 export const metadata: Metadata = { title: 'Audit settings' };
 export const dynamic = 'force-dynamic';
@@ -207,6 +207,30 @@ export default async function GeneralSettingsPage() {
               ))}
             </div>
           </fieldset>
+        </ActionForm>
+      </section>
+
+      <section className="rounded-panel border border-fail-bg bg-surface p-6">
+        <h2 className="font-display text-xl font-bold">Delete all data for a website</h2>
+        <p className="mt-1 text-sm text-ink-2">For testing a website again from the start: deletes its audits, competitors, keywords, page plan, action plan, autopilot, inventory, website connection and every other saved result. Customer accounts and logins stay; the website stays on its customer’s account and starts again at the first audit. This cannot be undone.</p>
+        <ActionForm action={deleteSiteDataAction} submit="Delete all data for this website">
+          <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <label className={LABEL}>
+              Website
+              <input name="domain" required placeholder="example.com" autoComplete="off" className={INPUT} />
+            </label>
+            <label className={LABEL}>
+              Type it again to confirm
+              <input name="confirm" required placeholder="example.com" autoComplete="off" className={INPUT} />
+            </label>
+          </div>
+          <label className="mt-4 flex cursor-pointer items-start gap-3">
+            <input type="checkbox" name="undo" defaultChecked className="mt-1 size-4 accent-primary" />
+            <span>
+              <span className="block text-sm font-semibold">First undo every change MS SCORE made on the website</span>
+              <span className={HINT}>WordPress sites with the MS SCORE Connector: titles, headings, sections, new pages, redirects, sitemap and the rest go back to how they were.</span>
+            </span>
+          </label>
         </ActionForm>
       </section>
 
