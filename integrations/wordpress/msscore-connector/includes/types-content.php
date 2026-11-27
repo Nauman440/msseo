@@ -288,8 +288,18 @@ function msscore_fix_heading_order_html( $html ) {
 		},
 		$html
 	);
-	// Keep Gutenberg's level attribute in step with the tags.
-	$out = preg_replace_callback(
+	$out = msscore_sync_heading_levels( $out );
+	return array( $out, $changed );
+}
+
+/**
+ * Keeps Gutenberg's heading level attribute in step with the heading tags inside each block.
+ *
+ * @param string $out Content.
+ * @return string
+ */
+function msscore_sync_heading_levels( $out ) {
+	return preg_replace_callback(
 		'/<!-- wp:heading(\s+(\{.*?\}))?\s*-->(\s*<h([1-6]))/s',
 		function ( $m ) {
 			$attrs = ! empty( $m[2] ) ? json_decode( $m[2], true ) : array();
@@ -304,7 +314,127 @@ function msscore_fix_heading_order_html( $html ) {
 		},
 		$out
 	);
-	return array( $out, $changed );
+}
+
+/** Heading text as a visitor reads it, for matching (lower case, single spaces). */
+function msscore_heading_key( $text ) {
+	return strtolower( trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES, 'UTF-8' ) ) ) );
+}
+
+/**
+ * Makes the heading whose text is $title the page's H1 and turns every other H1 into an H2
+ * (Gutenberg blocks or Classic HTML). The classes stay, so the look does not change.
+ *
+ * @param string $html  Content.
+ * @param string $title Text of the heading to promote.
+ * @return array{0:string,1:int}
+ */
+function msscore_swap_h1_html( $html, $title ) {
+	$want     = msscore_heading_key( $title );
+	$changed  = 0;
+	$promoted = false;
+	$out      = preg_replace_callback(
+		'/<h([1-6])(\b[^>]*)>(.*?)<\/h\1>/is',
+		function ( $m ) use ( $want, &$changed, &$promoted ) {
+			$level = (int) $m[1];
+			if ( ! $promoted && msscore_heading_key( $m[3] ) === $want ) {
+				$promoted = true;
+				if ( 1 === $level ) {
+					return $m[0];
+				}
+				++$changed;
+				return '<h1' . $m[2] . '>' . $m[3] . '</h1>';
+			}
+			if ( 1 === $level ) {
+				++$changed;
+				return '<h2' . $m[2] . '>' . $m[3] . '</h2>';
+			}
+			return $m[0];
+		},
+		$html
+	);
+	if ( ! $promoted ) {
+		return array( $html, 0 );
+	}
+	return array( msscore_sync_heading_levels( $out ), $changed );
+}
+
+/**
+ * The same swap in Bricks elements (`settings.tag`) or an Elementor tree (heading widgets' `header_size`).
+ *
+ * @param string $builder bricks | elementor.
+ * @param array  $data    Elements / tree.
+ * @param string $title   Text of the heading to promote.
+ * @return array{0:array,1:int,2:bool} Data, changes, whether the heading was found.
+ */
+function msscore_swap_h1_builder( $builder, $data, $title ) {
+	$want     = msscore_heading_key( $title );
+	$changed  = 0;
+	$promoted = false;
+	if ( 'bricks' === $builder ) {
+		$order = msscore_bricks_page_order( $data );
+		foreach ( $order as $i ) {
+			$set = isset( $data[ $i ]['settings'] ) && is_array( $data[ $i ]['settings'] ) ? $data[ $i ]['settings'] : array();
+			$tag = isset( $set['tag'] ) ? strtolower( (string) $set['tag'] ) : ( isset( $data[ $i ]['name'] ) && 'heading' === $data[ $i ]['name'] ? 'h3' : '' );
+			if ( ! $promoted && preg_match( '/^h[1-6]$/', $tag ) && isset( $set['text'] ) && msscore_heading_key( $set['text'] ) === $want ) {
+				$promoted = true;
+				if ( 'h1' !== $tag ) {
+					$data[ $i ]['settings']['tag'] = 'h1';
+					++$changed;
+				}
+			}
+		}
+		if ( $promoted ) {
+			$kept = false;
+			foreach ( $order as $i ) {
+				$set = isset( $data[ $i ]['settings'] ) ? $data[ $i ]['settings'] : array();
+				if ( isset( $set['tag'] ) && 'h1' === strtolower( (string) $set['tag'] ) ) {
+					if ( ! $kept && isset( $set['text'] ) && msscore_heading_key( $set['text'] ) === $want ) {
+						$kept = true;
+						continue;
+					}
+					$data[ $i ]['settings']['tag'] = 'h2';
+					++$changed;
+				}
+			}
+		}
+		return array( $data, $changed, $promoted );
+	}
+	$find = function ( $nodes ) use ( &$find, $want, &$promoted, &$changed ) {
+		foreach ( $nodes as &$n ) {
+			if ( ! $promoted && isset( $n['widgetType'] ) && 'heading' === $n['widgetType'] && isset( $n['settings']['title'] ) && msscore_heading_key( $n['settings']['title'] ) === $want ) {
+				$promoted = true;
+				$n['msscore_keep'] = true;
+				if ( ! isset( $n['settings']['header_size'] ) || 'h1' !== $n['settings']['header_size'] ) {
+					$n['settings']['header_size'] = 'h1';
+					++$changed;
+				}
+			}
+			if ( ! empty( $n['elements'] ) ) {
+				$n['elements'] = $find( $n['elements'] );
+			}
+		}
+		return $nodes;
+	};
+	$demote = function ( $nodes ) use ( &$demote, &$changed ) {
+		foreach ( $nodes as &$n ) {
+			if ( ! empty( $n['msscore_keep'] ) ) {
+				unset( $n['msscore_keep'] );
+			} elseif ( isset( $n['widgetType'], $n['settings']['header_size'] ) && 'heading' === $n['widgetType'] && 'h1' === $n['settings']['header_size'] ) {
+				$n['settings']['header_size'] = 'h2';
+				++$changed;
+			}
+			if ( ! empty( $n['elements'] ) ) {
+				$n['elements'] = $demote( $n['elements'] );
+			}
+		}
+		return $nodes;
+	};
+	$data = $find( $data );
+	if ( $promoted ) {
+		$data = $demote( $data );
+	}
+	return array( $data, $changed, $promoted );
 }
 
 /**
@@ -392,7 +522,7 @@ function msscore_demote_h1_builder( $builder, $data, $keep ) {
 }
 
 /**
- * heading_fix: { action: add_h1 | demote_extra_h1 | fix_order, text?, keep? }.
+ * heading_fix: { action: add_h1 | demote_extra_h1 | swap_h1 | set_h1_text | fix_order, text?, title?, keep? }.
  * `keep` = H1s in the content to keep (default 1; 0 when the theme already prints the H1).
  *
  * @param array $t   Target (post).
@@ -456,6 +586,39 @@ function msscore_apply_heading_fix( $t, $new ) {
 		$changed = msscore_set_h1_text( $id, $builder, $snap, $text );
 		if ( is_wp_error( $changed ) ) {
 			return $changed;
+		}
+	} elseif ( 'swap_h1' === $action ) {
+		$title = isset( $new['title'] ) ? (string) $new['title'] : '';
+		if ( '' === trim( $title ) ) {
+			return new WP_Error( 'bad_request', 'swap_h1 needs the text of the heading to make the H1.', array( 'status' => 400 ) );
+		}
+		if ( in_array( $builder, array( 'elementor', 'bricks' ), true ) ) {
+			$data = 'bricks' === $builder ? $snap['bricks'] : json_decode( $snap['elementor'], true );
+			if ( ! is_array( $data ) ) {
+				return new WP_Error( 'needs_human', 'The page builder data could not be read.' );
+			}
+			list( $data, $changed, $found ) = msscore_swap_h1_builder( $builder, $data, $title );
+			if ( ! $found ) {
+				return new WP_Error( 'needs_human', 'The heading “' . $title . '” is not in the page content (it may come from a template); make it the H1 in ' . $builder . '.' );
+			}
+			if ( $changed ) {
+				if ( 'bricks' === $builder ) {
+					update_post_meta( $id, '_bricks_page_content_2', $data );
+					clean_post_cache( $id );
+				} else {
+					msscore_save_elementor( $id, $data );
+				}
+			}
+		} elseif ( 'divi' === $builder ) {
+			return new WP_Error( 'needs_human', 'This page is built with Divi; make “' . $title . '” the H1 in the Divi builder.' );
+		} else {
+			list( $html, $changed ) = msscore_swap_h1_html( $snap['post_content'], $title );
+			if ( ! $changed && false === strpos( msscore_heading_key( $snap['post_content'] ), msscore_heading_key( $title ) ) ) {
+				return new WP_Error( 'needs_human', 'The heading “' . $title . '” is not in the page content (it may come from the theme).' );
+			}
+			if ( $changed ) {
+				msscore_save_content( $id, $html );
+			}
 		}
 	} elseif ( 'fix_order' === $action ) {
 		if ( ! in_array( $builder, array( 'gutenberg', 'classic' ), true ) ) {

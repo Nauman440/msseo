@@ -124,6 +124,23 @@ describe('generateWorkItems', () => {
     expect(v('/themeonly/')).toMatchObject({ status: 'needs_human' });
   });
 
+  it('swaps the H1 to the page title when the title is an H2 and the line under it the H1', async () => {
+    const a = action('One main heading (H1)', { siteWideItem: 'h1' });
+    const hero = item(1, '/', { builder: 'bricks', h1s: ['Intelligence-Led Maritime Risk Management'] });
+    const live = [page('/', '', '<h2 class="home-hero__title">SRM Risk Management FZCO</h2><h1 class="home-hero__sub">Intelligence-Led Maritime Risk Management</h1><h2>Services</h2>')];
+    const st = { ...status, version: '1.4.1' } as WpStatus;
+    const r = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: { ...inventory([hero]), status: st }, live, profile, keywords: new Map([['shop.test', 'maritime risk management']]), deadUrls: [] });
+    const swap = r.items.find((i) => (i.newValue as { action?: string } | null)?.action === 'swap_h1')!;
+    expect(swap).toMatchObject({ status: 'draft', week: 1, newValue: { action: 'swap_h1', title: 'SRM Risk Management FZCO' } });
+    // The words check runs on the promoted title, after the swap.
+    const words = r.items.find((i) => (i.newValue as { action?: string } | null)?.action === 'set_h1_text');
+    expect(words?.before).toBe('SRM Risk Management FZCO');
+    expect(words?.dependsOn).toEqual([swap.id]);
+    // An older plugin cannot swap: a person is told to update it.
+    const old = await generateWorkItems({ accountId: 'acc', domain: 'shop.test', actions: [a], inventory: inventory([hero]), live, profile, keywords: new Map(), deadUrls: [] });
+    expect(old.items.find((i) => (i.newValue as { action?: string } | null)?.action === 'swap_h1')).toMatchObject({ status: 'needs_human', reason: expect.stringMatching(/1\.4\.1/) });
+  });
+
   it('drafts a direct answer for Gutenberg and Bricks pages, but leaves Divi to a person', async () => {
     const answer = 'Paws Beds makes orthopaedic dog beds by hand in Leeds, with memory foam and washable covers for older dogs and dogs with sore joints. Every bed is cut to size for your dog, and you can order online for delivery across the UK.';
     const ai = fakeAi({ content_block: [{ answer, faq: [] }, { answer, faq: [] }] });

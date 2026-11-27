@@ -57,7 +57,7 @@ type Ctx = {
   tokens: number;
   notes: string[];
   /** Pages whose H1 words are checked against their keyword (after the count is fixed). */
-  h1Text: { a: ActionItem | null; page: InventoryItem; after: string | null }[];
+  h1Text: { a: ActionItem | null; page: InventoryItem; after: string | null; current?: string }[];
   /** Plan tasks that ask for a site file: its change belongs to that task. */
   fileTask: Partial<Record<'sitemap' | 'robots_txt' | 'llms_txt', ActionItem>>;
 };
@@ -204,6 +204,21 @@ function h1Item(c: Ctx, a: ActionItem | null, i: InventoryItem) {
   const label = `Main heading (H1) · ${nameOf(i)}`;
   if (liveH1 === null) return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: 'The live page could not be read.' });
   if (liveH1 === 1) {
+    // One H1, but it sits right under an H2 title (a hero title + subtitle): the title should be the H1.
+    const hs = live!.headings;
+    const at = hs.findIndex((h) => h.level === 1);
+    const prev = at > 0 ? hs[at - 1] : null;
+    if (prev && at === 1 && prev.level === 2 && prev.text.trim() && i.h1s.length) {
+      const ok = ['gutenberg', 'classic', 'bricks', 'elementor'].includes(i.builder ?? 'classic') && pluginAtLeast(c, 1, 4, 1);
+      push(c, a, {
+        type: 'heading_fix', target: target(i), url: i.url, label, before: hs[at]!.text, newValue: { action: 'swap_h1', title: prev.text.trim() }, status: ok ? 'draft' : 'needs_human', week: 1, priorityBoost: 3,
+        reason: ok
+          ? `The page title “${prev.text.trim()}” is an H2 and the line under it (“${hs[at]!.text}”) is the H1: the title becomes the H1 and the line under it an H2. The look stays the same.`
+          : pluginAtLeast(c, 1, 4, 1) ? `Make “${prev.text.trim()}” the H1 and “${hs[at]!.text}” an H2 in ${i.builder ?? 'the page builder'}.` : 'Update the MS SCORE Connector plugin to 1.4.1 or later: it swaps the H1 to the page title.',
+      });
+      c.h1Text.push({ a, page: i, after: c.items[c.items.length - 1]?.id ?? null, current: prev.text.trim() });
+      return;
+    }
     c.h1Text.push({ a, page: i, after: null });
     return push(c, a, { type: 'heading_fix', target: target(i), url: i.url, label, before: 1, newValue: null, status: 'keep', reason: 'The page has exactly one H1.' });
   }
@@ -225,7 +240,7 @@ async function h1TextItems(c: Ctx) {
   const jobs: Job[] = [];
   for (const j of c.h1Text) {
     const live = j.page.url ? c.live.get(pageKey(j.page.url)) : undefined;
-    const current = j.page.h1s[0] ?? live?.headings.find((h) => h.level === 1)?.text ?? null;
+    const current = j.current ?? j.page.h1s[0] ?? live?.headings.find((h) => h.level === 1)?.text ?? null;
     const keyword = c.input.keywords.get(pageKey(j.page.url ?? '')) ?? null;
     const label = `Main heading (H1) words · ${nameOf(j.page)}`;
     if (!current || !keyword) continue;
@@ -530,11 +545,16 @@ async function blockItems(c: Ctx, a: ActionItem, kind: 'answer' | 'faq', pages: 
   }
 }
 
+/** The connected plugin is version major.minor.patch or later. */
+function pluginAtLeast(c: Ctx, major: number, minor: number, patch = 0): boolean {
+  const [x = 0, y = 0, z = 0] = String(c.input.inventory.status?.version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
+  return x !== major ? x > major : y !== minor ? y > minor : z >= patch;
+}
+
 /** Page builders the plugin can add sections to need plugin 1.4.0; Gutenberg and Classic work from 1.2.0. */
 function pluginBuilds(c: Ctx, builder: string | null | undefined): boolean {
   if (builder !== 'bricks' && builder !== 'elementor') return true;
-  const [x = 0, y = 0] = String(c.input.inventory.status?.version ?? '0').split('.').map((n) => Number.parseInt(n, 10) || 0);
-  return x > 1 || (x === 1 && y >= 4);
+  return pluginAtLeast(c, 1, 4);
 }
 
 /**
