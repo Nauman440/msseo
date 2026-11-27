@@ -235,8 +235,13 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     if (!conn) throw new Error('The website is not connected.');
     const { wp } = await siteSession(conn);
     s = { ...s, items: await syncWordPressUndos(wp, s.items) };
+    // The saved inventory is reused for 6 hours, but the plugin's own status (version, sitemap, paused)
+    // is read live: a plugin updated or reinstalled since must not be judged by its old status.
     let inventory = await getInventory(s.accountId, domain);
-    inventory = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 ? inventory : (await refreshInventory(domain)).inventory;
+    const nowStatus = await wp.status().catch(() => null);
+    const changed = (a: typeof nowStatus, b: typeof nowStatus) => !a || !b || a.version !== b.version || a.sitemap?.url !== b.sitemap?.url || a.sitemap?.by !== b.sitemap?.by || a.seo !== b.seo;
+    const recent = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 && !changed(inventory.status, nowStatus);
+    inventory = recent ? { ...inventory!, status: nowStatus ?? inventory!.status } : (await refreshInventory(domain)).inventory;
 
     await step('Preparing this month’s changes');
     const [actions0, kw, mapping, audits, rivals, alt, accounts] = await Promise.all([
