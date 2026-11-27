@@ -1,11 +1,12 @@
 import { gscSetup, prisma } from '@seo/db';
 import { workerMode } from '@/lib/audit-runner';
+import { billingSetup } from '@/lib/billing';
 
 /**
  * GET /api/health — liveness check for Coolify/Docker. Public; reveals only whether the
  * database answers and how audits run (in the worker, with how many workers connected,
- * or inside the web app), and whether Search Console is configured on this app (yes/no only,
- * never which setting is missing). Always 200, so a database or Redis hiccup never restarts the app.
+ * or inside the web app), whether Search Console is configured on this app (yes/no only,
+ * never which setting is missing), and whether Stripe billing and its card field are on (never the keys). Always 200, so a database or Redis hiccup never restarts the app.
  */
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,8 @@ export async function GET() {
     }
   }
   const searchConsole = gscSetup().ready ? 'configured' : 'not configured';
-  if (!workerMode()) return Response.json({ ok: true, database, searchConsole, audits: 'in-process' });
+  const billing = billingSetup();
+  if (!workerMode()) return Response.json({ ok: true, database, searchConsole, ...billing, audits: 'in-process' });
 
   let workers: number | 'error';
   try {
@@ -32,5 +34,5 @@ export async function GET() {
   } catch {
     workers = 'error';
   }
-  return Response.json({ ok: true, database, searchConsole, audits: 'worker', workers });
+  return Response.json({ ok: true, database, searchConsole, ...billing, audits: 'worker', workers });
 }
