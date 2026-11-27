@@ -3,7 +3,7 @@ import type { PageContent } from '../audit/page-content';
 import type { InventoryItem, SiteInventory } from '../connections/inventory';
 import type { OpenAiClient } from '../providers/openai';
 import type { WpChangeType, WpTarget } from '../providers/wordpress';
-import { draftBlock, draftH1, draftMeta, type MetaAsk } from './ai-drafts';
+import { draftBlock, draftH1, draftMeta, draftPage, draftSection, type DraftedPage, type DraftedSection, type MetaAsk } from './ai-drafts';
 import { taskExec } from './task-map';
 import { checkAlt, checkBlock, checkDescription, checkH1, checkTitle, type BusinessProfile } from './quality';
 import { matchRedirects, type DeadUrl } from './redirects';
@@ -32,6 +32,8 @@ export type GenerateInput = {
   h1Drafts?: Map<string, string>;
   /** Changes after "Start over" get new ids (the plugin never applies the same id twice). */
   idSalt?: string;
+  /** New pages the page plan asks for (Module 5 rows with action "create"), for "create a page" tasks. */
+  newPages?: NewPageSpec[];
   /** The live robots.txt (null = not read), for the sitemap line. */
   robotsTxt?: string | null;
   ai?: OpenAiClient | null;
@@ -39,6 +41,8 @@ export type GenerateInput = {
   draftAlt?: (items: { page: string; src: string; title: string | null; h1: string | null }[]) => Promise<{ src: string; alt: string }[]>;
   now?: Date;
 };
+/** A page the page plan says is missing: its address, keywords and the questions it should answer. */
+export type NewPageSpec = { path: string; mainKeyword: string; secondary: string[]; questions: string[]; pageType: string };
 export type GenerateResult = { items: WorkItem[]; tokens: number; notes: string[] };
 
 /** Same page whatever the scheme, www or trailing slash. */
@@ -345,11 +349,129 @@ async function altItems(c: Ctx, a: ActionItem, pages: InventoryItem[]) {
   }
 }
 
+/** Page builders the plugin (1.4.0+) can add a section to. Others (Divi…) need a person. */
+const SECTION_BUILDERS = ['gutenberg', 'classic', 'bricks', 'elementor'];
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const slugOf = (t: string) => t.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70);
+const wordsOf = (t: string) => new Set(t.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !['the', 'and', 'for', 'new', 'page', 'create', 'add', 'build', 'with', 'about', 'our'].includes(w)));
+
+function sectionHtml(s: DraftedSection): string {
+  const table = s.table.headers.length && s.table.rows.length
+    ? `<table><thead><tr>${s.table.headers.map((x) => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${s.table.rows.map((r) => `<tr>${r.map((x) => `<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    : '';
+  const list = s.bullets.length ? `<ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : '';
+  return `<h2>${esc(s.heading)}</h2>${s.paragraphs.map((x) => `<p>${esc(x)}</p>`).join('')}${list}${table}`;
+}
+const sectionText = (s: DraftedSection) => [s.heading, ...s.paragraphs, ...s.bullets, ...s.table.headers, ...s.table.rows.flat()].join(' ');
+
+/** Real reviews only: a testimonials/reviews section is never written by the model. */
+const NEEDS_REAL = /\b(testimonials?|reviews?|case stud(?:y|ies)|client stories|success stories)\b/i;
+
+/** A new section on each target page (what the task asks for), drafted from facts on that page. */
+async function sectionItems(c: Ctx, a: ActionItem, kind: 'section' | 'comparison_table', pages: InventoryItem[]) {
+  const task = `${a.title}. ${a.plan?.change ?? ''}`.trim();
+  for (const i of pages.slice(0, 3)) {
+    const live = i.url ? c.live.get(pageKey(i.url)) : undefined;
+    const label = `${kind === 'comparison_table' ? 'Comparison table' : 'New section'} · ${nameOf(i)}`;
+    const blockId = `${kind === 'comparison_table' ? 'table' : 'section'}-${slugOf(a.title).slice(0, 30)}`;
+    if (NEEDS_REAL.test(task)) {
+      push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: null, status: 'needs_human', reason: 'Testimonials, reviews and case studies must be real: send us the client quotes (or connect Google Business Profile) and the section is added from them. The autopilot never writes them itself.' });
+      continue;
+    }
+    let section: DraftedSection | null = null;
+    let problems: string[] = [c.input.ai ? 'no draft yet' : 'no AI drafting set up (OpenAI)'];
+    const source = `${live?.text ?? ''} ${(c.input.profile.services ?? []).join(' ')}`;
+    for (let round = 0; round < 2 && c.input.ai && problems.length; round++) {
+      try {
+        const r = await draftSection(c.input.ai, { task, kind, url: i.url ?? '', name: nameOf(i), mainKeyword: c.input.keywords.get(pageKey(i.url ?? '')) ?? null, text: live?.text ?? '', problems: round ? problems : [] }, c.input.profile);
+        c.tokens += r.tokens;
+        section = r.section;
+        problems = [
+          ...checkBlock(sectionText(section), { kind: 'section', profile: c.input.profile, sourceText: source }),
+          ...(kind === 'comparison_table' && !section.table.rows.length ? ['the comparison table is empty'] : []),
+        ];
+      } catch (err) {
+        c.notes.push(`Drafting the ${label} failed: ${err instanceof Error ? err.message.slice(0, 120) : 'model error'}`);
+        break;
+      }
+    }
+    const value = section ? { block_id: blockId, kind: kind === 'comparison_table' ? 'table' : 'section', position: 'end', html: sectionHtml(section) } : null;
+    if (problems.length || !value) push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'needs_human', reason: `Draft did not pass the rules: ${problems.join('; ')}` });
+    else if (!SECTION_BUILDERS.includes(i.builder ?? '')) push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'needs_human', reason: `This page is built with ${i.builder}; paste the drafted section in the page builder.` });
+    else push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: null, newValue: value, status: 'draft' });
+  }
+}
+
+function pageHtml(p: DraftedPage): string {
+  return `<p>${esc(p.intro)}</p>${p.sections.map((s) => `<h2>${esc(s.heading)}</h2>${s.paragraphs.map((x) => `<p>${esc(x)}</p>`).join('')}${s.bullets.length ? `<ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}`).join('')}`;
+}
+
+/** The page-plan page a "create a page" task is about: the best word match with the task. */
+function pageSpecFor(c: Ctx, a: ActionItem): NewPageSpec | null {
+  const specs = c.input.newPages ?? [];
+  const task = wordsOf(`${a.title} ${a.plan?.change ?? ''} ${(a.plan?.keywords ?? []).join(' ')}`);
+  let best: { s: NewPageSpec; score: number } | null = null;
+  for (const s of specs) {
+    const kw = wordsOf(`${s.mainKeyword} ${s.path.replace(/[/-]/g, ' ')}`);
+    const hit = [...kw].filter((w) => task.has(w)).length / Math.max(1, kw.size);
+    if (hit >= 0.6 && (!best || hit > best.score)) best = { s, score: hit };
+  }
+  return best?.s ?? null;
+}
+
+/** "Create a new page" tasks: the page drafted from the page plan and saved as a WordPress draft. */
+async function pageItems(c: Ctx, a: ActionItem) {
+  const spec = pageSpecFor(c, a);
+  const label = `New page · ${a.title}`;
+  if (!spec) {
+    push(c, a, { type: 'manual', target: null, url: null, label, before: null, newValue: null, status: 'needs_human', reason: 'The page plan has no new page that matches this task, so it is not clear what the page is about. Add it to the page plan (Keywords → Page plan) and run again.' });
+    return;
+  }
+  const path = spec.path.replace(/^\/+|\/+$/g, '');
+  const parts = path.split('/');
+  const slug = parts.pop() || slugOf(spec.mainKeyword);
+  const exists = c.input.inventory.items.some((i) => i.url && new URL(i.url).pathname.replace(/^\/+|\/+$/g, '').endsWith(path));
+  if (exists) {
+    push(c, a, { type: 'create_page', target: { site: true }, url: null, label, before: null, newValue: null, status: 'keep', reason: `A page at /${path}/ already exists.` });
+    return;
+  }
+  const siteText = [...c.live.values()].map((p) => p.text ?? '').join(' ').slice(0, 6000);
+  const suffix = autoSuffix(c);
+  let page: DraftedPage | null = null;
+  let problems: string[] = [c.input.ai ? 'no draft yet' : 'no AI drafting set up (OpenAI)'];
+  for (let round = 0; round < 2 && c.input.ai && problems.length; round++) {
+    try {
+      const r = await draftPage(c.input.ai, { task: `${a.title}. ${a.plan?.change ?? ''}`.trim(), mainKeyword: spec.mainKeyword, secondary: spec.secondary, questions: spec.questions, pageType: spec.pageType, siteText, suffix, problems: round ? problems : [] }, c.input.profile);
+      c.tokens += r.tokens;
+      page = r.page;
+      const body = [page.intro, ...page.sections.flatMap((s) => [s.heading, ...s.paragraphs, ...s.bullets])].join(' ');
+      const n = body.split(/\s+/).filter(Boolean).length;
+      problems = [
+        ...(n < 300 ? [`the page has ${n} words (needs at least 300)`] : []),
+        ...(page.sections.length < 3 ? ['fewer than 3 sections'] : []),
+        ...(page.metaTitle.length < 45 || page.metaTitle.length > 65 ? [`meta title has ${page.metaTitle.length} characters (needs 50–60)`] : []),
+        ...(page.metaDescription.length < 130 || page.metaDescription.length > 160 ? [`meta description has ${page.metaDescription.length} characters (needs 140–155)`] : []),
+        ...checkH1(page.h1, { mainKeyword: spec.mainKeyword, profile: c.input.profile }),
+        ...checkBlock(body, { kind: 'table', profile: c.input.profile, sourceText: `${siteText} ${(c.input.profile.services ?? []).join(' ')}` }),
+      ];
+    } catch (err) {
+      c.notes.push(`Drafting the ${label} failed: ${err instanceof Error ? err.message.slice(0, 120) : 'model error'}`);
+      break;
+    }
+  }
+  const value = page ? { title: page.h1, slug, parent_path: parts.join('/'), html: pageHtml(page), meta_title: page.metaTitle, meta_description: page.metaDescription, faq: page.faq.slice(0, 5) } : null;
+  push(c, a, {
+    type: 'create_page', target: { site: true }, url: null, label: `New page · /${path}/`, before: null, newValue: value,
+    status: problems.length || !value ? 'needs_human' : 'draft',
+    reason: problems.length || !value ? `Draft did not pass the rules: ${problems.join('; ')}` : 'Saved in WordPress as a draft: read it and press Publish.',
+  });
+}
+
 async function blockItems(c: Ctx, a: ActionItem, kind: 'answer' | 'faq', pages: InventoryItem[]) {
   for (const i of pages.slice(0, 5)) {
     const live = i.url ? c.live.get(pageKey(i.url)) : undefined;
     const label = `${kind === 'answer' ? 'Direct answer' : 'FAQ'} · ${nameOf(i)}`;
-    const editable = i.builder === 'gutenberg' || i.builder === 'classic';
+    const editable = SECTION_BUILDERS.includes(i.builder ?? '');
     if (kind === 'faq' && live?.faqMarkup) {
       push(c, a, { type: 'content_block', target: target(i), url: i.url, label, before: 'FAQ', newValue: null, status: 'keep', reason: 'The page already has an FAQ.' });
       continue;
@@ -509,7 +631,10 @@ export async function generateWorkItems(input: GenerateInput): Promise<GenerateR
         break;
       case 'content_block':
         if (exec.block === 'direct_answer' || exec.block === 'faq') await blockItems(c, a, exec.block === 'faq' ? 'faq' : 'answer', pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage));
-        else person(`A ${exec.block === 'comparison_table' ? 'comparison table' : 'new section'} is written by a person for now: ${a.plan?.change || a.title}`, 'needs_human');
+        else await sectionItems(c, a, exec.block === 'comparison_table' ? 'comparison_table' : 'section', pages.length ? pages : input.inventory.items.filter((i) => i.isFrontPage));
+        break;
+      case 'create_page':
+        await pageItems(c, a);
         break;
       case 'redirect_301':
         redirectItems(c, a);

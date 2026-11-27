@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       MS SCORE Connector
  * Description:       Lets MS SCORE apply SEO changes you have approved: SEO titles and meta descriptions (Yoast, Rank Math, SEOPress, AIOSEO or its own), page titles, 301 redirects and draft pages. Every change can be undone from MS SCORE.
- * Version:           1.3.3
+ * Version:           1.4.0
  * Requires at least: 5.6
  * Requires PHP:      7.4
  * Author:            Morosoft Technologies
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MSSCORE_CONNECTOR_VERSION', '1.3.3' );
+define( 'MSSCORE_CONNECTOR_VERSION', '1.4.0' );
 define( 'MSSCORE_REDIRECTS_OPTION', 'msscore_redirects' );
 
 require_once __DIR__ . '/includes/signing.php';
@@ -26,6 +26,8 @@ require_once __DIR__ . '/includes/store.php';
 require_once __DIR__ . '/includes/cache.php';
 require_once __DIR__ . '/includes/types-seo.php';
 require_once __DIR__ . '/includes/types-content.php';
+require_once __DIR__ . '/includes/types-builder.php';
+require_once __DIR__ . '/includes/types-page.php';
 require_once __DIR__ . '/includes/types-site.php';
 require_once __DIR__ . '/includes/output.php';
 require_once __DIR__ . '/includes/sitemap.php';

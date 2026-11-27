@@ -272,6 +272,17 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     const gen = await generateWorkItems({
       accountId: s.accountId, domain, actions: monthActions, inventory, live, profile, keywords, deadUrls: dead.slice(0, 50), robotsTxt, idSalt: s.generation ? String(s.generation) : undefined,
       h1Drafts: new Map(mapping.rows.filter((r) => r.url && r.drafts?.h1).map((r) => [pageKey(r.url!), r.drafts!.h1])),
+      // Pages the page plan says are missing, for "create a new page" tasks.
+      newPages: mapping.rows.filter((r) => r.action === 'create' && !r.url && r.suggestedPath).map((r) => {
+        const words = new Set(r.primaryKeyword.toLowerCase().split(/\s+/).filter((w) => w.length > 3));
+        return {
+          path: r.suggestedPath!,
+          mainKeyword: r.primaryKeyword,
+          secondary: r.secondaryKeywords,
+          questions: (kw.questions ?? []).filter((q) => [...words].some((w) => q.text.toLowerCase().includes(w))).map((q) => q.text).slice(0, 6),
+          pageType: r.newPageType ?? 'service',
+        };
+      }),
       altDrafts: new Map((alt?.drafts ?? []).map((d) => [d.src, d.alt])),
       ai,
       draftAlt: ai ? async (list) => {

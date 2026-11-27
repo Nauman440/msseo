@@ -7,7 +7,7 @@ import type { ActionItem, ActionWorkspace } from '../actions/actions';
  */
 export const ACTION_TYPES = [
   'meta_title', 'meta_description', 'canonical', 'robots_noindex', 'heading_fix', 'image_alt', 'schema', 'redirect_301',
-  'sitemap', 'robots_txt', 'llms_txt', 'content_block', 'internal_link', 'product_copy', 'og_tags',
+  'sitemap', 'robots_txt', 'llms_txt', 'content_block', 'internal_link', 'product_copy', 'og_tags', 'create_page',
   /** MS SCORE's own jobs: submit the sitemap, check AI assistants, weekly page check. */
   'tool', 'manual',
 ] as const;
@@ -50,6 +50,11 @@ const RULES: [RegExp, ActionType, BlockKind?][] = [
   [/\b(schema|structured data|json-ld|breadcrumb markup)\b/, 'schema'],
   [/\binternal links?\b|\blink (?:to|from) (?:the|your|our)\b/, 'internal_link'],
   [/\bproduct (?:descriptions?|copy|text)\b/, 'product_copy'],
+  // A section on an existing page: "add a why-us section", "process section", "trust section".
+  [/\b(?:add|create|build|write)\b[^.]{0,40}\bsection\b/, 'content_block', 'section'],
+  // A new page (not an article or blog post: those are written by a person). "Add" only with "new":
+  // "add trust badges to the About page" is not a new page.
+  [/\b(?:create|build|launch)\b(?: a| an)?(?: new)?(?: [\w-]+){0,4} pages?\b(?! (?:titles?|speed|experience))|\b(?:add|make|publish)\b(?: a| an)? new(?: [\w-]+){0,4} pages?\b|\bnew (?:[\w-]+ ){0,3}page (?:for|about|targeting|on)\b/, 'create_page'],
 ];
 /** Work only a person can do, whatever the doer says. */
 const MANUAL = /\b(outreach|backlinks?|guest post|press|pr\b|citations?|directory|directories|listings?|reviews?|testimonials?|google business profile|business profile|gbp|photos?|video|interview|confirm|sign[- ]?off|merchant center|social media|newsletter|survey|ads?\b|campaign|write (?:a |an |\d+ )?(?:new )?(?:blog|article|post|guide)|new (?:blog )?(?:article|post|guide|page)s?\b|create (?:a |an )?(?:new )?page|publish (?:a |an )?(?:new )?(?:article|post|page))/;
@@ -72,7 +77,9 @@ export function taskExec(a: ActionItem, now = new Date()): Omit<TaskExec, 'targe
   // Changes on the site are tried before "manual": "Add an FAQ with customer questions" is a content block.
   for (const [re, type, block] of RULES) {
     if (!re.test(text)) continue;
-    if (MANUAL.test(text) && !['content_block', 'redirect_301', 'canonical', 'meta_title', 'meta_description', 'heading_fix', 'schema'].includes(type)) break;
+    if (MANUAL.test(text) && !['content_block', 'redirect_301', 'canonical', 'meta_title', 'meta_description', 'heading_fix', 'schema', 'create_page'].includes(type)) break;
+    // "Write a new article" stays with a person; a new page is drafted.
+    if (type === 'create_page' && /\b(article|blog|post|guide)s?\b/.test(text)) break;
     return { actionType: type, ...(block ? { block } : {}), mappedAt };
   }
   if (a.source.kind === 'audit') {

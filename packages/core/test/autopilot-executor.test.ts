@@ -136,3 +136,14 @@ describe('running in task order', () => {
     expect(r.items.find((i) => i.id === 'd')!.status).toBe('draft');
   });
 });
+
+describe('sections and new pages are plugin work, not notes', () => {
+  it('maps the wording', () => {
+    expect(taskExec(task('Add a why choose us section to the homepage'))).toMatchObject({ actionType: 'content_block', block: 'section' });
+    expect(taskExec(task('Add a testimonials section to the homepage'))).toMatchObject({ actionType: 'content_block', block: 'section' });
+    expect(taskExec(task('Create a new page for voyage risk assessment')).actionType).toBe('create_page');
+    expect(taskExec(task('Build location pages for Dubai and Fujairah')).actionType).toBe('create_page');
+    expect(taskExec(task('Add trust badges to the About page')).actionType).not.toBe('create_page');
+    expect(taskExec(task('Write a new article on Red Sea transit risk', { doer: 'team' })).actionType).toBe('manual');
+  });
+});

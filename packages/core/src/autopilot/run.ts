@@ -7,7 +7,7 @@ import { pluginId, type WorkItem } from './work-items';
  * page, and protects the site: the first run on a site proves undo works on one change; a run that
  * leaves the homepage or a key page broken is undone in full; 3 failed changes stop the run.
  */
-export const PLUGIN_TYPES: WpChangeType[] = ['meta_title', 'meta_description', 'canonical', 'robots_noindex', 'og_tags', 'image_alt', 'heading_fix', 'content_block', 'internal_link', 'schema', 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt'];
+export const PLUGIN_TYPES: WpChangeType[] = ['meta_title', 'meta_description', 'canonical', 'robots_noindex', 'og_tags', 'image_alt', 'heading_fix', 'content_block', 'internal_link', 'schema', 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt', 'create_page'];
 export const DAILY_CAP = 30;
 const MAX_FAILURES = 3;
 

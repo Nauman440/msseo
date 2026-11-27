@@ -88,6 +88,8 @@ export type WpInventoryPage = z.infer<typeof inventoryPage>;
 export const WP_CHANGE_TYPES = [
   'meta_title', 'meta_description', 'canonical', 'robots_noindex', 'og_tags', 'image_alt', 'heading_fix',
   'content_block', 'internal_link', 'schema', 'redirect_301', 'sitemap', 'robots_txt', 'llms_txt',
+  /** Plugin 1.4.0+: a new page, saved as a draft. */
+  'create_page',
 ] as const;
 export type WpChangeType = (typeof WP_CHANGE_TYPES)[number];
 /** What a change is aimed at: a post/page/product, a category, an image, or the whole site. */
@@ -146,6 +148,8 @@ export type WordPressClient = SiteAdapter & {
   rollback(changeId: string, reason?: string): Promise<WpRollbackResult>;
   /** The plugin's change log, newest first, 50 a page (signed). */
   changes(page?: number): Promise<WpLoggedChange[]>;
+  /** Undoes every change still live, newest first (plugin 1.4.0+). */
+  rollbackAll(reason?: string): Promise<{ undone: number; left: { change_id: string; reason: string }[] }>;
 };
 
 const loggedChange = z.object({ change_id: z.string(), type: z.string(), url: z.string().nullable().optional(), status: z.string(), note: z.string().nullable().optional(), applied_at: z.string().nullable().optional(), rolled_back_at: z.string().nullable().optional() }).passthrough();
@@ -233,6 +237,10 @@ export function createWordPressClient(cfg: { siteUrl: string; user: string; pass
         if (err instanceof HttpError && err.status === 404) return { status: 'failed', change_id: changeId, reason: 'The site has no record of this change.' };
         throw pluginError(err);
       }
+    },
+    async rollbackAll(reason) {
+      const r = await call('msscore/v1/rollback-all', 'POST', { ...(reason ? { reason } : {}) }, z.object({ undone: z.number(), left: z.array(z.object({ change_id: z.string(), reason: z.string() })) })).catch((e) => Promise.reject(pluginError(e)));
+      return r;
     },
     async changes(page = 1) {
       const r = await call(`msscore/v1/changes?page=${page}`, 'GET', undefined, z.object({ items: z.array(loggedChange) }).passthrough()).catch((e) => Promise.reject(pluginError(e)));
