@@ -6,3 +6,4 @@ export * from './secrets';
 export * from './providers/shopify';
 export * from './tls-cert';
 export * from './connections/wp-session';
+export * from './providers/stripe';
