@@ -114,7 +114,20 @@ export const stripePublishableKey = () => {
 };
 
 /** What the server sees, for /api/health (never the values): why the card field shows or not. */
-export function billingSetup(): { billing: string; mode?: 'test' | 'live' } {
+/** Names (never values) of the STRIPE_ variables this process has, with "(empty)" for blank ones. */
+const stripeVarNames = () =>
+  Object.keys(process.env)
+    .filter((k) => /STRIPE/i.test(k))
+    .sort()
+    .map((k) => (process.env[k]?.trim() ? k : `${k} (empty)`));
+
+export function billingSetup(): { billing: string; mode?: 'test' | 'live'; stripeVariablesSeen: string[] } {
+  const seen = stripeVarNames();
+  const r = billingState();
+  return { ...r, stripeVariablesSeen: seen };
+}
+
+function billingState(): { billing: string; mode?: 'test' | 'live' } {
   const sk = secretKey();
   const pk = envKey('STRIPE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
   if (!sk) return { billing: pk ? 'not configured: STRIPE_SECRET_KEY is missing' : 'not configured' };
