@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  applyHoldList, createOpenAiClient, dedupeWorkItems, executionPlan, planWeek, mapPlanTasks, orderTasks, pluginId, reverifyApplied, taskFinished, taskProgress, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
+  applyHoldList, createOpenAiClient, dedupeWorkItems, reopenUnmade, executionPlan, planWeek, mapPlanTasks, orderTasks, pluginId, reverifyApplied, taskFinished, taskProgress, DEFAULT_AUTOPILOT_SETTINGS, draftAltTexts, fetchPageContents, generateWorkItems, GscSubmitError, gscSubmitSitemap, localParts, normDomain, pageKey, pageKeywordMap,
   planMonthWindow, pluginSupportsApply, PLUGIN_TYPES, runWorkItems, timezoneFor, todaysShare, updateAction, validTimezone,
   type ActionWorkspace, type AutopilotSettings, type SiteConnection, type BusinessProfile, type EmailLogEntry, type RunSummary, type WorkItem, type WpChangeType,
 } from '@seo/core';
@@ -240,6 +240,7 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     let inventory = await getInventory(s.accountId, domain);
     const nowStatus = await wp.status().catch(() => null);
     const changed = (a: typeof nowStatus, b: typeof nowStatus) => !a || !b || a.version !== b.version || a.sitemap?.url !== b.sitemap?.url || a.sitemap?.by !== b.sitemap?.by || a.seo !== b.seo;
+    if (nowStatus?.paused) throw new Error('The autopilot is paused in WordPress, so nothing was changed. In WordPress open MS SCORE Autopilot, press "Resume the autopilot", then run again.');
     const recent = inventory && Date.now() - new Date(inventory.refreshedAt).getTime() < 6 * 3600_000 && !changed(inventory.status, nowStatus);
     inventory = recent ? { ...inventory!, status: nowStatus ?? inventory!.status } : (await refreshInventory(domain)).inventory;
 
@@ -249,7 +250,11 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     ]);
     // Every task gets its action type and target pages (backfills plans written before the executor).
     const indexable = inventory.items.filter((i) => i.url && !i.noindex && ['page', 'post', 'product'].includes(i.type)).map((i) => i.url!);
-    const mapped = mapPlanTasks(actions0, indexable);
+    // Tasks earlier runs marked done although the website refused every change (e.g. while paused) open again.
+    let reopened = actions0;
+    for (const id of reopenUnmade(actions0.actions, s.items)) reopened = updateAction(reopened, id, { status: 'todo' });
+    const mapped = mapPlanTasks(reopened, indexable);
+    if (reopened !== actions0 && !mapped.changed) await saveActions(reopened);
     if (mapped.changed) await saveActions(mapped.ws);
     const actions = mapped.ws;
     const month = currentPlanMonth(actions);
