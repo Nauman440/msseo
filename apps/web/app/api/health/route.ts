@@ -10,6 +10,9 @@ import { billingSetup } from '@/lib/billing';
  */
 export const dynamic = 'force-dynamic';
 
+const STARTED = new Date().toISOString();
+const NO_STORE = { headers: { 'cache-control': 'no-store, max-age=0' } };
+
 const withTimeout = <T,>(p: Promise<T>, ms: number) =>
   Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 
@@ -25,7 +28,7 @@ export async function GET() {
   }
   const searchConsole = gscSetup().ready ? 'configured' : 'not configured';
   const billing = billingSetup();
-  if (!workerMode()) return Response.json({ ok: true, database, searchConsole, ...billing, audits: 'in-process' });
+  if (!workerMode()) return Response.json({ ok: true, startedAt: STARTED, database, searchConsole, ...billing, audits: 'in-process' }, NO_STORE);
 
   let workers: number | 'error';
   try {
@@ -34,5 +37,5 @@ export async function GET() {
   } catch {
     workers = 'error';
   }
-  return Response.json({ ok: true, database, searchConsole, ...billing, audits: 'worker', workers });
+  return Response.json({ ok: true, startedAt: STARTED, database, searchConsole, ...billing, audits: 'worker', workers }, NO_STORE);
 }
