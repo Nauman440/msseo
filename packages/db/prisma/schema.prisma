@@ -173,34 +173,38 @@ model RuleResultRow {
 /// A customer who signed up through the public funnel (step 8): trial, chosen plan and
 /// everything entered in the 5-step onboarding. No payment is taken; the team invoices.
 model CustomerAccount {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName    String
-  phone           String?
-  plan            String // autopilot | growth
-  status          String    @default("trial") // trial | active | cancelled
-  trialEndsAt     DateTime
-  website         String?
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName         String
+  phone                String?
+  plan                 String // autopilot | growth
+  status               String    @default("trial") // trial | active | cancelled
+  trialEndsAt          DateTime
+  website              String?
   /// Growth plan: up to 2 more websites (3 in total).
-  extraWebsites   String[]
-  projectId       String?
-  project         Project?  @relation(fields: [projectId], references: [id])
-  sourceAuditId   String? // the free audit they signed up from
-  country         String?
-  areas           String[]
-  otherCountries  Boolean   @default(false)
-  language        String?
-  services        String[]
-  competitors     String[]
-  connections     String[] // requested: gsc | ga4 | gbp | cms
-  consentChanges  Boolean   @default(false)
-  consentAt       DateTime?
-  onboardingStep  Int       @default(2) // next step to show; 6 = finished
-  onboardedAt     DateTime?
-  lastAutoAuditAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  extraWebsites        String[]
+  projectId            String?
+  project              Project?  @relation(fields: [projectId], references: [id])
+  sourceAuditId        String? // the free audit they signed up from
+  country              String?
+  areas                String[]
+  otherCountries       Boolean   @default(false)
+  language             String?
+  services             String[]
+  competitors          String[]
+  connections          String[] // requested: gsc | ga4 | gbp | cms
+  consentChanges       Boolean   @default(false)
+  consentAt            DateTime?
+  onboardingStep       Int       @default(2) // next step to show; 6 = finished
+  onboardedAt          DateTime?
+  lastAutoAuditAt      DateTime?
+  /// Stripe (test or live keys): the customer, the trial subscription and its last known status.
+  stripeCustomerId     String?
+  stripeSubscriptionId String?   @unique
+  billingStatus        String? // Stripe subscription status: trialing | active | past_due | canceled | ...
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 /// AI check results keyed by a hash of exactly what was sent (step 7), so unchanged pages

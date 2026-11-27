@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import type { ActionState } from '@/components/forms/ActionForm';
 import { accountSites, getAccountByUserId, isPlan, PLANS, updateAccount } from '@/lib/accounts';
+import { billingError, cancelBilling, changeBillingPlan, checkoutUrl, liveSubscription, resumeBilling, stripeEnabled } from '@/lib/billing';
 import { publicOrigin } from '@/lib/google-oauth';
 import { emailLayout, notifyTeam, sendMail } from '@/lib/mailer';
 import { requireCustomer } from '@/lib/session';
@@ -97,6 +99,11 @@ export async function changePlanAction(_prev: ActionState, form: FormData): Prom
   if (sites > PLANS[plan].websites) {
     return { error: `${PLANS[plan].name} covers ${PLANS[plan].websites} website. Remove ${sites - PLANS[plan].websites} from your dashboard first, then switch.` };
   }
+  try {
+    if (account.stripeSubscriptionId) await changeBillingPlan(account, plan);
+  } catch (err) {
+    return { error: `Your plan was not changed. ${billingError(err)}` };
+  }
   await updateAccount(user.id, { plan });
   const from = PLANS[account.plan];
   const to = PLANS[plan];
@@ -113,6 +120,17 @@ export async function cancelPlanAction(_prev: ActionState, form: FormData): Prom
   if (account.status === 'cancelled') return { ok: 'Your plan is already cancelled.' };
   if (form.get('confirm') !== 'on') return { error: 'Tick the box to confirm.' };
   const reason = String(form.get('reason') ?? '').trim().slice(0, 500);
+  let when: 'now' | 'period_end' | null = null;
+  try {
+    if (account.stripeSubscriptionId) when = await cancelBilling(account);
+  } catch (err) {
+    return { error: `Your plan was not cancelled. ${billingError(err)}` };
+  }
+  if (when === 'period_end') {
+    await announce(`Cancelling at month end: ${account.businessName}`, [`${account.businessName} (${user.email}) cancelled ${PLANS[account.plan].name}; Stripe stops it at the end of the paid month.`, reason ? `Reason: ${reason}` : 'No reason given.']);
+    revalidatePath('/my', 'layout');
+    return { ok: 'Your plan stops at the end of the month you have paid for. Nothing more will be charged.' };
+  }
   await updateAccount(user.id, { status: 'cancelled' });
   await announce(
     `Cancelled: ${account.businessName}`,
@@ -130,6 +148,26 @@ export async function cancelPlanAction(_prev: ActionState, form: FormData): Prom
 
 export async function restartPlanAction(): Promise<ActionState> {
   const { user, account } = await planContext();
+  if (stripeEnabled()) {
+    try {
+      if (await resumeBilling(account)) {
+        revalidatePath('/my', 'layout');
+        return { ok: 'Welcome back. Your plan will carry on.' };
+      }
+    } catch (err) {
+      return { error: billingError(err) };
+    }
+    if (account.status === 'cancelled' || !liveSubscription(account)) {
+      // A new card on Stripe: the rest of the free trial when it has not ended, otherwise billed from today.
+      let url: string;
+      try {
+        url = await checkoutUrl({ account, email: user.email ?? null, origin: publicOrigin(await headers()), trial: Date.parse(account.trialEndsAt) > Date.now(), cancelPath: '/my/account#plan' });
+      } catch (err) {
+        return { error: `We could not open the payment page. ${billingError(err)}` };
+      }
+      redirect(url);
+    }
+  }
   if (account.status !== 'cancelled') return { ok: 'Your plan is already running.' };
   const inTrial = Date.parse(account.trialEndsAt) > Date.now();
   await updateAccount(user.id, { status: inTrial ? 'trial' : 'active' });

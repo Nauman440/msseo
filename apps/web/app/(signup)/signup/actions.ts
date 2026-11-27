@@ -3,14 +3,15 @@
 import { AuthError, CredentialsSignin } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { newAuditSchema } from '@seo/core';
-import { CONNECTIONS, createAccount, domainOf, getAccountByUserId, isPlan, PLANS, TRIAL_DAYS, updateAccount, type Connection } from '@/lib/accounts';
-import { startAudit } from '@/lib/audit-runner';
+import { headers } from 'next/headers';
+import { CONNECTIONS, createAccount, getAccountByUserId, isPlan, PLANS, TRIAL_DAYS, updateAccount, type Connection } from '@/lib/accounts';
+import { billingError, checkoutUrl, liveSubscription, stripeEnabled } from '@/lib/billing';
+import { publicOrigin } from '@/lib/google-oauth';
+import { completeOnboarding } from '@/lib/onboarding';
 import { signIn } from '@/lib/auth';
 import { authEnabled, getSessionUser } from '@/lib/session';
-import { FINISHED, freeAuditSummary, stepPath, websiteAddress } from '@/lib/signup';
-import { startAutopilot } from '@/lib/autopilot';
-import { emailLayout, notifyTeam, sendMail } from '@/lib/mailer';
+import { freeAuditSummary, stepPath, websiteAddress } from '@/lib/signup';
+import { emailLayout, sendMail } from '@/lib/mailer';
 import { createUser, UserExistsError } from '@/lib/users';
 
 /** Step 8 signup: one action per onboarding step. Errors come back to the form. */
@@ -123,35 +124,25 @@ export async function saveServicesAction(_prev: SignupState, form: FormData): Pr
 
 /**
  * Step 5: which connections they can give us and consent to prepare changes (nothing is
- * connected today; the team sets it up). Finishes onboarding and, when the free audit was
- * of another site, starts a first audit of their website.
+ * connected today; the team sets it up). With Stripe on, the customer then adds a card on
+ * Stripe Checkout for the free trial (/api/stripe/return finishes sign-up); without it, sign-up
+ * finishes here.
  */
 export async function finishSignupAction(_prev: SignupState, form: FormData): Promise<SignupState> {
   const { user, account } = await currentCustomer();
   const connections = list(form, 'connections').filter((c): c is Connection => (CONNECTIONS as readonly string[]).includes(c));
   const consent = form.get('consent') === 'on';
-  const now = new Date().toISOString();
-  await updateAccount(user.id!, { connections, consentChanges: consent, consentAt: consent ? now : null, onboardingStep: FINISHED, onboardedAt: now });
-
-  const free = await freeAuditSummary(account.sourceAuditId);
-  const answers = [
-    `Business: ${account.businessName} (${user.name}, ${user.email ?? ''}${account.phone ? `, ${account.phone}` : ''})`,
-    `Plan: ${PLANS[account.plan].name}, trial until ${account.trialEndsAt.slice(0, 10)}`,
-    `Website: ${account.website ?? '-'}`,
-    `Area: ${[account.country, ...account.areas].filter(Boolean).join(', ') || '-'}${account.otherCountries ? ' (+ other countries)' : ''}, language ${account.language ?? '-'}`,
-    `Services: ${account.services.join(', ') || '-'}; competitors: ${account.competitors.join(', ') || '-'}`,
-    `Can connect: ${connections.join(', ') || 'nothing yet'}; may prepare changes: ${consent ? 'yes' : 'no'}`,
-  ];
-  const base = (process.env.APP_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || '').replace(/\/$/, '');
-  await notifyTeam(
-    `New trial: ${account.businessName} (${PLANS[account.plan].name})`,
-    emailLayout({ heading: 'A new customer finished sign-up', paragraphs: answers, button: base ? { label: 'Open Customers', href: `${base}/settings/customers` } : undefined }),
-  );
-  if (account.website && (!free || free.domain !== domainOf(account.website))) {
-    const input = newAuditSchema.parse({ url: account.website, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });
-    await startAudit(input, user.id).catch(() => undefined); // the dashboard offers "Run audit" if this fails
+  await updateAccount(user.id!, { connections, consentChanges: consent, consentAt: consent ? new Date().toISOString() : null });
+  const me = { id: user.id!, name: user.name, email: user.email ?? null };
+  if (stripeEnabled() && !liveSubscription(account)) {
+    let url: string;
+    try {
+      url = await checkoutUrl({ account, email: me.email, origin: publicOrigin(await headers()), trial: true, cancelPath: '/signup/connect?payment=cancelled' });
+    } catch (err) {
+      return { error: `We could not open the payment page. ${billingError(err)}` };
+    }
+    redirect(url);
   }
-  // Autopilot: competitors, keywords and the page plan fill in by themselves a few minutes later.
-  await startAutopilot(user.id!);
+  await completeOnboarding(me);
   redirect('/my?welcome=1');
 }

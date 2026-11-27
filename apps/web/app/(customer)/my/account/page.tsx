@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ActionForm } from '@/components/forms/ActionForm';
 import { PlanSettings } from '@/components/customer/PlanSettings';
 import { accountSites, domainOf, getAccountByUserId } from '@/lib/accounts';
+import { stripeEnabled, stripeTestMode } from '@/lib/billing';
 import { requireCustomer } from '@/lib/session';
 import { SUPPORT_EMAIL } from '@/lib/site';
 import { changeCustomerPasswordAction, saveDetailsAction } from './actions';
@@ -16,7 +17,10 @@ const LABEL = 'flex flex-col gap-1.5 text-sm font-semibold';
 const PANEL = 'rounded-panel border border-border bg-surface p-6';
 
 /** Customer account settings: plan (switch, cancel, restart), details, business answers, password. */
-export default async function CustomerAccountPage() {
+type Props = { searchParams: Promise<{ billing?: string }> };
+
+export default async function CustomerAccountPage({ searchParams }: Props) {
+  const { billing } = await searchParams;
   const user = await requireCustomer();
   const account = await getAccountByUserId(user.id);
   if (!account) redirect('/signup');
@@ -32,7 +36,7 @@ export default async function CustomerAccountPage() {
         <p className="mt-2 text-[15px] text-ink-2">Signed in as {user.email}</p>
       </div>
 
-      <PlanSettings account={account} sites={sites} />
+      <PlanSettings account={account} sites={sites} billing={{ enabled: stripeEnabled(), test: stripeTestMode(), notice: billing ?? null }} />
 
       <section className={PANEL} aria-labelledby="details">
         <h2 id="details" className="mb-4 font-display text-lg font-bold">Your details</h2>

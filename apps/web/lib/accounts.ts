@@ -10,8 +10,8 @@ import { prisma } from '@seo/db';
  * otherwise, so the whole funnel can be developed and tested without a database.
  */
 export const PLANS = {
-  autopilot: { name: 'Autopilot', price: '$79', unit: '/month', websites: 1 },
-  growth: { name: 'Growth', price: '$229', unit: '/month', websites: 3 },
+  autopilot: { name: 'Autopilot', price: '$79', unit: '/month', websites: 1, cents: 7900 },
+  growth: { name: 'Growth', price: '$229', unit: '/month', websites: 3, cents: 22900 },
 } as const;
 export type PlanId = keyof typeof PLANS;
 export const isPlan = (v: unknown): v is PlanId => typeof v === 'string' && v in PLANS;
@@ -44,6 +44,10 @@ export type Account = {
   onboardingStep: number;
   onboardedAt: string | null;
   lastAutoAuditAt: string | null;
+  /** Stripe: customer, trial subscription and its last known status (null without Stripe). */
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  billingStatus: string | null;
   createdAt: string;
 };
 
@@ -115,6 +119,15 @@ export async function getAccountByUserId(userId: string): Promise<Account | null
   return (await readFileAccounts()).find((a) => a.userId === userId) ?? null;
 }
 
+/** The account a Stripe subscription belongs to. */
+export async function getAccountBySubscription(subscriptionId: string): Promise<Account | null> {
+  if (dbEnabled()) {
+    const r = await prisma.customerAccount.findUnique({ where: { stripeSubscriptionId: subscriptionId } });
+    return r ? fromDb(r) : null;
+  }
+  return (await readFileAccounts()).find((a) => a.stripeSubscriptionId === subscriptionId) ?? null;
+}
+
 export async function createAccount(input: { userId: string; businessName: string; phone: string | null; plan: PlanId; website: string | null; sourceAuditId: string | null }): Promise<Account> {
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString();
   if (dbEnabled()) {
@@ -124,7 +137,8 @@ export async function createAccount(input: { userId: string; businessName: strin
   }
   const account: Account = {
     id: randomUUID(), ...input, extraWebsites: [], status: 'trial', trialEndsAt, country: null, areas: [], otherCountries: false, language: null, services: [], competitors: [],
-    connections: [], consentChanges: false, consentAt: null, onboardingStep: 2, onboardedAt: null, lastAutoAuditAt: null, createdAt: new Date().toISOString(),
+    connections: [], consentChanges: false, consentAt: null, onboardingStep: 2, onboardedAt: null, lastAutoAuditAt: null,
+    stripeCustomerId: null, stripeSubscriptionId: null, billingStatus: null, createdAt: new Date().toISOString(),
   };
   await writeFileAccounts([...(await readFileAccounts()), account]);
   return account;

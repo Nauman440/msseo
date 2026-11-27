@@ -10,7 +10,7 @@ import { authConfig } from './auth.config';
  * deploy never opens or locks out the site while AUTH_SECRET is being added.
  * /setup (create the first admin) is always behind PREVIEW_PASSWORD.
  */
-const PUBLIC_PATHS = new Set(['/', '/api/me', '/privacy', '/terms', '/free', '/signup', '/login', '/forgot-password', '/reset-password', '/robots.txt', '/sitemap.xml', '/llms.txt', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png', '/api/autopilot/tick']);
+const PUBLIC_PATHS = new Set(['/', '/api/me', '/privacy', '/terms', '/free', '/signup', '/login', '/forgot-password', '/reset-password', '/robots.txt', '/sitemap.xml', '/llms.txt', '/manifest.webmanifest', '/sw.js', '/offline.html', '/icon.png', '/api/autopilot/tick', '/api/stripe/webhook']);
 // /free/<id> and its status API show only audits started from the public form (checked there).
 // /signup/* pages check the customer session themselves (step 1 is open, steps 2–5 need it).
 const PUBLIC_PREFIXES = ['/brand/', '/downloads/', '/opengraph-image', '/twitter-image', '/api/auth/', '/free/', '/api/free/', '/signup/'];

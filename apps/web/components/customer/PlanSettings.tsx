@@ -10,7 +10,11 @@ const STATUS = { trial: 'Free trial', active: 'Active', cancelled: 'Cancelled' }
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const host = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
-export function PlanSettings({ account, sites }: { account: Account; sites: string[] }) {
+export type BillingView = { enabled: boolean; test: boolean; notice?: string | null };
+const BILLING_STATUS: Record<string, string> = { trialing: 'Card on file · free trial', active: 'Paid monthly by card', past_due: 'Last payment failed: update your card', canceled: 'No active payment', unpaid: 'Unpaid: update your card', incomplete: 'Payment not finished', incomplete_expired: 'Payment not finished', paused: 'Paused: add a card' };
+const NOTICES: Record<string, string> = { ok: 'Thank you: your card is saved with Stripe.', portal: 'The payment settings page is not ready yet. Please contact us and we will update your card.', error: 'We could not confirm that payment page. Please try again.' };
+
+export function PlanSettings({ account, sites, billing }: { account: Account; sites: string[]; billing?: BillingView }) {
   const plan = PLANS[account.plan];
   const cancelled = account.status === 'cancelled';
   const trialLeft = Math.ceil((Date.parse(account.trialEndsAt) - Date.now()) / 86_400_000);
@@ -26,10 +30,29 @@ export function PlanSettings({ account, sites }: { account: Account; sites: stri
           {STATUS[account.status]}
           {account.status === 'trial' && <span className="font-normal text-ink-2"> · {trialLeft > 0 ? `ends ${date(account.trialEndsAt)} (${trialLeft} ${trialLeft === 1 ? 'day' : 'days'} left)` : `ended ${date(account.trialEndsAt)}`}</span>}
         </dd>
+        {billing?.enabled && (
+          <>
+            <dt className="text-ink-3">Payment</dt>
+            <dd className={cn(['past_due', 'unpaid'].includes(account.billingStatus ?? '') && 'font-semibold text-fail-text')}>
+              {account.billingStatus ? (BILLING_STATUS[account.billingStatus] ?? account.billingStatus) : 'No card added yet'}
+              {account.stripeCustomerId && <> · <a href="/api/stripe/portal" className="font-semibold text-primary-text hover:underline">Manage payment</a></>}
+              {billing.test && <span className="block text-[13px] text-ink-3">Stripe test mode: no real money moves.</span>}
+            </dd>
+          </>
+        )}
         <dt className="text-ink-3">Websites</dt>
         <dd className="break-all">{sites.length} of {plan.websites}{sites.length ? ` · ${sites.map(host).join(', ')}` : ''}</dd>
       </dl>
 
+      {billing?.notice && NOTICES[billing.notice] && <p role="status" className="mt-4 rounded-tile bg-sunken px-4 py-3 text-sm">{NOTICES[billing.notice]}</p>}
+      {billing?.enabled && !cancelled && !account.stripeSubscriptionId && (
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="mb-3 text-sm text-ink-2">Add a card to keep your plan running after the trial. Nothing is charged until the trial ends.</p>
+          <ActionForm action={restartPlanAction} submit="Add a card">
+            <span className="sr-only">Add a card for {plan.name}</span>
+          </ActionForm>
+        </div>
+      )}
       {cancelled ? (
         <div className="mt-5 border-t border-border pt-5">
           <p className="mb-3 text-sm text-ink-2">Weekly checks and new audits are paused. Your reports are still here.</p>
