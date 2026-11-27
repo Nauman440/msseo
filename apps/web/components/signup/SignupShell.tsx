@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { signOutAction } from '@/app/(auth)/actions';
 import { Logo } from '@/components/ui/Logo';
-import { PLANS, type PlanId } from '@/lib/accounts';
+import { PLANS, TRIAL_DAYS, type PlanId } from '@/lib/accounts';
+import { stripePublishableKey } from '@/lib/billing';
 import type { FreeAuditSummary } from '@/lib/signup';
 import { STEPS } from '@/lib/signup';
 import { cn } from '@/lib/tones';
@@ -91,7 +92,9 @@ export function SignupShell({
                     </span>
                   </p>
                   <p className="mt-3 rounded-tile border border-brand/30 bg-brand/10 px-3 py-2 text-[13px] leading-5 text-brand">
-                    ✓ Nothing to pay today. You will confirm payment before your plan starts.
+                    {stripePublishableKey()
+                      ? `✓ Nothing to pay today. Your card is charged only after the ${TRIAL_DAYS}-day free trial; cancel any time before then.`
+                      : '✓ Nothing to pay today. You will confirm payment before your plan starts.'}
                   </p>
                 </>
               )}
