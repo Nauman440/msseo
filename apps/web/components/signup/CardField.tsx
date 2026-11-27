@@ -2,20 +2,29 @@
 
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
-import { STRIPE_APPEARANCE, STRIPE_FONTS } from '@/lib/tones';
+import { cn, STRIPE_APPEARANCE, STRIPE_CARD_STYLE, STRIPE_FONTS } from '@/lib/tones';
 import { SIGNUP_HINT, SIGNUP_LABEL } from './styles';
 
 /**
- * Stripe's Payment Element (card only) for the sign-up trial. The card number is typed into
- * Stripe's own iframe, so it never reaches our server. Stripe.js must be loaded from
- * js.stripe.com (versioned URL from docs.stripe.com, checked 2026-11-27). `amount: 0` because
- * nothing is charged until the trial ends.
+ * The card field for the sign-up trial. The card number is typed into Stripe's own iframe, so it
+ * never reaches our server. Stripe.js must be loaded from js.stripe.com (versioned URL from
+ * docs.stripe.com, checked 2026-11-27).
+ *
+ * First choice: the Payment Element (deferred intent, `amount: 0` because nothing is charged until
+ * the trial ends). It reads the account's payment-method settings in the Stripe dashboard; when
+ * those allow nothing for USD, Stripe answers `loaderror` "No valid payment method types", and
+ * the field switches to Stripe's plain Card Element, which does not depend on those settings and
+ * is confirmed with `stripe.confirmCardSetup`.
  */
-type StripeError = { message?: string };
-type StripeElements = { create: (type: 'payment', o: object) => { mount: (el: HTMLElement) => void; on: (ev: 'ready' | 'change' | 'loaderror', cb: (e: { complete?: boolean; error?: StripeError }) => void) => void; destroy: () => void }; submit: () => Promise<{ error?: StripeError }> };
+type StripeError = { message?: string; type?: string };
+type StripeEvent = { complete?: boolean; error?: StripeError };
+type StripeElement = { mount: (el: HTMLElement) => void; on: (ev: 'ready' | 'change' | 'loaderror', cb: (e: StripeEvent) => void) => void; destroy: () => void };
+type StripeElements = { create: (type: 'payment' | 'card', o: object) => StripeElement; submit: () => Promise<{ error?: StripeError }> };
+type SetupResult = Promise<{ error?: StripeError; setupIntent?: { id: string; status: string } }>;
 export type StripeJs = {
   elements: (o: object) => StripeElements;
-  confirmSetup: (o: { elements: StripeElements; clientSecret: string; confirmParams: { return_url: string }; redirect: 'if_required' }) => Promise<{ error?: StripeError; setupIntent?: { id: string; status: string } }>;
+  confirmSetup: (o: { elements: StripeElements; clientSecret: string; confirmParams: { return_url: string }; redirect: 'if_required' }) => SetupResult;
+  confirmCardSetup: (clientSecret: string, data: { payment_method: { card: StripeElement } }) => SetupResult;
 };
 declare global {
   interface Window {
@@ -25,19 +34,40 @@ declare global {
 
 export const STRIPE_JS = 'https://js.stripe.com/endive/stripe.js';
 
-/** Mounts the card field; returns Stripe and its Elements once ready. */
+/** What the forms use: Stripe, and either the Payment Element or the plain card field. */
+export type CardApi =
+  | { kind: 'payment'; stripe: StripeJs; elements: StripeElements }
+  | { kind: 'card'; stripe: StripeJs; card: StripeElement; complete: boolean; error: string | null };
+
+/** Checks the card before anything is created; returns a message to show, or null. */
+export async function checkCard(api: CardApi | null): Promise<string | null> {
+  if (!api) return 'The secure card field is still loading.';
+  if (api.kind === 'card') return api.error ?? (api.complete ? null : 'Enter your card number, expiry date and CVC.');
+  const r = await api.elements.submit();
+  return r.error ? (r.error.message ?? 'Check your card details.') : null;
+}
+
+/** Confirms the card on the trial's setup with whichever field is showing. */
+export function confirmCard(api: CardApi, clientSecret: string): SetupResult {
+  if (api.kind === 'card') return api.stripe.confirmCardSetup(clientSecret, { payment_method: { card: api.card } });
+  return api.stripe.confirmSetup({ elements: api.elements, clientSecret, confirmParams: { return_url: `${window.location.origin}/api/stripe/card-return` }, redirect: 'if_required' });
+}
+
+/** Mounts the card field; returns Stripe and its field once ready. */
 export function useCardField(publishableKey: string) {
   const box = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
+  const [plain, setPlain] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  const api = useRef<{ stripe: StripeJs; elements: StripeElements } | null>(null);
+  const api = useRef<CardApi | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Stripe) setLoaded(true);
   }, []);
   useEffect(() => {
     if (!loaded || !box.current || !window.Stripe || api.current) return;
+    const host = box.current;
     let stripe: StripeJs;
     try {
       stripe = window.Stripe(publishableKey);
@@ -45,29 +75,55 @@ export function useCardField(publishableKey: string) {
       setFailed(err instanceof Error ? err.message : 'Stripe did not start.');
       return;
     }
-    // Card only, matching the subscription's payment_settings.payment_method_types.
-    let card: ReturnType<StripeElements['create']>;
-    let elements: StripeElements;
+    let element: StripeElement | null = null;
+
+    // The plain card field: used when the Payment Element has nothing it may show.
+    const plainCard = () => {
+      const card = stripe.elements({ fonts: STRIPE_FONTS }).create('card', { style: STRIPE_CARD_STYLE, hidePostalCode: false });
+      const state: CardApi = { kind: 'card', stripe, card, complete: false, error: null };
+      card.on('ready', () => setReady(true));
+      card.on('change', (e) => {
+        state.complete = Boolean(e.complete);
+        state.error = e.error?.message ?? null;
+      });
+      card.mount(host);
+      element = card;
+      api.current = state;
+      setPlain(true);
+      setFailed(null);
+    };
+
     try {
-      elements = stripe.elements({ mode: 'subscription', amount: 0, currency: 'usd', allowedPaymentMethodTypes: ['card'], appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS });
-      card = elements.create('payment', { layout: 'tabs', business: { name: 'MS SCORE' } });
+      const elements = stripe.elements({ mode: 'subscription', amount: 0, currency: 'usd', allowedPaymentMethodTypes: ['card'], appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS });
+      const payment = elements.create('payment', { layout: 'tabs', business: { name: 'MS SCORE' } });
+      payment.on('ready', () => setReady(true));
+      payment.on('loaderror', (e) => {
+        console.error('Stripe card field loaderror; using the plain card field', e.error);
+        payment.destroy();
+        element = null;
+        api.current = null;
+        setReady(false);
+        try {
+          plainCard();
+        } catch (err) {
+          setFailed(e.error?.message ?? (err instanceof Error ? err.message : 'Stripe could not load the card form.'));
+        }
+      });
+      payment.mount(host);
+      element = payment;
+      api.current = { kind: 'payment', stripe, elements };
     } catch (err) {
       console.error('Stripe card field', err);
-      setFailed(err instanceof Error ? err.message : 'The card field could not be created.');
-      return;
+      try {
+        plainCard();
+      } catch {
+        setFailed(err instanceof Error ? err.message : 'The card field could not be created.');
+      }
     }
-    card.on('ready', () => setReady(true));
-    // Stripe answers here when it refuses to load the form (key, account or payment-method settings).
-    card.on('loaderror', (e) => {
-      console.error('Stripe card field loaderror', e.error);
-      setFailed(e.error?.message ?? 'Stripe could not load the card form.');
-    });
-    card.mount(box.current);
-    api.current = { stripe, elements };
-    const slow = window.setTimeout(() => setFailed((f) => f ?? (api.current && !box.current?.querySelector('iframe') ? 'The secure card field did not appear. Reload the page; if it stays empty, a browser extension may be blocking Stripe.' : null)), 15_000);
+    const slow = window.setTimeout(() => setFailed((f) => f ?? (!host.querySelector('iframe') ? 'The secure card field did not appear. Reload the page; if it stays empty, a browser extension may be blocking Stripe.' : null)), 15_000);
     return () => {
       window.clearTimeout(slow);
-      card.destroy();
+      element?.destroy();
       api.current = null;
     };
   }, [loaded, publishableKey]);
@@ -76,7 +132,8 @@ export function useCardField(publishableKey: string) {
     <div className="flex flex-col gap-1.5">
       <Script src={STRIPE_JS} strategy="afterInteractive" onLoad={() => setLoaded(true)} onError={() => setFailed('The secure card field could not load. Check your connection, turn off ad blockers for this page and reload.')} />
       <span className={SIGNUP_LABEL}>Card details</span>
-      <div ref={box} className="min-h-[56px]" aria-busy={!ready} />
+      {/* The plain card field is one line without a frame of its own: it gets the same box as the other inputs. */}
+      <div ref={box} className={cn('min-h-[56px]', plain && 'rounded-tile border border-border-strong bg-surface px-4 py-[18px]')} aria-busy={!ready} />
       {!ready && !failed && <span className={SIGNUP_HINT}>Loading the secure card field…</span>}
       {failed && <span role="alert" className="text-sm font-medium text-fail-text">{failed}</span>}
     </div>

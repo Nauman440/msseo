@@ -120,3 +120,8 @@ export const STRIPE_APPEARANCE = {
   rules: { '.Input': { border: '1px solid #D6CFC2', boxShadow: 'none' }, '.Input:focus': { borderColor: '#F97316', boxShadow: '0 0 0 3px rgba(249,115,22,0.3)' } },
 } as const;
 export const STRIPE_FONTS = [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap' }] as const;
+/** Style for Stripe's plain card field (fallback when the account has no payment methods switched on). */
+export const STRIPE_CARD_STYLE = {
+  base: { color: '#0F1B2D', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: '16px', iconColor: '#4B5563', '::placeholder': { color: '#64748B' } },
+  invalid: { color: '#7F1D1D', iconColor: '#7F1D1D' },
+} as const;
