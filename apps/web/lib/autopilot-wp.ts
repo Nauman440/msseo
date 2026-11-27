@@ -164,15 +164,28 @@ async function robotsOf(home: string): Promise<string | null | undefined> {
   }
 }
 
-/** Changes a person undid on the WordPress admin page become "undone" here too. */
-async function syncWordPressUndos(wp: { changes(page?: number): Promise<{ change_id: string; status: string }[]> }, items: WorkItem[]): Promise<WorkItem[]> {
-  const undone = new Set<string>();
+/**
+ * Changes undone on the WordPress admin page become "undone" here too. "Undo every MS SCORE change"
+ * (or MS SCORE's own "undo everything") is a fresh start: `undoAll` tells the run to forget those
+ * changes and make them again, while a single undo is respected until someone presses Redo.
+ */
+const UNDO_ALL = /everything undone|undo everything|All data for this website deleted|start over/i;
+async function syncWordPressUndos(wp: { changes(page?: number): Promise<{ change_id: string; status: string; note?: string | null }[]> }, items: WorkItem[]): Promise<{ items: WorkItem[]; undoAll: boolean }> {
+  const undone = new Map<string, boolean>();
   for (let page = 1; page <= 3; page++) {
     const list = await wp.changes(page).catch(() => []);
-    for (const c of list) if (c.status === 'rolled_back') undone.add(c.change_id);
+    for (const c of list) if (c.status === 'rolled_back') undone.set(c.change_id, UNDO_ALL.test(c.note ?? ''));
     if (list.length < 50) break;
   }
-  return items.map((i) => (undone.has(pluginId(i)) && ['applied', 'verified'].includes(i.status) ? { ...i, status: 'rolled_back' as const, reason: 'Undone in WordPress (MS SCORE Autopilot page).' } : i));
+  let undoAll = false;
+  const fromWordPress = (i: WorkItem) => i.status === 'rolled_back' && i.reason?.startsWith('Undone in WordPress');
+  const next = items.map((i) => {
+    if (!undone.has(pluginId(i)) || !(['applied', 'verified'].includes(i.status) || fromWordPress(i))) return i;
+    // Also changes an earlier run already marked undone, when the undo was "everything".
+    if (undone.get(pluginId(i))) undoAll = true;
+    return { ...i, status: 'rolled_back' as const, reason: 'Undone in WordPress (MS SCORE Autopilot page).' };
+  });
+  return { items: next, undoAll };
 }
 
 /** MS SCORE's own steps: submit the sitemap, switch on the weekly page check, check AI assistants. */
@@ -234,7 +247,18 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
     const conn = await getConnection(domain);
     if (!conn) throw new Error('The website is not connected.');
     const { wp } = await siteSession(conn);
-    s = { ...s, items: await syncWordPressUndos(wp, s.items) };
+    const synced = await syncWordPressUndos(wp, s.items);
+    s = { ...s, items: synced.items };
+    if (synced.undoAll) {
+      // "Undo every MS SCORE change" in WordPress = start over: forget the changes (new ids) and reopen their tasks.
+      const undoneIds = new Set(s.items.filter((i) => i.status === 'rolled_back').map((i) => i.actionId));
+      s = { ...s, items: s.items.filter((i) => i.status !== 'rolled_back'), generation: (s.generation ?? 0) + 1, notes: ['Everything was undone in WordPress, so the plan starts over and the changes are made again.'] };
+      const ws0 = await getActions(domain);
+      let ws1 = ws0;
+      for (const a of ws0.actions) if (undoneIds.has(a.id) && (a.status === 'done' || a.status === 'verified' || a.status === 'in_progress')) ws1 = updateAction(ws1, a.id, { status: 'todo' });
+      if (ws1 !== ws0) await saveActions(ws1);
+      await saveAutopilot(s);
+    }
     // The saved inventory is reused for 6 hours, but the plugin's own status (version, sitemap, paused)
     // is read live: a plugin updated or reinstalled since must not be judged by its old status.
     let inventory = await getInventory(s.accountId, domain);
@@ -444,4 +468,15 @@ export async function undoWorkItem(rawDomain: string, id: string): Promise<{ ok?
   const a = ws.actions.find((x) => x.id === it.actionId);
   if (a && (a.status === 'done' || a.status === 'verified')) await saveActions(updateAction(ws, a.id, { status: 'in_progress' }));
   return { ok: `Undone: ${it.label}.` };
+}
+
+/** Makes an undone change again on the next run (a person changed their mind). */
+export async function redoWorkItem(rawDomain: string, id: string): Promise<{ ok?: string; error?: string }> {
+  const domain = normDomain(rawDomain);
+  const s = await getAutopilot(domain);
+  const it = s.items.find((i) => i.id === id);
+  if (!it || it.status !== 'rolled_back') return { error: 'This change is not undone.' };
+  const items = s.items.map((i) => (i.id === id ? { ...i, status: 'draft' as const, reason: 'Redo asked: made again on the next run.', appliedAt: null, verifiedAt: null, changeId: `${i.id}-r${Date.now().toString(36)}` } : i));
+  await saveAutopilot({ ...s, items });
+  return { ok: `It will be made again on the next run: ${it.label}.` };
 }
