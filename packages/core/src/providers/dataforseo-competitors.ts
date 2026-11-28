@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HttpError, requestJson, type HttpLog } from './http';
+import { hostTargets } from './dataforseo-base';
 
 /**
  * DataForSEO endpoints for Module 3 (competitor identification). Checked against
@@ -68,7 +69,7 @@ export function createCompetitorClient(cfg: DfsConfig) {
   const base = cfg.baseUrl.replace(/\/$/, '');
 
   async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>): Promise<{ items: z.infer<T>[]; cost: number }> {
-    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [task], timeoutMs: 60_000, log: cfg.log });
+    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [hostTargets(task)], timeoutMs: 60_000, log: cfg.log });
     const parsed = envelope(items).parse(json);
     if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
     const t = parsed.tasks[0];

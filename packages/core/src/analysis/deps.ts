@@ -9,6 +9,7 @@ import { request, type HttpLog } from '../providers/http';
 import { createOpenAiClient } from '../providers/openai';
 import { runPageSpeed } from '../providers/pagespeed';
 import type { AnalysisDeps } from './analysis';
+import { siteUrl } from '../site-key';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 
@@ -28,7 +29,7 @@ async function text(url: string, log?: HttpLog): Promise<string | null> {
 /** Pages listed in a site's sitemap and its biggest folders (index: up to 10 child sitemaps), or null when there is none. */
 export async function sitemapInfo(domain: string, log?: HttpLog): Promise<{ count: number; folders: { folder: string; count: number }[] } | null> {
   for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml']) {
-    const xml = await text(`https://${domain}${path}`, log);
+    const xml = await text(`${siteUrl(domain).replace(/\/$/, "")}${path}`, log);
     if (!xml) continue;
     const map = parseSitemap(xml);
     if (!map.valid) continue;
@@ -43,7 +44,7 @@ export async function sitemapInfo(domain: string, log?: HttpLog): Promise<{ coun
 /** Module 6 "Automate": every URL in a site's sitemap (index: up to 20 child sitemaps), capped; null when there is none. */
 export async function sitemapUrlList(domain: string, cap = 5000, log?: HttpLog): Promise<string[] | null> {
   for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml']) {
-    const xml = await text(`https://${domain}${path}`, log);
+    const xml = await text(`${siteUrl(domain).replace(/\/$/, "")}${path}`, log);
     if (!xml) continue;
     const map = parseSitemap(xml);
     if (!map.valid) continue;
@@ -68,7 +69,7 @@ async function homeHeaders(url: string, log?: HttpLog): Promise<Record<string, s
 /** Pages listed in a site's sitemap (index: up to 10 child sitemaps), or null when there is none. */
 export async function sitemapCount(domain: string, log?: HttpLog): Promise<number | null> {
   for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml']) {
-    const xml = await text(`https://${domain}${path}`, log);
+    const xml = await text(`${siteUrl(domain).replace(/\/$/, "")}${path}`, log);
     if (!xml) continue;
     const map = parseSitemap(xml);
     if (!map.valid) continue;

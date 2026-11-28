@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { DfsConfig } from './dataforseo-competitors';
 import { HttpError, requestJson } from './http';
+import { siteHost } from '../site-key';
 
 /**
  * Shared DataForSEO calls (docs.dataforseo.com, checked 2026-11-19): one task per Live call; Standard
@@ -23,6 +24,24 @@ const envelope = z.object({
 });
 export type DfsResult = z.infer<typeof result>;
 
+/**
+ * DataForSEO knows websites by host. A website in a folder has a site key "host~folder" (see
+ * `siteKey()`); every target in a request is sent as its host, so such a key never reaches the API.
+ */
+export function hostTargets<T>(task: T): T {
+  if (!task || typeof task !== 'object') return task;
+  const t = { ...(task as Record<string, unknown>) };
+  const host = (v: unknown) => (typeof v === 'string' && v.includes('~') ? siteHost(v) : v);
+  if ('target' in t) t.target = host(t.target);
+  for (const k of ['targets', 'exclude_targets'] as const) {
+    const v = t[k];
+    if (Array.isArray(v)) t[k] = v.map(host);
+    else if (v && typeof v === 'object') t[k] = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([a, b]) => [a, host(b)]));
+  }
+  if (typeof t.keyword === 'string' && t.keyword.startsWith('site:')) t.keyword = `site:${host(t.keyword.slice(5))}`;
+  return t as T;
+}
+
 export function createDfsBase(cfg: DfsConfig, api: string) {
   const auth = `Basic ${Buffer.from(`${cfg.login}:${cfg.password}`).toString('base64')}`;
   const base = cfg.baseUrl.replace(/\/$/, '');
@@ -31,7 +50,7 @@ export function createDfsBase(cfg: DfsConfig, api: string) {
       provider: 'dataforseo',
       method: task ? 'POST' : 'GET',
       headers: { authorization: auth },
-      ...(task ? { body: [task] } : {}),
+      ...(task ? { body: [hostTargets(task)] } : {}),
       timeoutMs,
       retries: 0,
       log: cfg.log,

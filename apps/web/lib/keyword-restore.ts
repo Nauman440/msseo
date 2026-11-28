@@ -4,6 +4,7 @@ import { prepare } from './auto';
 import { customerAudits } from './customer-data';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from './keywords';
 import { providerConfig } from './providers-config';
+import { siteUrl } from '@seo/core';
 
 /** Fields the withdrawn fast keyword pipeline (2026-11-25) left on saved workspaces. */
 type Leftovers = { fast?: unknown; fastCache?: unknown; fastAnswers?: unknown; fastError?: unknown };
@@ -30,7 +31,7 @@ async function restore(domain: string): Promise<void> {
   let calls = 0;
   const before = await dataforseoBalance(env.dataforseo);
   const api = createKeywordClient({ ...env.dataforseo, log: (e) => void (e.provider === 'dataforseo' && calls++) });
-  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
+  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(siteUrl(domain))]);
   const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
   const r = await researchKeywords(api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });
   const kept = r.workspace.keywords.filter((k) => k.status === 'kept').length;

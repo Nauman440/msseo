@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ChooseProperties } from '@/components/customer/ChooseProperties';
 import { googleChoices } from '@/lib/customer-google';
 import { loadCustomerSite } from '@/lib/customer-site';
+import { siteLabel } from '@seo/core';
 
 export const metadata: Metadata = { title: 'Connect Google' };
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export default async function ConnectPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-[680px] overflow-hidden rounded-[20px] border border-border bg-surface shadow-[0_24px_60px_rgba(15,27,45,0.18)]">
       <div className="flex flex-col gap-1.5 border-b border-border px-6 pb-5 pt-6 sm:px-7">
-        <p className="text-sm font-semibold text-primary-heading">Connect Google · {s.domain}</p>
+        <p className="text-sm font-semibold text-primary-heading">Connect Google · {siteLabel(s.domain)}</p>
         <h1 className="font-display text-[24px] font-bold">Choose what to connect</h1>
         <p className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
           Signed in as {choices?.email ?? s.google.email}
@@ -42,7 +43,7 @@ export default async function ConnectPage({ searchParams }: Props) {
       ) : (
         <div className="flex flex-col gap-4 px-6 py-6 sm:px-7">
           <p role="alert" className="text-[15px] text-ink-2">
-            {error ?? choices?.error ?? `This Google account has no Search Console property yet. Add ${s.domain} to Search Console, or sign in with the account that manages it.`}
+            {error ?? choices?.error ?? `This Google account has no Search Console property yet. Add ${siteLabel(s.domain)} to Search Console, or sign in with the account that manages it.`}
           </p>
           <div className="flex flex-wrap gap-3">
             <a href="https://support.google.com/webmasters/answer/34592" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-control border border-border-strong px-5 text-[15px] font-semibold hover:border-ink-3">

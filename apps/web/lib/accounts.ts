@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { prisma } from '@seo/db';
+import { siteKey } from '@seo/core';
 
 /**
  * Customer accounts from the public signup funnel (step 8): trial, plan and onboarding
@@ -68,13 +69,8 @@ export function accountSites(a: Pick<Account, 'website' | 'extraWebsites'>): str
 export type AccountPatch = Partial<Omit<Account, 'id' | 'userId' | 'createdAt'>>;
 
 const dbEnabled = () => Boolean(process.env.DATABASE_URL);
-export const domainOf = (url: string) => {
-  try {
-    return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
+/** A website's key: its host, or "host~folder" for a website in a folder (see `siteKey()` in core). */
+export const domainOf = (url: string) => siteKey(url);
 
 // ---- file store (dev/tests) ----
 const FILE = resolve(process.env.DATA_DIR || resolve(process.cwd(), '../../.data'), 'accounts.json');

@@ -10,6 +10,7 @@ import { customerAudits } from '@/lib/customer-data';
 import { getKeywordWorkspace, gscQueries, logUsage, researchCompetitors, saveKeywordWorkspace } from '@/lib/keywords';
 import { providerConfig } from '@/lib/providers-config';
 import { hit } from '@/lib/rate-limit';
+import { siteUrl } from '@seo/core';
 
 /** Module 4 actions, shared by the team's and the customer's keyword pages. */
 export type KeywordState = { error?: string; ok?: string };
@@ -88,7 +89,7 @@ export async function researchKeywordsAction(rawDomain: string): Promise<Keyword
   if (!(await allowed(customer, `keywords-research:${domain}`, 1))) return { error: 'Keyword research runs once a day. Please try again tomorrow.' };
   const c = await dfs();
   if (!c) return { error: 'Keyword research is not available right now.' };
-  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(`https://${domain}/`)]);
+  const [competitors, gsc, audits] = await Promise.all([researchCompetitors(domain), gscQueries(domain), customerAudits(siteUrl(domain))]);
   // The site's own pages (titles and H1s) keep the list about what this website really covers.
   const pageTitles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
   const r = await researchKeywords(c.api, ws, { competitors: competitors.domains, competitorNames: competitors.names, gsc, pageTitles });

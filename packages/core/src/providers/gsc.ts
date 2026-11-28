@@ -104,8 +104,11 @@ export async function gscCanRead(token: string, property: string, log?: HttpLog)
 /** Properties that cover the audited host: sc-domain:example.com, or a URL-prefix property on the same host. */
 export function matchGscProperties(properties: string[], url: string): string[] {
   let host: string;
+  let path: string;
   try {
-    host = new URL(url).hostname.toLowerCase();
+    const u = new URL(url);
+    host = u.hostname.toLowerCase();
+    path = u.pathname.toLowerCase();
   } catch {
     return [];
   }
@@ -116,9 +119,15 @@ export function matchGscProperties(properties: string[], url: string): string[] 
       return bare === d || bare.endsWith(`.${d}`) ? [{ p, rank: 0 }] : [];
     }
     try {
-      const h = new URL(p).hostname.toLowerCase();
-      if (h === host) return [{ p, rank: 1 }];
-      return h.replace(/^www\./, '') === bare ? [{ p, rank: 2 }] : [];
+      const u = new URL(p);
+      const h = u.hostname.toLowerCase();
+      // A URL-prefix property covers only addresses under its path: example.com/elementor/ never
+      // matches the website at example.com/srm/. The property for the website's own folder comes first.
+      const prefix = u.pathname.toLowerCase();
+      if (!path.startsWith(prefix)) return [];
+      const folder = prefix !== '/' ? -2 : 0;
+      if (h === host) return [{ p, rank: 1 + folder }];
+      return h.replace(/^www\./, '') === bare ? [{ p, rank: 2 + folder }] : [];
     } catch {
       return [];
     }

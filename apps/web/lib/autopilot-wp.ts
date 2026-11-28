@@ -22,6 +22,7 @@ import { getKeywordWorkspace, gscAccess, logUsage, researchCompetitors } from '.
 import { updateMonitor } from './monitor';
 import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
+import { siteUrl } from '@seo/core';
 
 /**
  * "Start implementing plan" (Changes tab and the team's action plan): prepares this month's exact
@@ -270,7 +271,7 @@ async function job(domain: string, by: string, opts: { scheduled?: boolean; only
 
     await step('Preparing this month’s changes');
     const [actions0, kw, mapping, audits, rivals, alt, accounts] = await Promise.all([
-      getActions(domain), getKeywordWorkspace(domain), getMapping(domain), customerAudits(`https://${domain}/`), researchCompetitors(domain), getAltText(domain), listAccounts(),
+      getActions(domain), getKeywordWorkspace(domain), getMapping(domain), customerAudits(siteUrl(domain)), researchCompetitors(domain), getAltText(domain), listAccounts(),
     ]);
     // Every task gets its action type and target pages (backfills plans written before the executor).
     const indexable = inventory.items.filter((i) => i.url && !i.noindex && ['page', 'post', 'product'].includes(i.type)).map((i) => i.url!);

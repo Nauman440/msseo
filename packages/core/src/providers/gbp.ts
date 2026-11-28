@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { request, requestJson, type HttpLog } from './http';
+import { siteHost } from '../site-key';
 
 /**
  * Google Business Profile APIs (OAuth scope business.manage), checked against developers.google.com
@@ -66,7 +67,7 @@ export function matchGbpLocations(locs: GbpLocation[], domain: string): (GbpLoca
       return '';
     }
   };
-  return locs.map((l) => ({ ...l, matches: host(l.website) === domain })).sort((a, b) => Number(b.matches) - Number(a.matches) || a.title.localeCompare(b.title));
+  return locs.map((l) => ({ ...l, matches: host(l.website) === siteHost(domain) })).sort((a, b) => Number(b.matches) - Number(a.matches) || a.title.localeCompare(b.title));
 }
 
 /** v4 path for a location: accounts/{a}/locations/{l} (Business Information names it locations/{l}). */

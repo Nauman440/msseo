@@ -261,6 +261,32 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page).toHaveURL(/\/my\/sites$/);
   await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
 
+  // Two websites in two folders of one domain are two websites: their own address, keywords and
+  // connection, never each other's (2026-11-28, data leak between example.com/srm/ and /elementor/).
+  for (const folder of ['srm', 'elementor']) {
+    await page.goto('/my/sites');
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel(/Add a website/).fill(`https://folders.invalid/${folder}/`);
+    await page.getByRole('button', { name: 'Add website' }).click();
+    await expect(page).toHaveURL(new RegExp(`/my\\?site=folders\\.invalid~${folder}$`));
+    await expect(page.getByRole('heading', { name: `folders.invalid/${folder}`, level: 1 })).toBeVisible();
+  }
+  // Each folder website opens as itself, never as the other one.
+  await page.goto('/my/connections?site=folders.invalid~srm');
+  await expect(page.getByRole('heading', { name: 'folders.invalid/srm', level: 1 })).toBeVisible();
+  await page.goto('/my/connections?site=folders.invalid~elementor');
+  await expect(page.getByRole('heading', { name: 'folders.invalid/elementor', level: 1 })).toBeVisible();
+  // WordPress for one folder cannot be connected to the other.
+  await page.goto('/api/connections/wordpress/start?domain=folders.invalid~elementor&site=https://folders.invalid/srm/');
+  await expect(page.getByRole('alert').filter({ hasText: 'Connect the WordPress site at folders.invalid/elementor, not folders.invalid/srm' })).toBeVisible();
+  await page.goto('/my/sites');
+  for (const folder of ['srm', 'elementor']) {
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: `Remove folders.invalid/${folder}` }).click();
+    await expect(page).toHaveURL(/\/my\/sites$/);
+  }
+  await expect(page.getByRole('navigation', { name: 'Your websites' }).getByRole('link')).toHaveCount(1);
+
   // The journey: steps open one by one; the two connection steps can be skipped for now.
   await page.goto('/my');
   await expect(page.getByRole('heading', { name: 'Your SEO steps' })).toBeVisible();

@@ -10,6 +10,7 @@ import { PagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { CheckGrid, SectionTitle } from '@/components/report/ReportSections';
 import { getAudit } from '@/lib/audit-store';
 import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
+import { siteLabel } from '@seo/core';
 
 export const dynamic = 'force-dynamic';
 // A visitor's own report: never indexed, never cached.
@@ -48,7 +49,7 @@ export default async function FreeReportPage({ params }: Props) {
         <div className="border-b border-border bg-surface">
           <div className="mx-auto max-w-page px-4 py-8 sm:px-6">
             <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-primary-text">Your free SEO audit</p>
-            <h1 className="mt-2 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{report.project.domain}</h1>
+            <h1 className="mt-2 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{siteLabel(report.project.domain)}</h1>
             <p className="mt-2 text-[15px] text-ink-2">{report.pagesCrawled} pages checked · {new Date(report.crawledAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
         </div>

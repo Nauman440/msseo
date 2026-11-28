@@ -11,6 +11,7 @@ import { cdnOf } from '../audit/rules-site';
 import { answerFormat, missingEntities, missingTopics, pageDetails, topPagesFrom, type PageDetails, type TopPage } from './extras';
 import type { OpenAiClient } from '../providers/openai';
 import { siteQuestions } from '../actions/plan-guard';
+import { siteHost, siteUrl } from '../site-key';
 
 /**
  * Module 6 · Deep competitor analysis (spec §16.2): the client's site against its shortlist.
@@ -131,7 +132,8 @@ const hostOf = (url: string) => {
     return '';
   }
 };
-const belongs = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`);
+// Host level: a website in a folder (site key host~folder) is matched by its host, as DataForSEO counts it.
+const belongs = (host: string, domain: string) => host === siteHost(domain) || host.endsWith(`.${siteHost(domain)}`);
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 10) / 10 : null);
 const PLATFORMS = ['shopify', 'wix', 'squarespace', 'webflow', 'wordpress', 'nextjs', 'nuxt', 'gatsby'];
 const PLATFORM_NAME: Record<string, string> = { shopify: 'Shopify', wix: 'Wix', squarespace: 'Squarespace', webflow: 'Webflow', wordpress: 'WordPress', nextjs: 'Next.js', nuxt: 'Nuxt', gatsby: 'Gatsby' };
@@ -200,7 +202,7 @@ export async function runCompetitorAnalysis(
   const failed = { rank: 0, serp: 0, ai: 0, pages: 0, wins: 0 };
 
   const [homes] = await Promise.all([
-    deps.pages(domains.map((d) => `https://${d}/`)).catch(() => [] as PageContent[]),
+    deps.pages(domains.map((d) => siteUrl(d))).catch(() => [] as PageContent[]),
     pool(domains, 4, async (d) => {
       try {
         const r = await deps.rank(d);
@@ -211,9 +213,9 @@ export async function runCompetitorAnalysis(
       }
     }),
     pool(domains, 4, async (d) => {
-      speed.set(d, deps.speed ? await deps.speed(`https://${d}/`).catch(() => null) : null);
+      speed.set(d, deps.speed ? await deps.speed(siteUrl(d)).catch(() => null) : null);
       sitemap.set(d, await deps.sitemap(d).catch(() => null));
-      headers.set(d, deps.headers ? await deps.headers(`https://${d}/`).catch(() => null) : null);
+      headers.set(d, deps.headers ? await deps.headers(siteUrl(d)).catch(() => null) : null);
     }),
     // 6.1.3 the competitors' strongest pages · 6.1.5 what the client ranks for and the direct competitors do not.
     pool(deps.ranked ? targets.map((t) => t.domain) : [], 3, async (d) => {

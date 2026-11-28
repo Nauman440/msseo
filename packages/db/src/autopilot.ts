@@ -13,6 +13,7 @@ import { getKeywordWorkspace, saveKeywordWorkspace } from './keywords';
 import { getMappingWorkspace, saveMappingWorkspace } from './mapping';
 import { getSettings } from './settings';
 import { getSiteDocument } from './site-documents';
+import { siteKey } from '@seo/core';
 
 /**
  * Autopilot for customers (2026-11-17): once after sign-up and then monthly per website, without
@@ -26,13 +27,8 @@ const RUN_ESTIMATE_USD = 0.6;
 const GIANT_ETV = 1_000_000;
 const LANG: Record<string, string> = { English: 'en', Urdu: 'ur', Arabic: 'ar', Spanish: 'es', French: 'fr' };
 
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
+/** A website's key (host, or host~folder for a website in a folder). */
+const hostOf = (url: string) => siteKey(url);
 
 /**
  * `primary`: the website from sign-up, whose onboarding answers (services, areas) are its research inputs.

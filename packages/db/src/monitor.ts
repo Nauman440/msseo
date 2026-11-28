@@ -12,6 +12,7 @@ import { getKeywordWorkspace } from './keywords';
 import { getMappingWorkspace } from './mapping';
 import { getSettings } from './settings';
 import { getSiteDocument, saveSiteDocument } from './site-documents';
+import { inSite } from '@seo/core';
 
 /**
  * Module 13 in the worker: daily alerts (06:15 UTC), weekly snapshot + rank tracking (Mondays
@@ -56,7 +57,7 @@ export async function monitorContext(domain: string) {
     ga4,
     report: latest.report,
     kw,
-    keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => hostOf(u) === domain).slice(0, 7),
+    keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => inSite(u, domain)).slice(0, 7),
     locale: { country: comp?.country ?? kw?.country ?? 'United States', language: comp?.language ?? kw?.language ?? 'en' },
     // The profile entered by hand ("cid:…" / "place_id:…") when the local audit has not found one.
     cid: local?.profile?.cid ?? gbp?.ref ?? null,

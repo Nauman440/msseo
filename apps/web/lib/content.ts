@@ -7,6 +7,7 @@ import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
 import { hit } from './rate-limit';
 import { getDoc, saveDoc } from './site-docs';
+import { siteUrl } from '@seo/core';
 
 /**
  * Module 7 · content audit (`SiteDocument` kind "content"). Free on DataForSEO: Search Console
@@ -18,7 +19,7 @@ export const getContent = (rawDomain: string) => getDoc<ContentAudit>(KIND, norm
 export async function runContent(rawDomain: string, by: 'team' | 'customer'): Promise<{ audit?: ContentAudit; problem?: 'too-often' }> {
   const domain = normDomain(rawDomain);
   if (by === 'customer' && !(await hit(`content-audit:${domain}`, 2, 24 * 60 * 60)).allowed) return { problem: 'too-often' };
-  const [audits, keywords, mapping, analysis, gsc, ga4] = await Promise.all([customerAudits(`https://${domain}/`), getKeywordWorkspace(domain), getMapping(domain), getAnalysis(domain), gscAccess(domain), ga4Access(domain)]);
+  const [audits, keywords, mapping, analysis, gsc, ga4] = await Promise.all([customerAudits(siteUrl(domain)), getKeywordWorkspace(domain), getMapping(domain), getAnalysis(domain), gscAccess(domain), ga4Access(domain)]);
   const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
   const [gscNow, gscPrev, ga4Rows] = await Promise.all([
     gsc ? gscSearchAnalytics(gsc.token, gsc.property, { startDate: day(93), endDate: day(3), dimensions: ['page'], maxRows: 5000 }).catch(() => null) : null,

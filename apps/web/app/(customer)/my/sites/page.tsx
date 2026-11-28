@@ -9,6 +9,7 @@ import { customerAudits } from '@/lib/customer-data';
 import { requireCustomer } from '@/lib/session';
 import { FINISHED, stepPath } from '@/lib/signup';
 import { cn } from '@/lib/tones';
+import { siteLabel } from '@seo/core';
 
 export const metadata: Metadata = { title: 'Your sites' };
 export const dynamic = 'force-dynamic';
@@ -43,14 +44,13 @@ export default async function SitesPage() {
                 <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-night font-display text-lg font-extrabold text-primary-tint">{d.charAt(0).toUpperCase()}</span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <Link href={`/my?site=${encodeURIComponent(d)}`} className="break-all text-[17px] font-semibold hover:text-primary-text hover:underline">
-                    {d}
+                    {siteLabel(d)}
                   </Link>
-                  {new URL(w).pathname !== '/' && <span className="break-all text-[13px] text-ink-2">Starts at {new URL(w).pathname}</span>}
                 </span>
                 {score !== null && score !== undefined ? <span className={cn('rounded-pill px-2.5 py-1 text-sm font-bold tabular', scoreTone(score))}>{score}</span> : <span className="text-[13px] text-ink-3">No score yet</span>}
                 {w !== account.website && (
                   <form action={removeWebsiteAction.bind(null, d)}>
-                    <button type="submit" aria-label={`Remove ${d}`} className="min-h-10 rounded-control px-3 text-sm font-semibold text-ink-3 hover:text-fail-text">
+                    <button type="submit" aria-label={`Remove ${siteLabel(d)}`} className="min-h-10 rounded-control px-3 text-sm font-semibold text-ink-3 hover:text-fail-text">
                       Remove
                     </button>
                   </form>

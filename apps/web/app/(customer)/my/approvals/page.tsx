@@ -8,6 +8,7 @@ import { accountSites, domainOf, getAccountByUserId } from '@/lib/accounts';
 import { getActions } from '@/lib/actions';
 import { requireCustomer } from '@/lib/session';
 import { FINISHED, stepPath } from '@/lib/signup';
+import { siteLabel } from '@seo/core';
 
 export const metadata: Metadata = { title: 'Approvals' };
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export default async function ApprovalsPage() {
         <ul className="divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-surface">
           {waiting.map(({ domain, a }) => (
             <li key={a.id} className="flex flex-col gap-2 px-5 py-4">
-              <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-ink-3">{domain}</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-ink-3">{siteLabel(domain)}</p>
               <p className="font-semibold">{a.title}</p>
               <p className="text-sm text-ink-2">{a.detail}</p>
               <ApproveButton domain={domain} id={a.id} />

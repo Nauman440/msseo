@@ -11,6 +11,7 @@ import { getKeywordWorkspace, logUsage } from './keywords';
 import { getLocal } from './local';
 import { providerConfig } from './providers-config';
 import { getDoc, nextMonthlyRun, recordRun, saveDoc, underCap } from './site-docs';
+import { siteUrl } from '@seo/core';
 
 /** Module 10 · AI search audit + weekly tracking history (`SiteDocument` kind "aeo"). */
 const KIND = 'aeo';
@@ -27,7 +28,7 @@ export async function runAeo(rawDomain: string, by: 'team' | 'customer'): Promis
   const domain = normDomain(rawDomain);
   const { env } = providerConfig();
   if (!env) return { problem: 'not-configured' };
-  const [ws, competitors, keywords, audits, local, backlinks, accounts] = await Promise.all([getAeo(domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`), getLocal(domain), getBacklinks(domain), listAccounts()]);
+  const [ws, competitors, keywords, audits, local, backlinks, accounts] = await Promise.all([getAeo(domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(siteUrl(domain)), getLocal(domain), getBacklinks(domain), listAccounts()]);
   if (by === 'customer') {
     const next = nextMonthlyRun(ws.audit?.runAt, AEO_CUSTOMER_DAYS);
     if (next) return { problem: 'too-soon', next };

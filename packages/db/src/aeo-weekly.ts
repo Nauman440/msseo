@@ -5,6 +5,7 @@ import { getCompetitorWorkspace } from './competitors';
 import { getKeywordWorkspace } from './keywords';
 import { getSettings } from './settings';
 import { getSiteDocument, saveSiteDocument } from './site-documents';
+import { siteKey } from '@seo/core';
 
 /**
  * Module 10.2 weekly tracking (worker job `weekly-ai-tracking`, Mondays 07:30 UTC): for every
@@ -15,13 +16,8 @@ import { getSiteDocument, saveSiteDocument } from './site-documents';
  */
 const PER_QUESTION_USD = 0.045;
 
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
+/** A website's key (host, or host~folder for a website in a folder). */
+const hostOf = (url: string) => siteKey(url);
 
 export async function runWeeklyAiTracking(now = new Date(), log?: (m: Record<string, unknown>) => void): Promise<{ ran: number; capped: boolean }> {
   const { env } = providerConfig();

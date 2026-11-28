@@ -9,6 +9,7 @@ import { getKeywordWorkspace, logUsage } from './keywords';
 import { getLocal } from './local';
 import { providerConfig } from './providers-config';
 import { getDoc, saveDoc } from './site-docs';
+import { siteUrl } from '@seo/core';
 
 /**
  * Google Business Profile per website (`SiteDocument` kind "gbp"):
@@ -108,7 +109,7 @@ async function facts(domain: string): Promise<ProfileFacts> {
     phone: local?.profile?.phone ?? account?.phone ?? null,
     places: kw.seeds.locations.slice(0, 5),
     services: kw.seeds.services.slice(0, 8),
-    website: `https://${domain}/`,
+    website: siteUrl(domain),
   };
 }
 

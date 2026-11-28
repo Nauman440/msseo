@@ -2,15 +2,12 @@ import { matchGscProperties, type ReportModel } from '@seo/core';
 import { prisma } from './client';
 import { customerGoogleReady, customerGoogleToken, getCustomerGoogle } from './customer-google';
 import { getGscConnection, gscAccessToken, gscProperties, gscSetup } from './gsc';
+import { siteUrl } from '@seo/core';
+import { siteKey } from '@seo/core';
 
 /** Google and audit data per website, shared by the action checks (12.6), tracking (11) and monitoring (13). */
-export const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
+/** A website's key (host, or host~folder for a website in a folder). */
+export const hostOf = (url: string) => siteKey(url);
 
 async function ownerOf(domain: string) {
   const owners = await prisma.customerAccount.findMany({ select: { userId: true, website: true, extraWebsites: true } });
@@ -26,7 +23,7 @@ export async function searchConsoleFor(domain: string): Promise<{ token: string;
     if (owner && property) return { token: await customerGoogleToken(owner.userId), property };
   }
   if (!gscSetup().ready || !(await getGscConnection())) return null;
-  const property = matchGscProperties(await gscProperties(), `https://${domain}/`)[0];
+  const property = matchGscProperties(await gscProperties(), siteUrl(domain))[0];
   return property ? { token: await gscAccessToken(), property } : null;
 }
 

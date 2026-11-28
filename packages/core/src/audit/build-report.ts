@@ -16,6 +16,7 @@ import { trustRules } from './rules-trust';
 import { geoRules } from './rules-geo';
 import { urlRules } from './rules-urls';
 import { pathOf, type AuditContext, type AuditData, type CardId, type EvaluatedRule, type RuleDef } from './types';
+import { siteKey, siteLabel } from '../site-key';
 
 export const ALL_RULES: RuleDef[] = [...technicalRules, ...urlRules, ...linkRules, ...siteRules, ...speedRules, ...assetRules, ...onpageRules, ...contentRules, ...trustRules, ...geoRules, ...templateRules, ...gscRules, ...aiRules];
 
@@ -294,11 +295,13 @@ export function buildReport(data: AuditData, opts: { auditId: string; audience: 
       ]
     : [];
 
-  const host = new URL(data.preflight.origin).hostname.replace(/^www\./, '');
+  // The website this report belongs to: the audited address's site key (host, or host~folder), the same
+  // key its project and every workspace use.
+  const key = siteKey(data.url) || new URL(data.preflight.origin).hostname.replace(/^www\./, '');
   return {
     auditId: opts.auditId,
     brand: opts.brand,
-    project: { name: host, domain: host },
+    project: { name: siteLabel(key), domain: key },
     url: data.url,
     audience: opts.audience,
     pagesCrawled: html.length,

@@ -1,6 +1,7 @@
 import { refreshGscToken, type AuditRecord } from '@seo/core';
 import { prisma, type Prisma } from './client';
 import { decryptSecret, encryptSecret, gscAuditAccess } from './gsc';
+import { siteKey } from '@seo/core';
 
 /**
  * A customer's own Google connection (Search Console + Analytics 4). The agency connection in
@@ -78,13 +79,8 @@ export async function customerGoogleToken(userId: string): Promise<string> {
   }
 }
 
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
+/** A website's key (host, or host~folder for a website in a folder). */
+const hostOf = (url: string) => siteKey(url);
 
 /**
  * Search Console for an audit: customer audits use the customer's own connection and the
