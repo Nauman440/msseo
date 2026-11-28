@@ -136,6 +136,9 @@ function billingState(): { billing: string; mode?: 'test' | 'live' } {
   if (!pk) return { billing: 'checkout only: STRIPE_PUBLISHABLE_KEY is missing, so no card field', mode };
   if (!/^pk_(test|live)_/.test(pk)) return { billing: 'checkout only: STRIPE_PUBLISHABLE_KEY does not start with pk_test_ or pk_live_', mode };
   if (pk.startsWith('pk_live_') !== (mode === 'live')) return { billing: 'card field on, but the two keys are from different modes (test and live)', mode };
+  // Both keys carry the account they belong to right after the mode prefix (e.g. …_51RLjo1E4loiZlktA…).
+  const acct = (k: string) => k.replace(/^(sk|rk|pk)_(test|live)_/, '').slice(0, 16);
+  if (acct(pk) !== acct(sk)) return { billing: 'keys from two different Stripe accounts: copy both from the same Developers → API keys page', mode };
   return { billing: 'card field on', mode };
 }
 
