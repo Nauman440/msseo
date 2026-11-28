@@ -194,6 +194,10 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   const services = page.getByLabel('Your services', { exact: true });
   await services.fill('AC repair');
   await services.press('Enter');
+  const own = page.getByLabel(/Keywords you want to rank for/);
+  await own.fill('heat pump installation plano');
+  await own.press('Enter');
+  await expect(page.getByRole('list', { name: 'Keywords you want to rank for added' })).toContainText('heat pump installation plano');
   await page.getByLabel(/Competitors you know about/).fill('rival-hvac.com');
   await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -337,7 +341,7 @@ test('a visitor signs up from the free report and lands on their own dashboard',
   await expect(page.getByText('2 keywords added.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove emergency ac repair' })).toBeVisible();
   await page.getByRole('button', { name: 'Remove emergency ac repair' }).click();
-  await expect(page.getByText('1 keyword', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 keywords', { exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('removed');
   await expect(page.getByRole('button', { name: 'Put back emergency ac repair' })).toBeVisible();
   await expect(page.getByText('Removed by hand')).toBeVisible();

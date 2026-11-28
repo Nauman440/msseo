@@ -193,6 +193,8 @@ model CustomerAccount {
   language             String?
   services             String[]
   competitors          String[]
+  /// Keywords the owner typed in at sign-up (step 4); always kept in keyword research.
+  keywords             String[]  @default([])
   connections          String[] // requested: gsc | ga4 | gbp | cms
   consentChanges       Boolean   @default(false)
   consentAt            DateTime?

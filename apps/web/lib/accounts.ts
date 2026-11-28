@@ -37,6 +37,8 @@ export type Account = {
   language: string | null;
   services: string[];
   competitors: string[];
+  /** Keywords the owner chose at sign-up (step 4); missing on accounts saved before 2026-11-28. */
+  keywords: string[];
   connections: Connection[];
   consentChanges: boolean;
   consentAt: string | null;
@@ -96,6 +98,7 @@ const fromDb = (r: Row): Account => ({
   ...r,
   plan: isPlan(r.plan) ? r.plan : 'growth',
   status: r.status === 'active' || r.status === 'cancelled' ? r.status : 'trial',
+  keywords: r.keywords ?? [],
   connections: r.connections.filter((c): c is Connection => (CONNECTIONS as readonly string[]).includes(c)),
   trialEndsAt: r.trialEndsAt.toISOString(),
   consentAt: iso(r.consentAt),
@@ -136,7 +139,7 @@ export async function createAccount(input: { userId: string; businessName: strin
     return fromDb(await prisma.customerAccount.create({ data: { ...input, projectId, trialEndsAt: new Date(trialEndsAt) } }));
   }
   const account: Account = {
-    id: randomUUID(), ...input, extraWebsites: [], status: 'trial', trialEndsAt, country: null, areas: [], otherCountries: false, language: null, services: [], competitors: [],
+    id: randomUUID(), ...input, extraWebsites: [], status: 'trial', trialEndsAt, country: null, areas: [], otherCountries: false, language: null, services: [], competitors: [], keywords: [],
     connections: [], consentChanges: false, consentAt: null, onboardingStep: 2, onboardedAt: null, lastAutoAuditAt: null,
     stripeCustomerId: null, stripeSubscriptionId: null, billingStatus: null, createdAt: new Date().toISOString(),
   };
@@ -178,7 +181,7 @@ export async function listAccounts(): Promise<AccountWithUser[]> {
  * added later gets its own name (from its address) and no borrowed services, areas or competitors,
  * so it never researches or searches for the first website's business.
  */
-export function siteProfile(account: Pick<Account, 'website' | 'businessName' | 'services' | 'areas' | 'competitors'> | null | undefined, domain: string) {
+export function siteProfile(account: (Pick<Account, 'website' | 'businessName' | 'services' | 'areas' | 'competitors'> & { keywords?: string[] }) | null | undefined, domain: string) {
   const primary = Boolean(account?.website && domainOf(account.website) === domain);
   const fromAddress = domain.split('.')[0]!.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return {
@@ -187,5 +190,6 @@ export function siteProfile(account: Pick<Account, 'website' | 'businessName' | 
     services: primary ? account?.services ?? [] : [],
     areas: primary ? account?.areas ?? [] : [],
     competitors: primary ? account?.competitors ?? [] : [],
+    keywords: primary ? account?.keywords ?? [] : [],
   };
 }

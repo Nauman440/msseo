@@ -16,10 +16,11 @@ export function AutopilotPanel({ ws, kept, topics, audience }: { ws: KeywordWork
   const next = auto ? new Date(new Date(auto.lastRunAt).getTime() + AUTOPILOT_DAYS * 86_400_000) : null;
   const hasInputs = ws.seeds.services.length > 0;
 
-  const body = kept
+  // Before the first research the list may hold only the keywords the owner typed in at sign-up.
+  const body = kept && last
     ? `We found ${kept.toLocaleString('en-US')} ${kept === 1 ? 'search' : 'searches'} worth going after and grouped them into ${topics} ${topics === 1 ? 'topic' : 'topics'}. Each topic is one page on your website. We left out searches that would not bring you ${shop ? 'buyers' : 'customers'}, such as job hunters, other towns, people looking for free help or ones you cannot win yet.`
-    : hasInputs
-      ? 'Autopilot is getting your keywords ready. This usually happens a few minutes after your first audit. You can also start it now.'
+    : hasInputs || kept
+      ? `Autopilot is getting your keywords ready. This usually happens a few minutes after your first audit. You can also start it now.${kept ? ` The ${kept === 1 ? 'keyword' : `${kept} keywords`} you gave us ${kept === 1 ? 'is' : 'are'} already saved and always kept.` : ''}`
       : `Tell us what you ${shop ? 'sell' : 'offer'} (below) so we know what to look for.`;
 
   return (

@@ -76,6 +76,7 @@ export default async function CustomersPage() {
                     <Row term="Area">{[a.country, ...a.areas].filter(Boolean).join(', ') || '–'}{a.otherCountries ? ' (+ other countries)' : ''}</Row>
                     <Row term="Language">{a.language ?? '–'}</Row>
                     <Row term="Services">{a.services.join(', ') || '–'}</Row>
+                    <Row term="Keywords they want">{(a.keywords ?? []).join(', ') || '–'}</Row>
                     <Row term="Competitors">{a.competitors.join(', ') || '–'}</Row>
                     <Row term="Can connect">{a.connections.map((c) => CONNECTION_LABEL[c] ?? c).join(', ') || 'Nothing yet'}</Row>
                     <Row term="Changes">{a.consentChanges ? `Allowed to prepare changes (${day(a.consentAt)})` : 'Not yet allowed'}</Row>
