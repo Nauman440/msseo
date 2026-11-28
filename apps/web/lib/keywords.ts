@@ -2,7 +2,7 @@ import 'server-only';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { cleanKeywords, clusterKeywords, COMPETITOR_COUNTRIES, emptyKeywordWorkspace, gscSearchAnalytics, KEYWORD_QUALITY_VERSION, matchGscProperties, normDomain, siteVocabulary, type GscQuery, type KeywordClient, type KeywordWorkspace } from '@seo/core';
+import { addKeywords, cleanKeywords, clusterKeywords, COMPETITOR_COUNTRIES, emptyKeywordWorkspace, gscSearchAnalytics, KEYWORD_QUALITY_VERSION, matchGscProperties, normDomain, siteVocabulary, type GscQuery, type KeywordClient, type KeywordWorkspace } from '@seo/core';
 import { accountSites, domainOf, listAccounts, type Account, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { getSavedWorkspace } from './competitors';
@@ -38,11 +38,13 @@ export async function getKeywordWorkspace(rawDomain: string): Promise<KeywordWor
   const primary = Boolean(account?.website && domainOf(account.website) === domain);
   const competitors = await getSavedWorkspace(domain);
   const country = (COMPETITOR_COUNTRIES as readonly string[]).find((c) => c.toLowerCase() === (account?.country ?? '').trim().toLowerCase()) ?? competitors?.country;
-  return emptyKeywordWorkspace(domain, {
+  const ws = emptyKeywordWorkspace(domain, {
     country,
     language: account ? LANG[account.language ?? ''] ?? 'en' : competitors?.language,
     seeds: primary ? { services: account?.services ?? [], locations: account?.areas ?? [] } : { services: [], locations: [] },
   });
+  // Keywords the owner typed in at sign-up: kept as typed by hand; metrics come with the first research.
+  return primary && account?.keywords?.length ? addKeywords(ws, account.keywords, 'manual').workspace : ws;
 }
 
 export async function saveKeywordWorkspace(ws: KeywordWorkspace): Promise<void> {

@@ -23,6 +23,7 @@ export async function completeOnboarding(user: { id: string; name: string; email
     `Website: ${account.website ?? '-'}`,
     `Area: ${[account.country, ...account.areas].filter(Boolean).join(', ') || '-'}${account.otherCountries ? ' (+ other countries)' : ''}, language ${account.language ?? '-'}`,
     `Services: ${account.services.join(', ') || '-'}; competitors: ${account.competitors.join(', ') || '-'}`,
+    `Keywords they want: ${(account.keywords ?? []).join(', ') || '-'}`,
     `Can connect: ${account.connections.join(', ') || 'nothing yet'}; may prepare changes: ${account.consentChanges ? 'yes' : 'no'}`,
   ];
   const base = (process.env.APP_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || '').replace(/\/$/, '');

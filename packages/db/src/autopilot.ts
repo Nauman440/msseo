@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   AI_PLAN_EVERY_DAYS, autoPlan, autoShortlist, capacityFor, planExtrasFrom, writeAiPlan, type AeoWorkspace, type BacklinkWorkspace, type ContentAudit, type LocalAudit, emptyActions, emptyMapping, seedsFromPages, buildMapping, clusterKeywords, COMPETITOR_COUNTRIES, createCompetitorClient, createKeywordClient, createOpenAiClient, dataforseoBalance, defaultSearches,
-  discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
+  addKeywords, discoverCompetitors, emptyKeywordWorkspace, emptyWorkspace, generatePrompts, seedsKey, gscSearchAnalytics, mergePrompts, normDomain, providerConfig, researchKeywords,
   type GscQuery, type KeywordWorkspace, type ReportModel,
 } from '@seo/core';
 import { getActionWorkspace, saveActionWorkspace } from './actions';
@@ -40,9 +40,19 @@ const hostOf = (url: string) => {
  * that were copied from the first website.
  */
 /** `team`: one of the team's client sites (no customer account; userId is empty). */
-export type AutopilotSite = { userId: string; domain: string; primary: boolean; team?: boolean; rederive?: boolean; /** Customer plan (team sites: growth); sets the AI plan's monthly capacity. */ tier?: 'autopilot' | 'growth'; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+export type AutopilotSite = { userId: string; domain: string; primary: boolean; team?: boolean; rederive?: boolean; /** Customer plan (team sites: growth); sets the AI plan's monthly capacity. */ tier?: 'autopilot' | 'growth'; businessName: string; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[]; /** Keywords the owner typed in at sign-up (sign-up website only). */ keywords?: string[] };
 
-type AccountRow = { userId: string; plan?: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[] };
+type AccountRow = { userId: string; plan?: string; businessName: string; website: string | null; country: string | null; language: string | null; services: string[]; areas: string[]; competitors: string[]; keywords?: string[] };
+
+/**
+ * Keywords the owner typed in at sign-up, added as typed by hand (kept, never cleaned out). Only
+ * ones not in the list yet, so a keyword someone removed later is not brought back.
+ */
+function withOwnerKeywords(ws: KeywordWorkspace, terms: string[]): KeywordWorkspace {
+  const have = new Set(ws.keywords.map((k) => k.term.toLowerCase()));
+  const fresh = terms.filter((t) => !have.has(t.trim().toLowerCase()));
+  return fresh.length ? addKeywords(ws, fresh, 'manual').workspace : ws;
+}
 
 /**
  * One website of an account. The sign-up answers (business name, services, areas, competitors) belong
@@ -54,7 +64,7 @@ function siteOf(a: AccountRow, domain: string): AutopilotSite {
   return {
     userId: a.userId, domain, primary, country: a.country, language: a.language, tier: a.plan === 'autopilot' ? 'autopilot' : 'growth',
     businessName: primary ? a.businessName || fromAddress : fromAddress,
-    services: primary ? a.services : [], areas: primary ? a.areas : [], competitors: primary ? a.competitors : [],
+    services: primary ? a.services : [], areas: primary ? a.areas : [], competitors: primary ? a.competitors : [], keywords: primary ? a.keywords ?? [] : [],
   };
 }
 
@@ -111,7 +121,7 @@ async function dueTeamSites(now: Date, customerDomains: Set<string>, cutoff: num
 export async function dueAutopilotSites(now = new Date(), includeTeam = false): Promise<AutopilotSite[]> {
   const accounts = await prisma.customerAccount.findMany({
     where: { onboardingStep: { gte: 6 }, user: { active: true }, OR: [{ status: 'active' }, { status: 'trial', trialEndsAt: { gt: now } }] },
-    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
+    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true, keywords: true },
   });
   const cutoff = now.getTime() - AUTOPILOT_EVERY_DAYS * 86_400_000;
   const out: AutopilotSite[] = [];
@@ -214,6 +224,7 @@ export async function runAutopilotSite(site: AutopilotSite, now = new Date()): P
       ? { ...saved, businessType: businessType ?? saved.businessType, seeds: { ...saved.seeds, services: seeds.services, locations: seeds.areas } }
       : saved
     : emptyKeywordWorkspace(domain, { ...loc, businessType, seeds: { services: seeds.services, locations: seeds.areas } });
+  keywords = withOwnerKeywords(keywords, site.keywords ?? []);
   if (!keywords.seeds.services.length && seeds.services.length) keywords = { ...keywords, seeds: { ...keywords.seeds, services: seeds.services.slice(0, 12), locations: keywords.seeds.locations.length ? keywords.seeds.locations : seeds.areas.slice(0, 10) } };
   try {
     if (keywords.seeds.services.length) {
@@ -369,7 +380,7 @@ export async function runAutopilotNow(userId: string, domain: string, opts: { re
   const settings = await getSettings();
   const a = await prisma.customerAccount.findUnique({
     where: { userId },
-    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true },
+    select: { userId: true, plan: true, businessName: true, website: true, extraWebsites: true, country: true, language: true, services: true, areas: true, competitors: true, keywords: true },
   });
   if (!a || ![a.website, ...a.extraWebsites].some((w) => w && hostOf(w) === domain)) return null;
   const primary = Boolean(a.website && hostOf(a.website) === domain);

@@ -158,7 +158,7 @@ export async function saveServicesAction(_prev: SignupState, form: FormData): Pr
   const { user, account } = await currentCustomer();
   const services = list(form, 'services');
   if (!services.length) return { error: 'Add at least one service (type it and press Enter).' };
-  await updateAccount(user.id!, { services, competitors: list(form, 'competitors'), onboardingStep: Math.max(account.onboardingStep, 5) });
+  await updateAccount(user.id!, { services, keywords: list(form, 'keywords'), competitors: list(form, 'competitors'), onboardingStep: Math.max(account.onboardingStep, 5) });
   redirect(stepPath(5));
 }
 
