@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { WP_APP_ID, WP_APP_NAME, wordpressAuthorizeUrl } from '@seo/core';
 import { connectionsReady, sameSite } from '@/lib/connections';
 import { redirectWithState, startGuard, withMessage } from '@/lib/connect-flow';
+import { siteKey, siteLabel, siteUrl } from '@seo/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +15,14 @@ export async function GET(req: NextRequest) {
   const { domain, viewer, origin, back } = await startGuard(req);
   if (!viewer) return NextResponse.redirect(new URL('/login', origin));
   if (!connectionsReady()) return withMessage(origin, back, 'error', 'Connecting websites is not set up on this server yet (ENCRYPTION_KEY).');
-  const raw = (req.nextUrl.searchParams.get('site') || `https://${domain}`).trim();
+  const raw = (req.nextUrl.searchParams.get('site') || siteUrl(domain)).trim();
   let site: URL;
   try {
     site = new URL(/^https?:\/\//.test(raw) ? raw : `https://${raw}`);
   } catch {
     return withMessage(origin, back, 'error', 'Type your WordPress address, like https://yourdomain.com');
   }
-  if (!sameSite(site.hostname, domain)) return withMessage(origin, back, 'error', `Connect the WordPress site at ${domain}, not ${site.hostname}.`);
+  if (!sameSite(site.toString(), domain)) return withMessage(origin, back, 'error', `Connect the WordPress site at ${siteLabel(domain)}, not ${siteLabel(siteKey(site.toString().replace(/\/*$/, '/')))}.`);
   if (!origin.startsWith('https://')) return withMessage(origin, back, 'error', 'WordPress only sends approvals back to https addresses. Use the live MS SCORE site.');
   const root = `https://${site.host}${site.pathname.replace(/\/+$/, '')}`;
   const auth = await wordpressAuthorizeUrl(root);

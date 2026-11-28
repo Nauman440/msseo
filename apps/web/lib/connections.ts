@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { createWordPressClient, normDomain, pluginSupportsSigning, WordPressKeyMismatch, type ShopifySecret, type SiteAdapter, type SiteConnection, type WordPressSecret } from '@seo/core';
 import { createShopifyClient, decryptSecret, encryptionKeyValid, encryptSecret, refreshShopifyToken, rekeyWordPress, shopifyTokenStale, wordpressSession, type ShopifyApp } from '@seo/core/server';
 import { usingDatabase } from './audit-store';
+import { siteFolder, siteHost, siteKey } from '@seo/core';
 
 /**
  * Site connections (spec §16.5): Postgres when DATABASE_URL is set, a JSON file per site in
@@ -22,8 +23,7 @@ export function shopifyApp(): ShopifyApp | null {
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
-export async function getConnection(rawDomain: string): Promise<SiteConnection | null> {
-  const domain = normDomain(rawDomain);
+async function readConnection(domain: string): Promise<SiteConnection | null> {
   if (usingDatabase()) {
     const { getSiteConnection } = await import('@seo/db');
     return getSiteConnection(domain).catch(() => null);
@@ -33,6 +33,20 @@ export async function getConnection(rawDomain: string): Promise<SiteConnection |
   } catch {
     return null;
   }
+}
+
+export async function getConnection(rawDomain: string): Promise<SiteConnection | null> {
+  const domain = normDomain(rawDomain);
+  const own = await readConnection(domain);
+  if (own || !siteFolder(domain)) return own;
+  // Before websites in folders had their own key (2026-11-28), a connection was saved under the host.
+  // It moves to the folder website it was made for, and only to that one.
+  const old = await readConnection(siteHost(domain));
+  if (!old || siteKey(old.siteUrl.replace(/[?#].*$/, '').replace(/\/*$/, '/')) !== domain) return null;
+  const moved = { ...old, domain };
+  await saveConnection(moved);
+  await deleteConnection(siteHost(domain)).catch(() => undefined);
+  return moved;
 }
 
 /** Every connected website (the scheduler's list). */
@@ -82,9 +96,15 @@ export const viewOf = (c: SiteConnection | null): ConnectionView | null => {
   return Object.fromEntries(Object.entries(c).filter(([k]) => k !== 'secret')) as ConnectionView;
 };
 
-/** The connected site's host must be the audited website (with or without www). */
-export function sameSite(host: string, domain: string): boolean {
-  return normDomain(host) === normDomain(domain);
+/**
+ * The connected site must be this website: the same host (with or without www) and, for a website in
+ * a folder (site key host~folder), the same folder, so example.com/elementor never connects to the
+ * WordPress at example.com/srm. `address` is a host or a full address.
+ */
+export function sameSite(address: string, domain: string): boolean {
+  if (!siteFolder(domain)) return siteHost(normDomain(address)) === siteHost(domain);
+  const full = /^https?:\/\//i.test(address) ? address : `https://${address}`;
+  return siteKey(full.replace(/[?#].*$/, '').replace(/\/*$/, '/')) === domain;
 }
 
 // One Shopify token refresh at a time per store (each refresh retires the previous refresh token).

@@ -8,6 +8,7 @@ import { stripeEnabled, stripeTestMode } from '@/lib/billing';
 import { requireCustomer } from '@/lib/session';
 import { SUPPORT_EMAIL } from '@/lib/site';
 import { changeCustomerPasswordAction, saveDetailsAction } from './actions';
+import { siteLabel } from '@seo/core';
 
 export const metadata: Metadata = { title: 'Account settings' };
 export const dynamic = 'force-dynamic';
@@ -65,7 +66,7 @@ export default async function CustomerAccountPage({ searchParams }: Props) {
         <ul className="flex flex-col gap-2">
           {accountSites(account).map(domainOf).map((d) => (
             <li key={d} className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-border px-4 py-3">
-              <span className="font-semibold">{d}</span>
+              <span className="font-semibold">{siteLabel(d)}</span>
               <Link href={`/my/keywords?site=${encodeURIComponent(d)}&open=inputs#research-inputs`} className="inline-flex min-h-10 items-center text-sm font-semibold text-primary-heading underline">
                 Research inputs
               </Link>

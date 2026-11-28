@@ -1,5 +1,6 @@
 import { AUDIT_STEPS, type AuditRecord, type NewAuditInput, type ReportModel, type StepId, type StepState } from '@seo/core';
 import { Prisma, prisma } from './client';
+import { siteFolder, siteHost, siteKey, siteLabel } from '@seo/core';
 
 /**
  * Postgres audit store (Prisma), shared by apps/web and apps/worker. Mapped onto the
@@ -7,12 +8,25 @@ import { Prisma, prisma } from './client';
  * completes, RuleResultRow (its issues, for "new since last audit" comparisons later).
  */
 
-const domainOf = (url: string) => new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+/** The project of a website: its site key (host, or host~folder for a website in a folder). */
+const domainOf = (url: string) => siteKey(url);
 
 /** The Project for a URL's domain, created on first sight. */
 export async function projectIdFor(url: string): Promise<string> {
   const domain = domainOf(url);
-  const project = await prisma.project.upsert({ where: { domain }, create: { domain, name: domain }, update: {} });
+  const existing = await prisma.project.findUnique({ where: { domain }, select: { id: true } });
+  if (existing) return existing.id;
+  const project = await prisma.project.upsert({ where: { domain }, create: { domain, name: siteLabel(domain) }, update: {} });
+  // A website in a folder used to share its host's project (before 2026-11-28): its own audits move
+  // into its new project, so the history follows the website and never shows another folder's audits.
+  if (siteFolder(domain)) {
+    const host = await prisma.project.findUnique({ where: { domain: siteHost(domain) }, select: { id: true } });
+    if (host) {
+      const audits = await prisma.audit.findMany({ where: { projectId: host.id }, select: { id: true, url: true } });
+      const mine = audits.filter((a) => siteKey(a.url) === domain).map((a) => a.id);
+      if (mine.length) await prisma.audit.updateMany({ where: { id: { in: mine } }, data: { projectId: project.id } });
+    }
+  }
   return project.id;
 }
 

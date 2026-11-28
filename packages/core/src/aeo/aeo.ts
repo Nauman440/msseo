@@ -8,6 +8,7 @@ import type { Locale } from '../providers/dataforseo-competitors';
 import type { AiAnswer } from '../providers/dataforseo-ai';
 import type { OpenAiClient } from '../providers/openai';
 import type { ReportIssue } from '../types';
+import { inSite, siteUrl, siteHost } from '../site-key';
 
 /**
  * Module 10 · AEO / AI search audit (spec §16.2) with weekly tracking. 10.1 AI crawler access
@@ -106,7 +107,7 @@ const hostOf = (url: string) => {
     return '';
   }
 };
-const belongs = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`);
+const belongs = (host: string, domain: string) => host === siteHost(domain) || host.endsWith(`.${siteHost(domain)}`);
 /** Words that identify a brand in an answer: the domain, its name part (5+ letters) and the business name. */
 export function brandTerms(b: Brand): string[] {
   const root = b.domain.split('.')[0]!;
@@ -262,7 +263,7 @@ export async function runAeoAudit(
   let tokens = 0;
   const [robots, fetched, tracked] = await Promise.all([
     deps.robots ? deps.robots(input.domain).catch(() => null) : Promise.resolve(null),
-    deps.pages ? deps.pages([`https://${input.domain}/`, ...input.pages.filter((u) => hostOf(u) === input.domain).slice(0, 9)]).catch(() => [] as PageContent[]) : Promise.resolve([] as PageContent[]),
+    deps.pages ? deps.pages([siteUrl(input.domain), ...input.pages.filter((u) => inSite(u, input.domain)).slice(0, 9)]).catch(() => [] as PageContent[]) : Promise.resolve([] as PageContent[]),
     input.questions.length ? trackQuestions(input.questions, input.brands, input.locale, input.iso, deps) : Promise.resolve(null),
   ]);
   if (!input.questions.length) notes.push('No questions are ticked under Keywords → Questions for AI, so the assistants were not asked.');
@@ -270,7 +271,7 @@ export async function runAeoAudit(
   const failed = tracked?.answers.filter((a) => a.error).length ?? 0;
   if (failed) notes.push(`${failed} answers could not be read this time.`);
 
-  const home = fetched.find((p) => hostOf(p.url) === input.domain && new URL(p.url).pathname.replace(/\/$/, '') === '') ?? fetched[0] ?? null;
+  const home = fetched.find((p) => p.url.replace(/\/?$/, '/').toLowerCase().replace('://www.', '://') === siteUrl(input.domain)) ?? fetched[0] ?? null;
   const crawlers = AI_BOTS.map((b) => ({ ...b, ...robotsAllows(robots, b.bot) }));
   const fw = input.issues?.find((i) => i.ruleId === '1.2.4');
 
@@ -324,7 +325,7 @@ export async function runAeoAudit(
 /** 10.1 The site's robots.txt (null when there is none or it does not load). */
 export async function fetchRobotsTxt(domain: string, log?: HttpLog): Promise<string | null> {
   try {
-    const res = await request(`https://${domain}/robots.txt`, { provider: 'site', headers: { 'user-agent': 'Mozilla/5.0 (compatible; MSScore/1.0; +https://msseo.tech)' }, timeoutMs: 8000, retries: 0, log });
+    const res = await request(`https://${siteHost(domain)}/robots.txt`, { provider: 'site', headers: { 'user-agent': 'Mozilla/5.0 (compatible; MSScore/1.0; +https://msseo.tech)' }, timeoutMs: 8000, retries: 0, log });
     if (!res.ok) {
       await res.body?.cancel();
       return null;

@@ -14,6 +14,7 @@ import { getActions } from '@/lib/actions';
 import { ActionPlanSummary } from '@/components/actions/ActionPlanSummary';
 import { getAuditView, typicalDurationSeconds } from '@/lib/reports';
 import { requireCustomer } from '@/lib/session';
+import { siteLabel } from '@seo/core';
 
 export const metadata: Metadata = { title: 'Your SEO report' };
 export const dynamic = 'force-dynamic';
@@ -44,9 +45,9 @@ export default async function CustomerReportPage({ params, searchParams }: Props
         <div className="flex flex-col gap-4 px-5 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-7">
           <div className="min-w-0">
             <p className="text-[13px] font-medium text-ink-3">
-              <Link href={`/my?site=${encodeURIComponent(report.project.domain)}`} className="hover:text-ink">← {report.project.domain} overview</Link>
+              <Link href={`/my?site=${encodeURIComponent(report.project.domain)}`} className="hover:text-ink">← {siteLabel(report.project.domain)} overview</Link>
             </p>
-            <h1 className="mt-2 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{report.project.domain}</h1>
+            <h1 className="mt-2 break-all font-display text-[30px] font-bold tracking-display sm:text-[36px]">{siteLabel(report.project.domain)}</h1>
             <p className="mt-1 text-[14px] text-ink-2">{report.pagesCrawled} pages checked · {new Date(report.crawledAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="flex flex-wrap gap-3">

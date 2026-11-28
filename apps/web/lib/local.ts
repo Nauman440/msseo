@@ -7,6 +7,7 @@ import { customerAudits } from './customer-data';
 import { getKeywordWorkspace } from './keywords';
 import { providerConfig } from './providers-config';
 import { getDoc, nextMonthlyRun, recordRun, saveDoc, underCap } from './site-docs';
+import { siteUrl } from '@seo/core';
 
 /** Module 9 · local SEO audit, one document per website (`SiteDocument` kind "local"). */
 const KIND = 'local';
@@ -31,7 +32,7 @@ export async function runLocal(rawDomain: string, by: 'team' | 'customer'): Prom
   const { env } = providerConfig();
   if (!env) return { problem: 'not-configured' };
   // The profile entered by hand lives in the "gbp" document (lib/gbp.ts; read directly to avoid an import loop).
-  const [previous, competitors, keywords, audits, backlinks, accounts, gbp] = await Promise.all([getDoc<LocalAudit>(KIND, domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`), getBacklinks(domain), listAccounts(), getDoc<{ ref?: string | null }>('gbp', domain)]);
+  const [previous, competitors, keywords, audits, backlinks, accounts, gbp] = await Promise.all([getDoc<LocalAudit>(KIND, domain), getWorkspace(domain), getKeywordWorkspace(domain), customerAudits(siteUrl(domain)), getBacklinks(domain), listAccounts(), getDoc<{ ref?: string | null }>('gbp', domain)]);
   if (by === 'customer') {
     const next = nextMonthlyRun(previous?.runAt);
     if (next) return { problem: 'too-soon', next };

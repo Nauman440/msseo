@@ -13,6 +13,8 @@ import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
 import { certificateExpiry } from '@seo/core/server';
 import { getDoc, recordRun, saveDoc } from './site-docs';
+import { siteUrl } from '@seo/core';
+import { inSite } from '@seo/core';
 
 /**
  * Module 13 · monitoring (`SiteDocument` kind "monitor"). The worker runs the daily, weekly and monthly
@@ -35,7 +37,7 @@ export const saveMonitor = (ws: MonitorWorkspace) => saveDoc(KIND, ws.domain, ws
 
 async function context(domain: string) {
   const [gsc, ga4, audits, mapping, comp, local, aeo, gbp] = await Promise.all([
-    gscAccess(domain), ga4Access(domain), customerAudits(`https://${domain}/`), getMapping(domain), getWorkspace(domain), getLocal(domain), getAeo(domain), getDoc<{ ref?: string | null }>('gbp', domain),
+    gscAccess(domain), ga4Access(domain), customerAudits(siteUrl(domain)), getMapping(domain), getWorkspace(domain), getLocal(domain), getAeo(domain), getDoc<{ ref?: string | null }>('gbp', domain),
   ]);
   const report = audits.latest ?? null;
   const mapped = mapping.rows.filter((r) => r.url).sort((a, b) => b.priority - a.priority).map((r) => r.url!);
@@ -44,7 +46,7 @@ async function context(domain: string) {
     gsc,
     ga4,
     report,
-    keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => domainOf(u) === domain).slice(0, 7),
+    keyPages: [...new Set([...mapped.slice(0, 5), ...typed.slice(0, 4)])].filter((u) => inSite(u, domain)).slice(0, 7),
     locale: { country: comp.country, language: comp.language },
     cid: local?.profile?.cid ?? gbp?.ref ?? null,
     audits: {

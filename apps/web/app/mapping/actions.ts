@@ -13,6 +13,8 @@ import { getKeywordWorkspace, logUsage } from '@/lib/keywords';
 import { brandFor, fixCounts, getMapping, loadPageMap, rebuildMapping, refreshChecks, saveMapping } from '@/lib/mapping';
 import { providerConfig } from '@/lib/providers-config';
 import { hit } from '@/lib/rate-limit';
+import { siteUrl } from '@seo/core';
+import { inSite } from '@seo/core';
 
 /** Module 5 actions, shared by the team's and the customer's page plans. */
 export type MappingState = { error?: string; ok?: string };
@@ -58,7 +60,7 @@ export async function writeDraftsAction(rawDomain: string): Promise<MappingState
   const rows = draftableRows(ws, keywords.keywords);
   if (!rows.length) return { ok: 'Every row is approved or written already.' };
   if (customer && !(await hit(`mapping-drafts:${domain}`, 2, 24 * 60 * 60)).allowed) return { error: 'AI drafts can be written twice a day.' };
-  const pages = (await customerAudits(`https://${domain}/`)).latest?.pages ?? [];
+  const pages = (await customerAudits(siteUrl(domain))).latest?.pages ?? [];
   try {
     const r = await writeDrafts(createOpenAiClient(openai), rows, {
       brand: await brandFor(domain),
@@ -128,7 +130,7 @@ export async function choosePageAction(rawDomain: string, clusterId: string, _pr
   const raw = String(form.get('url') ?? '');
   const url = raw === '__new' ? null : raw;
   if (url !== null && !/^https?:\/\//.test(url)) return { error: 'Choose a page from the list.' };
-  if (url && normDomain(new URL(url).hostname) !== domain) return { error: 'Choose a page on this website.' };
+  if (url && !inSite(url, domain)) return { error: 'Choose a page on this website.' };
   const ws = await getMapping(domain);
   if (!ws.rows.some((r) => r.clusterId === clusterId)) return { error: 'This topic is no longer in the plan. Rebuild it.' };
   await saveMapping(updateMappingRow(ws, clusterId, { url }));

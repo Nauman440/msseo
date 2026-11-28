@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { HttpError, requestJson } from './http';
 import type { DfsConfig, Locale } from './dataforseo-competitors';
+import { hostTargets } from './dataforseo-base';
 
 export type { Locale };
 
@@ -130,7 +131,7 @@ export function createKeywordClient(cfg: DfsConfig) {
   const base = cfg.baseUrl.replace(/\/$/, '');
 
   async function live<T extends z.ZodTypeAny>(path: string, items: T, task: Record<string, unknown>, opts: { timeoutMs?: number; retries?: number } = {}): Promise<{ items: z.infer<T>[]; cost: number; result?: Record<string, unknown> }> {
-    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [task], timeoutMs: opts.timeoutMs ?? 60_000, retries: opts.retries, log: cfg.log });
+    const json = await requestJson<unknown>(`${base}${path}`, { provider: 'dataforseo', method: 'POST', headers: { authorization: auth }, body: [hostTargets(task)], timeoutMs: opts.timeoutMs ?? 60_000, retries: opts.retries, log: cfg.log });
     const parsed = envelope(items).parse(json);
     if (parsed.status_code !== 20000) throw new HttpError(`DataForSEO: ${parsed.status_message}`, parsed.status_code);
     const t = parsed.tasks[0];

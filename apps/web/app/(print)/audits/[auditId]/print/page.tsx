@@ -19,6 +19,7 @@ import { PdfCover } from '@/components/pdf/PdfCover';
 import { PdfPagesAudited, WorkingWell } from '@/components/report/Strengths';
 import { PdfChecks, PdfNextSteps, PdfSummary, PdfTopIssues } from '@/components/pdf/PdfSections';
 import { PrintToolbar } from '@/components/pdf/PrintToolbar';
+import { siteLabel } from '@seo/core';
 
 type Props = {
   params: Promise<{ auditId: string }>;
@@ -28,7 +29,7 @@ type Props = {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const auditId = (await params).auditId;
   const report = (await canViewAudit(auditId, (await searchParams).pdf_token)) ? await getReport(auditId) : null;
-  return { title: report ? `${report.project.domain} — SEO audit` : 'Report not found' };
+  return { title: report ? `${siteLabel(report.project.domain)} — SEO audit` : 'Report not found' };
 }
 
 /** CSS string literal for the @page footer; strips characters that could end the string. */
@@ -47,7 +48,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
       ? [null, null, null, null, null, null, null]
       : await Promise.all([getSavedWorkspace(report.project.domain), getActions(report.project.domain), getAnalysis(report.project.domain), getBacklinks(report.project.domain).then((w) => w.audit), getLocal(report.project.domain), getContent(report.project.domain), getAeo(report.project.domain).then((w) => w.audit)]);
   const summary = reportSummary(report)[mode];
-  const footer = `${report.brand} · ${report.project.domain}`;
+  const footer = `${report.brand} · ${siteLabel(report.project.domain)}`;
 
   return (
     <>

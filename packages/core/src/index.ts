@@ -1,5 +1,6 @@
 export * from './types';
 export * from './scoring';
+export * from './site-key';
 export * from './audit-input';
 export { AUDIT_STEPS, runAudit, type AuditEnv, type AuditOutcome, type ProgressUpdate, type StepId, type StepState } from './audit/run';
 export { markDuplicates, pickPages } from './audit/quick-crawl';

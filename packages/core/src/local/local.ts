@@ -4,6 +4,7 @@ import { normTerm } from '../keywords/clean';
 import type { Locale } from '../providers/dataforseo-competitors';
 import type { ListingHit, LocalClient, MapsResult, Profile } from '../providers/dataforseo-local';
 import type { ReportIssue } from '../types';
+import { siteUrl, siteHost } from '../site-key';
 
 /**
  * Module 9 · Local SEO audit (spec §16.2), one per website: 9.1 Business Profile completeness ·
@@ -80,7 +81,7 @@ const addressMatch = (a: string | null, b: string | null) => {
   return na !== null && na === nb;
 };
 
-const isOwn = (d: string | null | undefined, domain: string) => Boolean(d) && (d === domain || d!.endsWith(`.${domain}`) || d!.replace(/^www\./, '') === domain);
+const isOwn = (d: string | null | undefined, domain: string) => Boolean(d) && (d === siteHost(domain) || d!.endsWith(`.${siteHost(domain)}`) || d!.replace(/^www\./, '') === siteHost(domain));
 
 /** 9.6 The 5 × 5 points around the business, `radiusKm` to each side. */
 export function gridPoints(center: { lat: number; lng: number }, radiusKm: number, size: number): { lat: number; lng: number }[] {
@@ -176,7 +177,7 @@ export async function runLocalAudit(
   let cost = 0;
   const wait = deps.wait ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const name = input.businessName?.trim() || null;
-  const homeP = deps.homepage(`https://${domain}/`).catch(() => null);
+  const homeP = deps.homepage(siteUrl(domain)).catch(() => null);
 
   // The profile entered by hand comes first; otherwise find the business on Google Maps by name.
   let found: MapsResult | null = null;

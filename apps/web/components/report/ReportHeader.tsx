@@ -5,6 +5,7 @@ import { DownloadPdfButton } from './DownloadPdfButton';
 import { formatDate } from '@/lib/reports';
 import { cn } from '@/lib/tones';
 import { ButtonLink } from '@/components/ui/Button';
+import { siteLabel } from '@seo/core';
 
 function ModeSwitch({ auditId, mode }: { auditId: string; mode: Audience }) {
   const options: { value: Audience; label: string }[] = [
@@ -59,7 +60,7 @@ export function ReportHeader({ report, mode, projectHref }: { report: ReportMode
               )}
             </p>
             <h1 className="mt-2 font-display text-[30px] font-bold tracking-display sm:text-[36px]">
-              {report.project.domain}
+              {siteLabel(report.project.domain)}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">

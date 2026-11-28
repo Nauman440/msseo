@@ -9,6 +9,7 @@ import { getAnalysis } from '@/lib/analysis';
 import { getWorkspace } from '@/lib/competitors';
 import { getKeywordWorkspace } from '@/lib/keywords';
 import { requireUser } from '@/lib/session';
+import { siteUrl } from '@seo/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ export default async function TeamCompetitorsPage({ params, searchParams }: Prop
         <SectionHeader as="h1" align="left" eyebrow="Competitors" title={domain} intro="Who this client is up against on Google: the businesses that show up for the same searches, how the client compares, and the directories worth being listed on." />
         <div className="flex flex-wrap gap-3">
           <Link href={`/keywords/${domain}`} className={link}>Keywords</Link>
-          <Link href={`/audits/new?url=${encodeURIComponent(`https://${domain}/`)}`} className={link}>Audit this site</Link>
+          <Link href={`/audits/new?url=${encodeURIComponent(siteUrl(domain))}`} className={link}>Audit this site</Link>
         </div>
       </div>
       <CompetitorWorkspaceView

@@ -3,6 +3,7 @@ import { ga4KeyEvents, ga4MeasurementIds, ga4Report, type Ga4Row } from '../prov
 import { gscSearchAnalytics } from '../providers/gsc';
 import { request, type HttpLog } from '../providers/http';
 import type { ReportModel } from '../types';
+import { siteUrl, siteHost } from '../site-key';
 
 /**
  * Module 11 · Tracking and conversion audit. 11.1 Search Console + GA4 connected, receiving data and
@@ -151,7 +152,8 @@ export function sourceHygiene(groups: Ga4Row[], sources: Ga4Row[], domain: strin
   const g = groups.map((r) => ({ name: r.dims[0] || '(not set)', sessions: r.mets[0] ?? 0 })).sort((a, b) => b.sessions - a.sessions);
   const sum = (test: (s: string) => boolean) => sources.filter((r) => test(r.dims[0] ?? '')).reduce((s, r) => s + (r.mets[0] ?? 0), 0);
   const root = domain.replace(/^www\./, '').split('.')[0] ?? domain;
-  const isSelf = (s: string) => s.includes('referral') && (s.includes(domain) || s.split(' / ')[0]!.endsWith(`.${domain}`) || s.split(' / ')[0] === domain);
+  const host = siteHost(domain);
+  const isSelf = (s: string) => s.includes('referral') && (s.includes(host) || s.split(' / ')[0]!.endsWith(`.${host}`) || s.split(' / ')[0] === host);
   return {
     groups: g.map((x) => ({ ...x, share: share(x.sessions) })),
     unassigned: share(g.filter((x) => /unassigned/i.test(x.name)).reduce((s, x) => s + x.sessions, 0)),
@@ -202,7 +204,7 @@ const pathOf = (u: string) => {
 
 /** Pages to check: the homepage, a contact page and up to four service or place pages. */
 export function trackingPages(domain: string, report: ReportModel | null, homeHtml: string | null): string[] {
-  const home = `https://${domain}/`;
+  const home = siteUrl(domain);
   const pages = report?.pages ?? [];
   const contact = pages.find((p) => p.pageType === 'contact')?.url ?? (homeHtml?.match(/href=["']([^"']*\/contact[^"'#?]*)["']/i)?.[1] ?? null);
   const key = pages.filter((p) => /^(service|location|service_location)$/.test(p.pageType ?? '')).map((p) => p.url);
@@ -225,7 +227,7 @@ export async function runTrackingAudit(input: TrackingInput, deps: TrackingDeps 
   const notes: string[] = [];
   const domain = input.domain;
 
-  const homeRes = await get(`https://${domain}/`);
+  const homeRes = await get(siteUrl(domain));
   const urls = trackingPages(domain, input.report, homeRes?.html ?? null);
   const rest = await Promise.all(urls.slice(1).map((u) => get(u)));
   const fetched = [homeRes, ...rest].filter((r): r is { url: string; status: number; html: string } => Boolean(r?.html));

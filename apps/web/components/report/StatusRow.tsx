@@ -1,5 +1,6 @@
 import type { Audience, CheckRow, ReportModel } from '@seo/core';
 import { StatusPill } from '@/components/ui/Pills';
+import { siteHost } from '@seo/core';
 
 /** Expert extras for a row: every affected URL and a CSV link (spec §8). Built once per report. */
 export type RowExtras = { auditId: string; host: string; urls: Map<string, string[]> };
@@ -17,7 +18,7 @@ function short(u: string, host: string): string {
 
 export const rowExtras = (report: ReportModel): RowExtras => ({
   auditId: report.auditId,
-  host: report.project.domain.replace(/^www\./, ''),
+  host: siteHost(report.project.domain),
   urls: new Map((report.issues ?? []).filter((i) => i.urls.length).map((i) => [i.ruleId, i.urls])),
 });
 

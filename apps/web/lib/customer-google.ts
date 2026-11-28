@@ -4,6 +4,7 @@ import {
   type Ga4Property, type Ga4Summary, type PlanRow, type ReportModel,
 } from '@seo/core';
 import { usingDatabase } from './audit-store';
+import { siteUrl } from '@seo/core';
 
 /**
  * A customer's own Google connection (Search Console + Analytics 4), for their dashboard.
@@ -35,7 +36,7 @@ export async function googleChoices(userId: string, domain: string): Promise<{ e
   if (!conn) throw new Error('Google is not connected');
   const token = await db.customerGoogleToken(userId);
   const [sites, props] = await Promise.all([listGscSites(token).catch(() => [] as string[]), listGa4Properties(token).catch(() => [] as Ga4Property[])]);
-  const matching = matchGscProperties(sites, `https://${domain}/`);
+  const matching = matchGscProperties(sites, siteUrl(domain));
   const gsc: GscOption[] = [...matching, ...sites.filter((s) => !matching.includes(s))].map((p, i) => ({
     property: p,
     kind: p.startsWith('sc-domain:') ? 'Domain' : 'URL prefix',

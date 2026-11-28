@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { cn } from '@/lib/tones';
 import { RunAuditButton } from './RunAuditButton';
+import { siteLabel } from '@seo/core';
 
 /** Site heading and section tabs for a customer's website (design: Dashboard redesign). */
 export type SiteTab = 'overview' | 'issues' | 'keywords' | 'actions' | 'backlinks' | 'local' | 'content' | 'ai-search' | 'tracking' | 'monitor' | 'plan' | 'rankings' | 'competitors' | 'reports' | 'connections';
@@ -44,7 +45,7 @@ export function SiteHeader({ domain, tab, connected, latestId, pages, running, a
             {domain.charAt(0).toUpperCase()}
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h1 className="font-display text-[22px] font-extrabold leading-tight tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-[28px]">{domain}</h1>
+            <h1 className="font-display text-[22px] font-extrabold leading-tight tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-[28px]">{siteLabel(domain)}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <a href={`https://${domain}/`} target="_blank" rel="noopener noreferrer" className="text-[13px] text-ink-2 underline hover:text-ink">
                 Visit site

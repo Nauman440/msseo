@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { changeWebsiteAddressAction, type RunState } from '@/app/(customer)/my/actions';
+import { siteHost } from '@seo/core';
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -22,7 +23,7 @@ export function ChangeAddressForm({ site, address }: { site: string; address: st
       <summary className="cursor-pointer text-[13px] font-semibold text-primary-heading underline">Change address</summary>
       <form action={action} className="mt-2 flex flex-col gap-2">
         <label htmlFor={id} className="text-[13px] text-ink-2">
-          The address where this website starts. If it lives in a folder, include it, for example https://{site}/shop/
+          The address where this website starts. If it lives in a folder, include it, for example https://{siteHost(site)}/shop/. A different folder counts as a different website: it starts with its own competitors, keywords, plans and connections.
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input id={id} name="address" type="text" inputMode="url" defaultValue={address} className="min-h-10 w-full rounded-control border border-border-strong bg-surface px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25" />

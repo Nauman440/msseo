@@ -9,6 +9,7 @@ import { gscSearchAnalytics } from '../providers/gsc';
 import type { HttpLog } from '../providers/http';
 import { fetchHtml } from '../tracking/tracking';
 import type { DailyDeps, WeeklyDeps } from './monitor';
+import { siteHost } from '../site-key';
 
 /** Wires Module 13's checks to the real services (the same in the worker and the web app). */
 type Access = { token: string; property: string } | null;
@@ -44,7 +45,7 @@ export function buildWeeklyDeps(o: { domain: string; gsc: Access; ga4: Access; d
   const links = o.dfs ? createBacklinksClient({ ...o.dfs, log: o.log }) : null;
   const mine = (u: string) => {
     const h = hostOf(u);
-    return h === o.domain || h.endsWith(`.${o.domain}`);
+    return h === siteHost(o.domain) || h.endsWith(`.${siteHost(o.domain)}`);
   };
   return {
     rank: kw

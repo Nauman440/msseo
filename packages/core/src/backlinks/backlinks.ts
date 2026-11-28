@@ -2,6 +2,7 @@ import { normTerm } from '../keywords/clean';
 import { pathWords } from '../mapping/mapping';
 import { DfsAccessError } from '../providers/dataforseo-base';
 import type { AnchorRow, Backlink, BacklinksClient, LinkedPage, LinkSummary, Mention, NewLost, RefDomain } from '../providers/dataforseo-backlinks';
+import { siteUrl, siteHost } from '../site-key';
 
 /**
  * Module 8 · Backlink audit (spec §16.2), one workspace per website: the latest audit plus the
@@ -120,7 +121,7 @@ export function redirectFor(brokenUrl: string, pages: string[], home: string): s
   return best?.url ?? home;
 }
 
-const isOwn = (d: string, domain: string) => d === domain || d.endsWith(`.${domain}`);
+const isOwn = (d: string, domain: string) => d === siteHost(domain) || d.endsWith(`.${siteHost(domain)}`);
 
 export async function runBacklinkAudit(
   input: { domain: string; competitors: string[]; brand: string | null; keywords: string[]; places: string[]; countryTld: string | null; pages: string[] },
@@ -201,7 +202,7 @@ export async function runBacklinkAudit(
   const anchors = (anchorsR?.anchors ?? []).map((a) => ({ ...a, kind: anchorKind(a.anchor, brandWords, input.keywords) }));
   const anchorMix = mixOf(anchors);
 
-  const home = `https://${domain}/`;
+  const home = siteUrl(domain);
   const broken = (brokenR?.links ?? []).map((l) => ({ ...l, suggestion: redirectFor(l.to, input.pages, home) }));
 
   const linking = new Set(domains.map((d) => d.domain));

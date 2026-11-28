@@ -7,6 +7,7 @@ import { usingDatabase } from './audit-store';
 import { customerAudits } from './customer-data';
 import { gscQueryPages } from './keywords';
 import { getMapping } from './mapping';
+import { siteUrl } from '@seo/core';
 
 /**
  * Module 12 action plans: Postgres when DATABASE_URL is set, a JSON file per site in
@@ -52,7 +53,7 @@ export async function getActions(rawDomain: string): Promise<ActionWorkspace> {
       const { checkActionWorkspace } = await import('@seo/db');
       return (await checkActionWorkspace(ws)).ws;
     }
-    const audits = await customerAudits(`https://${domain}/`);
+    const audits = await customerAudits(siteUrl(domain));
     const finishedAt = audits.rows.find((r) => r.status === 'completed')?.createdAt ?? null;
     const now = new Date();
     const r = await runChecks(ws, async (a) => judgeCheckpoint(a, { report: audits.latest ?? null, finishedAt }, null, now), now);
@@ -78,6 +79,6 @@ async function gscPages(domain: string) {
 /** Everything suggestions and new actions need: the latest audit, the page plan and Search Console. */
 export async function planContext(rawDomain: string, withGsc = false): Promise<{ report: ReportModel | null; mapping: MappingWorkspace; gsc: { url: string; clicks: number; impressions: number }[] | null }> {
   const domain = normDomain(rawDomain);
-  const [audits, mapping, gsc] = await Promise.all([customerAudits(`https://${domain}/`), getMapping(domain), withGsc ? gscPages(domain) : Promise.resolve(null)]);
+  const [audits, mapping, gsc] = await Promise.all([customerAudits(siteUrl(domain)), getMapping(domain), withGsc ? gscPages(domain) : Promise.resolve(null)]);
   return { report: audits.latest ?? null, mapping, gsc };
 }

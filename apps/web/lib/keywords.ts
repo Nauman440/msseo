@@ -6,6 +6,7 @@ import { addKeywords, cleanKeywords, clusterKeywords, COMPETITOR_COUNTRIES, empt
 import { accountSites, domainOf, listAccounts, type Account, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { getSavedWorkspace } from './competitors';
+import { siteUrl } from '@seo/core';
 
 /**
  * Module 4 workspaces: Postgres when DATABASE_URL is set, a JSON file per site in
@@ -89,7 +90,7 @@ export async function gscAccess(domain: string): Promise<{ token: string; proper
     const ownProperty = own?.sites[domain]?.gscProperty ?? null;
     if (own && ownProperty) return { token: await db.customerGoogleToken(owner!.userId), property: ownProperty };
     if (!db.gscSetup().ready || !(await db.getGscConnection())) return null;
-    const property = matchGscProperties(await db.gscProperties(), `https://${domain}/`)[0];
+    const property = matchGscProperties(await db.gscProperties(), siteUrl(domain))[0];
     return property ? { token: await db.gscAccessToken(), property } : null;
   } catch {
     return null;
@@ -152,7 +153,7 @@ export async function freshKeywords(rawDomain: string): Promise<KeywordWorkspace
   const ws = await getKeywordWorkspace(domain);
   if (!ws.keywords.length || ws.qualityVersion === KEYWORD_QUALITY_VERSION) return ws;
   const [{ customerAudits }, rivals] = await Promise.all([import('./customer-data'), researchCompetitors(domain)]);
-  const audits = await customerAudits(`https://${domain}/`);
+  const audits = await customerAudits(siteUrl(domain));
   const titles = (audits.latest?.pages ?? []).flatMap((p) => [p.title ?? '', p.h1 ?? '']).filter(Boolean);
   const siteWords = titles.length ? siteVocabulary(titles) : ws.siteWords;
   const cleaned = cleanKeywords({ ...ws, siteWords }, rivals.names);

@@ -4,6 +4,7 @@ import { normTerm } from './clean';
 import { resultHost, siteKind } from './cluster';
 import { localOf } from './local-volume';
 import type { KeywordCluster, KeywordRecord, KeywordWorkspace } from './types';
+import { siteHost } from '../site-key';
 
 /**
  * Keyword insights (FEATURE_KEYWORD_INSIGHTS, after the OpenSEO keyword-research report shape): a one-line
@@ -55,7 +56,8 @@ const num = (n: number) => n.toLocaleString('en-US');
 export function pageOneOf(k: Pick<KeywordRecord, 'serpUrls' | 'serpFeatures'> | undefined, domain: string): PageOne | null {
   const urls = k?.serpUrls ?? [];
   if (!urls.length) return null;
-  const own = domain.replace(/^www\./, '');
+  // Host level: a website in a folder (site key host~folder) shows in results under its host.
+  const own = siteHost(domain);
   const youIdx = urls.findIndex((u) => resultHost(u) === own || resultHost(u).endsWith(`.${own}`));
   const others = urls.filter((u) => resultHost(u) !== own);
   const kinds = others.map(siteKind);

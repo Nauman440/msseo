@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   } catch {
     // Checked below.
   }
-  if (!user || !password || !siteUrl.startsWith('https://') || !sameSite(host, state.domain)) return done('error', 'WordPress did not return a usable connection. Please try again.');
+  if (!user || !password || !siteUrl.startsWith('https://') || !host || !sameSite(siteUrl, state.domain)) return done('error', 'WordPress did not return a usable connection. Please try again.');
 
   // Reconnecting: keep the signing key the plugin already has, so its signed routes keep working.
   const previous = await getConnection(state.domain);

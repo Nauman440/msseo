@@ -10,6 +10,7 @@ import { getKeywordWorkspace } from './keywords';
 import { getMapping } from './mapping';
 import { providerConfig } from './providers-config';
 import { getDoc, nextMonthlyRun, recordRun, saveDoc, underCap } from './site-docs';
+import { siteUrl } from '@seo/core';
 
 /** Module 8 · backlink audit + outreach list, one document per website (`SiteDocument` kind "backlinks"). */
 const KIND = 'backlinks';
@@ -32,7 +33,7 @@ export async function runBacklinks(rawDomain: string, by: 'team' | 'customer'): 
   const domain = normDomain(rawDomain);
   const { env } = providerConfig();
   if (!env) return { problem: 'not-configured' };
-  const [ws, competitors, keywords, mapping, audits, accounts] = await Promise.all([getBacklinks(domain), getWorkspace(domain), getKeywordWorkspace(domain), getMapping(domain), customerAudits(`https://${domain}/`), listAccounts()]);
+  const [ws, competitors, keywords, mapping, audits, accounts] = await Promise.all([getBacklinks(domain), getWorkspace(domain), getKeywordWorkspace(domain), getMapping(domain), customerAudits(siteUrl(domain)), listAccounts()]);
   if (by === 'customer') {
     const next = nextMonthlyRun(ws.audit?.runAt);
     if (next) return { problem: 'too-soon', next };

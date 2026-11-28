@@ -6,6 +6,7 @@ import { CodeBlock } from './CodeBlock';
 import { ScoreAfterFixes } from './ScoreAfterFixes';
 import { StackedBar } from './StackedBar';
 import { StatusRow, type RowExtras } from './StatusRow';
+import { siteLabel } from '@seo/core';
 
 export function SectionTitle({ n, title, note }: { n: string; title: string; note?: string }) {
   return (
@@ -94,7 +95,7 @@ export function AfterFixes({ report }: { report: ReportModel }) {
           <p className="font-display text-[40px] font-bold leading-none tracking-display text-pass-text tabular">+{gain}</p>
           <p className="mt-3 text-[15px] leading-7 text-ink-2">
             Fixing the {report.severityCounts.critical} critical and {report.severityCounts.high} high-priority issues
-            moves {report.project.domain} from <strong className="text-ink">{report.overall.label.toLowerCase()}</strong> to
+            moves {siteLabel(report.project.domain)} from <strong className="text-ink">{report.overall.label.toLowerCase()}</strong> to
             a score of <strong className="text-ink tabular">{report.overall.afterFixes}</strong>. Most of these are
             settings and template changes, not new content.
           </p>

@@ -2,6 +2,7 @@ import { normTerm } from '../keywords/clean';
 import type { ClusterPageType, KeywordCluster, KeywordRecord } from '../keywords/types';
 import type { KeywordIntent } from '../providers/dataforseo-keywords';
 import type { ReportPage } from '../types';
+import { siteUrl } from '../site-key';
 
 /**
  * Module 5 · Keyword to page mapping (spec §16.2). One workspace per website, rebuilt from the
@@ -247,7 +248,7 @@ export function buildMapping(input: {
   const prev = new Map((previous?.rows ?? []).map((r) => [r.clusterId, r]));
   const pageBy = new Map(input.pages.map((p) => [normUrl(p.url), p]));
   const sitemapOnly = [...new Set((input.sitemapUrls ?? []).filter((u) => !pageBy.has(normUrl(u))))].slice(0, 5000);
-  const home = input.pages.find((p) => normUrl(p.url) === normUrl(`https://${input.domain}/`)) ?? input.pages.find((p) => pathWords(p.url) === '');
+  const home = input.pages.find((p) => normUrl(p.url) === normUrl(siteUrl(input.domain))) ?? input.pages.find((p) => pathWords(p.url) === '');
   const gscBy = new Map<string, MappingQuery[]>();
   for (const q of input.gsc ?? []) gscBy.set(normTerm(q.query), [...(gscBy.get(normTerm(q.query)) ?? []), q]);
   const questionTerms = new Set((input.questions ?? []).map((q) => q.keyword));

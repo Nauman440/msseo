@@ -10,6 +10,7 @@ import { accountSites, domainOf, listAccounts, siteProfile } from './accounts';
 import { usingDatabase } from './audit-store';
 import { customerAudits } from './customer-data';
 import { getKeywordWorkspace, gscQueryPages } from './keywords';
+import { siteUrl } from '@seo/core';
 
 /**
  * Module 5 workspaces: Postgres when DATABASE_URL is set, a JSON file per site in
@@ -61,7 +62,7 @@ export async function rebuildMapping(rawDomain: string): Promise<{ ws: MappingWo
   const domain = normDomain(rawDomain);
   const [keywords, audits, gsc, previous, accounts] = await Promise.all([
     getKeywordWorkspace(domain),
-    customerAudits(`https://${domain}/`),
+    customerAudits(siteUrl(domain)),
     gscQueryPages(domain),
     getMapping(domain),
     listAccounts(),
@@ -114,7 +115,7 @@ export async function mappingContext(domain: string) {
  */
 export async function loadPageMap(rawDomain: string, clusterId: string, opts: { recheck?: boolean } = {}) {
   const domain = normDomain(rawDomain);
-  const [ws0, ctx, audits] = await Promise.all([getMapping(domain), mappingContext(domain), customerAudits(`https://${domain}/`)]);
+  const [ws0, ctx, audits] = await Promise.all([getMapping(domain), mappingContext(domain), customerAudits(siteUrl(domain))]);
   let ws = ws0;
   const row0 = ws.rows.find((r) => r.clusterId === clusterId);
   if (!row0) return null;
@@ -149,7 +150,7 @@ export async function loadPageMap(rawDomain: string, clusterId: string, opts: { 
 /** Fix counts for the overview cards, without fetching pages (stored checks, else the audit's title and H1). */
 export async function fixCounts(ws: MappingWorkspace): Promise<Record<string, number>> {
   if (!ws.rows.length) return {};
-  const [ctx, audits] = await Promise.all([mappingContext(ws.domain), customerAudits(`https://${ws.domain}/`)]);
+  const [ctx, audits] = await Promise.all([mappingContext(ws.domain), customerAudits(siteUrl(ws.domain))]);
   const byUrl = new Map((audits.latest?.pages ?? []).map((p) => [normUrl(p.url), p]));
   const out: Record<string, number> = {};
   for (const row of ws.rows) {
@@ -186,7 +187,7 @@ export async function refreshChecks(rawDomain: string, clusterIds: string[]): Pr
  */
 export async function freshMapping(rawDomain: string): Promise<MappingWorkspace> {
   const domain = normDomain(rawDomain);
-  const [ws, keywords, audits] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain), customerAudits(`https://${domain}/`)]);
+  const [ws, keywords, audits] = await Promise.all([getMapping(domain), getKeywordWorkspace(domain), customerAudits(siteUrl(domain))]);
   const latestId = audits.rows.find((r) => r.status === 'completed')?.id ?? null;
   if (!keywords.clusters.length || !audits.latest?.pages?.length) return ws;
   const built = ws.builtAt ? Date.parse(ws.builtAt) : 0;

@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom';
 import { saveGoogleChoiceAction, type ConnectState } from '@/app/(customer)/my/connect/actions';
 import type { Ga4Option, GscOption } from '@/lib/customer-google';
 import { cn } from '@/lib/tones';
+import { siteLabel } from '@seo/core';
 
 /** "Choose what to connect" (design: Dashboard setup choose properties). */
 const SELECT = 'min-h-12 w-full rounded-control border border-border-strong bg-surface px-3.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
@@ -114,7 +115,7 @@ export function ChooseProperties({ domain, gsc, ga4, current }: { domain: string
                 </label>
               </div>
               <p className="flex flex-wrap items-center gap-3 text-[13px] text-ink-2">
-                {chosen?.matches && <span className="rounded-full bg-teal-chip px-2.5 py-1 text-xs font-bold text-teal-text">Web stream matches {domain}</span>}
+                {chosen?.matches && <span className="rounded-full bg-teal-chip px-2.5 py-1 text-xs font-bold text-teal-text">Web stream matches {siteLabel(domain)}</span>}
                 Not using Google Analytics?
                 <button type="button" onClick={() => {
                     setSkipGa4(true);

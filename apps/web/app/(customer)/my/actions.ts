@@ -10,6 +10,7 @@ import { hit } from '@/lib/rate-limit';
 import { requireCustomer } from '@/lib/session';
 import { startAutopilot } from '@/lib/autopilot';
 import { skipStep } from '@/lib/journey';
+import { siteHost } from '@seo/core';
 
 export type RunState = { error?: string };
 
@@ -65,8 +66,9 @@ export async function removeWebsiteAction(site: string): Promise<void> {
 
 /**
  * Corrects a website's address on the same domain, e.g. https://example.com/ → https://example.com/srm/
- * for a site that lives in a folder, then audits it again. Everything stored for the website is kept
- * (it is keyed by the domain).
+ * for a site that lives in a folder, then audits it again. Data is stored per site key (host, or
+ * host~folder), so a different folder is a different website: it starts with its own data, and the old
+ * address's data, connections and Google choices are never carried across to it.
  */
 export async function changeWebsiteAddressAction(site: string, _prev: RunState, form: FormData): Promise<RunState> {
   const user = await requireCustomer();
@@ -75,7 +77,8 @@ export async function changeWebsiteAddressAction(site: string, _prev: RunState, 
   const current = accountSites(account).find((w) => domainOf(w) === domainOf(site));
   const next = websiteAddress(String(form.get('address') ?? ''));
   if (!current || !next) return { error: 'Enter the full address, for example https://example.com/shop/' };
-  if (domainOf(next) !== domainOf(current)) return { error: `Keep the same domain (${domainOf(current)}). To audit another website, add it as a new website.` };
+  if (siteHost(domainOf(next)) !== siteHost(domainOf(current))) return { error: `Keep the same domain (${siteHost(domainOf(current))}). To audit another website, add it as a new website.` };
+  if (accountSites(account).some((w) => w !== current && domainOf(w) === domainOf(next))) return { error: 'That website is already on your account.' };
   if (next === current) return { error: 'That is already the address.' };
   await updateAccount(user.id, account.website === current ? { website: next } : { extraWebsites: account.extraWebsites.map((w) => (w === current ? next : w)) });
   const input = newAuditSchema.parse({ url: next, audience: 'client', pageLimit: 10, auditMode: 'quick', jsRendering: false, source: 'customer' });

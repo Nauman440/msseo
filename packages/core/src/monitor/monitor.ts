@@ -1,6 +1,7 @@
 import type { KeywordWorkspace } from '../keywords/types';
 import { diffReports } from '../report/diff';
 import type { ReportModel } from '../types';
+import { siteUrl, siteHost } from '../site-key';
 
 /**
  * Module 13 · Reporting and monitoring. 13.1 baseline snapshot · 13.2 weekly summary · 13.3 monthly
@@ -127,7 +128,7 @@ const noindexIn = (r: NonNullable<FetchResult>) => {
 export async function dailyChecks(ws: MonitorWorkspace, deps: DailyDeps, now = new Date()): Promise<{ ws: MonitorWorkspace; raised: MonitorAlert[] }> {
   const raised: MonitorAlert[] = [];
   const push = (a: MonitorAlert | null) => void (a && raised.push(a));
-  const home = `https://${ws.domain}/`;
+  const home = siteUrl(ws.domain);
 
   // Down: two tries, so one slow answer does not page anyone.
   let r = await deps.fetchPage(home);
@@ -161,7 +162,7 @@ export async function dailyChecks(ws: MonitorWorkspace, deps: DailyDeps, now = n
           severity: blockAll ? 'critical' : 'medium',
           title: blockAll ? 'robots.txt now blocks the whole site' : 'robots.txt changed',
           detail: [added.length && `Added: ${added.slice(0, 6).join(' · ')}`, removed.length && `Removed: ${removed.slice(0, 6).join(' · ')}`].filter(Boolean).join('. ') || 'The file changed.',
-          url: `https://${ws.domain}/robots.txt`,
+          url: `https://${siteHost(ws.domain)}/robots.txt`,
         }, now),
       );
     }
@@ -197,9 +198,9 @@ export async function dailyChecks(ws: MonitorWorkspace, deps: DailyDeps, now = n
   if (expires) {
     ws.state.sslExpires = expires;
     const days = Math.floor((Date.parse(expires) - now.getTime()) / 86_400_000);
-    if (days < 0) push(raise(ws, { kind: 'ssl', severity: 'critical', title: 'The SSL certificate has expired', detail: `It expired on ${expires.slice(0, 10)}. Browsers now warn visitors that the site is not secure.`, url: `https://${ws.domain}/` }, now));
-    else if (days < 14) push(raise(ws, { kind: 'ssl', severity: 'high', title: `The SSL certificate expires in ${days} ${days === 1 ? 'day' : 'days'}`, detail: `Renew it before ${expires.slice(0, 10)} (most hosts renew automatically: check that renewal is working).`, url: `https://${ws.domain}/` }, now));
-    else resolve(ws, 'ssl', `https://${ws.domain}/`, now);
+    if (days < 0) push(raise(ws, { kind: 'ssl', severity: 'critical', title: 'The SSL certificate has expired', detail: `It expired on ${expires.slice(0, 10)}. Browsers now warn visitors that the site is not secure.`, url: siteUrl(ws.domain) }, now));
+    else if (days < 14) push(raise(ws, { kind: 'ssl', severity: 'high', title: `The SSL certificate expires in ${days} ${days === 1 ? 'day' : 'days'}`, detail: `Renew it before ${expires.slice(0, 10)} (most hosts renew automatically: check that renewal is working).`, url: siteUrl(ws.domain) }, now));
+    else resolve(ws, 'ssl', siteUrl(ws.domain), now);
   }
 
   // New problems since the previous audit (critical and high only).
